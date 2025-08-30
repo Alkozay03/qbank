@@ -4,8 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // app uses pooler (6543)
+  directUrl = env("DIRECT_URL")    // migrations use direct DB (5432)
 }
 
 enum Role {
@@ -82,7 +83,6 @@ model VerificationToken {
 /**
  * ----------------- Domain models -----------------
  */
-
 model Rotation {
   id        String     @id @default(cuid())
   name      String     @unique
@@ -134,8 +134,8 @@ model Quiz {
 model QuizItem {
   id         String @id @default(cuid())
   quizId     String
-  questionId String // <-- REQUIRED (fixes your P1012)
-  order      Int? // optional, if you want ordering
+  questionId String // <-- REQUIRED
+  order      Int?
 
   quiz      Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
   question  Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
