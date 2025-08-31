@@ -8,21 +8,37 @@ const PUBLIC = [
   "/api/dev-magic", "/api/health",
   "/api/auth", "/_next", "/favicon.ico", "/assets",
 ];
+
 function isPublic(pathname: string) {
   return PUBLIC.some((p) => pathname === p || pathname.startsWith(p));
 }
 
-// Block link-scanners ONLY on the email callback
+// Link-scanner / bot fingerprints
 const BOT_SIGNS = [
-  "google-safebrowsing","google-inspectiontool","apis-google",
-  "gmailimageproxy","googleimageproxy","outlook","microsoft office",
-  "yahoo","barracuda","proofpoint","slackbot","discordbot",
-  "facebookexternalhit","twitterbot","skypeuripreview","linkpreview",
-  "link-checker","curl","python-requests"
-].map(s => s.toLowerCase());
+  "google-safebrowsing",
+  "google-inspectiontool",
+  "apis-google",
+  "gmailimageproxy",
+  "googleimageproxy",
+  "outlook",
+  "microsoft office",
+  "yahoo",
+  "barracuda",
+  "proofpoint",
+  "slackbot",
+  "discordbot",
+  "facebookexternalhit",
+  "twitterbot",
+  "skypeuripreview",
+  "linkpreview",
+  "link-checker",
+  "curl",
+  "python-requests",
+].map((s) => s.toLowerCase());
 
 function looksLikeBot(req: NextRequest) {
   const h = (n: string) => (req.headers.get(n) || "").toLowerCase();
+
   const ua = h("user-agent");
   const purpose = h("purpose") + " " + h("sec-purpose");
   const dest = h("sec-fetch-dest");
@@ -31,8 +47,9 @@ function looksLikeBot(req: NextRequest) {
   const accept = h("accept");
 
   const isHeadOrOptions = req.method === "HEAD" || req.method === "OPTIONS";
-  const uaBot = BOT_SIGNS.some(sig => ua.includes(sig)) || /bot|crawler|spider/i.test(ua);
+  const uaBot = BOT_SIGNS.some((sig) => ua.includes(sig)) || /bot|crawler|spider/i.test(ua);
   const isPrefetch = purpose.includes("prefetch") || dest.includes("prefetch");
+
   // A real user navigation usually has these; Safari may miss sec-fetch headers
   const likelyHuman =
     req.method === "GET" &&
@@ -45,10 +62,14 @@ function looksLikeBot(req: NextRequest) {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1) Protect NextAuth email callback tokens
+  // 1) Protect NextAuth email callback tokens from link-scanners
   if (pathname.startsWith("/api/auth/callback/email")) {
-    if (looksLikeBot(req)) {
-      // Don’t let scanners burn the one-time token
+    // Must have the short-lived intent cookie set by the login form submit
+    const hasIntent = !!req.cookies.get("email-intent");
+
+    if (!hasIntent || looksLikeBot(req)) {
+      // Block scanners or requests without prior intent;
+      // return 204 so the token is NOT consumed.
       return new NextResponse(null, { status: 204 });
     }
     return NextResponse.next();

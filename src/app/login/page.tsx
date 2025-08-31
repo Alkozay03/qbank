@@ -47,6 +47,9 @@ function LoginInner() {
     try {
       setSending(true);
 
+      // Mark this browser as intending to sign in (prevents link scanners from burning the token)
+      await fetch("/api/auth/email-intent", { method: "POST" });
+
       // We control navigation (no NextAuth redirect here)
       const res = await signIn("email", {
         email,
