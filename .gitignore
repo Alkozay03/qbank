@@ -44,3 +44,11 @@ next-env.d.ts
 *.dump
 diff.sql
 knip.json
+
+# DB backups
+*.dump
+backup_qbank_*.dump
+
+# local tooling outputs
+diff.sql
+knip.json
