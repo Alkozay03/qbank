@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",
-    "prebuild": "prisma generate",              // ← ensure generation on Vercel
+    "prebuild": "prisma generate",
     "migrate:deploy": "prisma migrate deploy",
     "dev": "next dev",
     "build": "next build",
@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
-    "@prisma/client": "6.15.0",                 // ← match prisma exactly
+    "@prisma/client": "6.15.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.542.0",
     "next": "15.5.0",
@@ -41,7 +41,7 @@
     "eslint-config-next": "15.5.0",
     "eslint-plugin-unused-imports": "^4.2.0",
     "knip": "^5.63.0",
-    "prisma": "6.15.0",                          // ← match @prisma/client
+    "prisma": "6.15.0",
     "tailwindcss": "^4",
     "ts-prune": "^0.10.3",
     "typescript": "^5",
