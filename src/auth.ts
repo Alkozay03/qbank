@@ -13,42 +13,47 @@ function isAllowedEmail(email?: string | null) {
 
 const useDevNoSmtp = process.env.AUTH_DEV_NO_SMTP === "true";
 
+// Port/secure handling so 465 and 587 both work
+const port = Number(process.env.EMAIL_SERVER_PORT ?? 465);
+const secure = port === 465;
+
 const emailProvider = Email({
-  from: process.env.EMAIL_FROM, // e.g., "Clerkship QBank <you@gmail.com>"
+  from: process.env.EMAIL_FROM, // e.g. "Clerkship QBank <you@gmail.com>"
   server: useDevNoSmtp
-    ? { jsonTransport: true } // DEV: no email sent; message is logged
+    ? { jsonTransport: true } // DEV: don't send; log JSON to console
     : {
         host: process.env.EMAIL_SERVER_HOST, // smtp.gmail.com
-        port: Number(process.env.EMAIL_SERVER_PORT ?? 465),
-        secure: true,
+        port,
+        secure,
         auth: {
           user: process.env.EMAIL_SERVER_USER,
           pass: process.env.EMAIL_SERVER_PASSWORD, // Gmail App Password
         },
       },
-  // DEV helper to print/store the magic link (same behavior you had, but correctly placed)
-  async sendVerificationRequest({ identifier, url }) {
-    if (useDevNoSmtp) {
+  // Only override in DEV to capture the link; in prod we use the provider's default sender.
+  ...(useDevNoSmtp && {
+    async sendVerificationRequest({ identifier, url }: { identifier: string; url: string }) {
       console.warn(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
       setDevMagic(identifier, url);
-      return;
-    }
-    // In production, NextAuth will send via the 'server' transport above.
-  },
-});
+    },
+  }),
+} as any);
 
 export const authOptions: NextAuthConfig = {
   adapter: PrismaAdapter(db),
 
-  // 45-day session, JWT strategy
+  // 45-day session with JWT
   session: { strategy: "jwt", maxAge: 45 * 24 * 60 * 60 },
 
   providers: [emailProvider],
   pages: { signIn: "/login" },
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
 
-  // IMPORTANT: include user.id in the session for server components
   callbacks: {
+    async signIn({ user, email }) {
+      const addr = user?.email ?? email?.email;
+      return isAllowedEmail(addr);
+    },
     async session({ session, token, user }) {
       if (session.user) {
         (session.user as any).id = token?.sub ?? user?.id ?? null;
@@ -58,10 +63,6 @@ export const authOptions: NextAuthConfig = {
     async jwt({ token, user }) {
       if (user?.id) token.sub = user.id;
       return token;
-    },
-    async signIn({ user, email }) {
-      const addr = user?.email ?? email?.email;
-      return isAllowedEmail(addr);
     },
   },
 };
