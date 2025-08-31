@@ -52,7 +52,7 @@ async function main() {
     });
   }
 
-  console.log('Seed complete ✔');
+  console.warn("Seeding complete");
 }
 
 main()

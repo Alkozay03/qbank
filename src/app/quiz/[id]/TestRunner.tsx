@@ -159,7 +159,7 @@ export default function TestRunner({ quiz }: { quiz: QuizPayload }) {
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   function evalCalc() {
     try {
-      // eslint-disable-next-line no-new-func
+       
       const out = Function(`"use strict"; return (${calcExpr});`)();
       setCalcExpr(String(out));
     } catch {

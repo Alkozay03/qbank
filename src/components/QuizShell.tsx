@@ -1,3 +1,4 @@
+// src/components/QuizShell.tsx
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -16,9 +17,9 @@ import {
 import { signOut } from "next-auth/react";
 
 type Props = {
-  pageTitle?: string;                        // e.g. "Create a Quiz"
-  sectionTitleTop?: string;                  // e.g. "Clerkship"
-  sectionTitleBottom?: string;               // e.g. "Year 4 QBank"
+  pageTitle?: string;
+  sectionTitleTop?: string;
+  sectionTitleBottom?: string;
   children: React.ReactNode;
 };
 
@@ -45,12 +46,9 @@ export default function QuizShell({
   const SIDE_W = open ? 260 : 0;
 
   return (
-    <div className="min-h-dvh" style={{ ["--sidew" as any]: `${SIDE_W}px` }}>
+    <div className="min-h-dvh">
       {/* Top bar */}
-      <header
-        className="fixed inset-x-0 top-0 h-14 z-40 border-b bg-[var(--bg)]/90 backdrop-blur"
-        style={{ left: 0 }}
-      >
+      <header className="fixed inset-x-0 top-0 h-14 z-40 border-b bg-[var(--bg)]/90 backdrop-blur">
         <div className="max-w-screen-2xl mx-auto h-full flex items-center gap-3 px-4">
           <button
             onClick={() => setOpen((v) => !v)}
@@ -81,12 +79,11 @@ export default function QuizShell({
         </div>
       </header>
 
-      {/* Sidebar (pushes content; does not darken page) */}
+      {/* Sidebar */}
       <aside
         className="fixed left-0 top-0 h-dvh z-30 border-r bg-[var(--panel)] transition-[width] duration-200 ease-out overflow-hidden"
         style={{ width: SIDE_W }}
       >
-        {/* Title block */}
         <div className="px-5 pt-4 pb-5 border-b bg-[var(--panel-strong)]">
           <div className="text-sm font-semibold tracking-wide opacity-80">
             {sectionTitleTop}
@@ -94,14 +91,11 @@ export default function QuizShell({
           <div className="text-base font-bold">{sectionTitleBottom}</div>
         </div>
 
-        {/* Nav */}
         <nav className="p-3 space-y-2">
           {nav.map((item) => {
             const Icon = item.icon;
             const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
+              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
 
             return (
               <Link
@@ -122,11 +116,11 @@ export default function QuizShell({
         </nav>
       </aside>
 
-      {/* Page content (pushed by sidebar) */}
+      {/* Page content */}
       <div
         className="pt-14"
         style={{
-          marginLeft: `var(--sidew)`,
+          marginLeft: SIDE_W,
           transition: "margin-left .2s ease",
         }}
       >
