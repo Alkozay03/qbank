@@ -85,30 +85,31 @@ export default function CreateTest() {
 
   const allowSystems = selDisciplines.length > 0;
 
-
-  // Derived validation
-   const valid =
+  // validation
+  const valid =
     selDisciplines.length > 0 &&
     selSystems.length > 0 &&
     qCount >= 1 &&
     qCount <= 40;
 
-  // Defaults if user leaves some sections empty
+  // effective selections
   const effectiveModes = selModes.length ? selModes : ["unused"];
-  const effectiveRot = selRotations.length ? selRotations : rotations.map((r) => r.key);
-  const effectiveRes = selResources.length ? selResources : resources.map((r) => r.key);
+  const effectiveRot = selRotations.length ? selRotations : rotations.map((o) => o.key);
+  const effectiveRes = selResources.length ? selResources : resources.map((o) => o.key);
 
-  function toggle(setter: (f: (s: string[]) => string[]) => void, key: string) {
-    setter((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
+  // toggle helpers
+  function toggle(setter: React.Dispatch<React.SetStateAction<string[]>>, key: string) {
+    setter((_prev) =>
+      _prev.includes(key) ? _prev.filter((_k) => _k !== key) : [..._prev, key]
+    );
   }
 
-  function toggleAll(setter: (v: string[]) => void, list: Option[], checked: boolean) {
-    setter(checked ? list.map((o) => o.key) : []);
+  function toggleAll(setter: (_v: string[]) => void, list: Option[], _checked: boolean) {
+    setter(_checked ? list.map((o) => o.key) : []);
   }
 
   function submit() {
     if (!valid) return;
-    // TODO: Call API to create a test based on selected filters
     alert(
       `Creating test with: 
 Modes=${effectiveModes.join(", ")} 
@@ -121,14 +122,17 @@ Questions=${qCount}`
   }
 
   return (
-     <Shell title={title} pageName="Create Test">
+    <Shell title={title} pageName="Create Test">
       <section className="space-y-6">
-        {/* Modes row (with info hover) */}
+        {/* Modes */}
         <Card>
           <HeaderRow title="Question Mode" />
           <div className="mt-3 flex flex-wrap gap-3">
             {modes.map((m) => (
-              <label key={m.key} className="inline-flex items-center gap-2 bg-white border border-[#E6F0F7] rounded-xl px-3 py-2">
+              <label
+                key={m.key}
+                className="inline-flex items-center gap-2 bg-white border border-[#E6F0F7] rounded-xl px-3 py-2"
+              >
                 <input
                   type="checkbox"
                   checked={selModes.includes(m.key)}
@@ -137,7 +141,9 @@ Questions=${qCount}`
                 />
                 <span>{m.label}</span>
                 {m.hint && (
-                  <span className="ml-1 text-xs text-slate-500" title={m.hint}>ⓘ</span>
+                  <span className="ml-1 text-xs text-slate-500" title={m.hint}>
+                    ⓘ
+                  </span>
                 )}
                 <CountPill />
               </label>
@@ -147,29 +153,58 @@ Questions=${qCount}`
 
         {/* Rotations */}
         <Card>
-          <HeaderRow title="Rotation" withAll onAll={(checked) => toggleAll(setSelRotations, rotations, checked)} />
-          <CheckGrid list={rotations} selected={selRotations} onToggle={(k) => toggle(setSelRotations, k)} />
+          <HeaderRow
+            title="Rotation"
+            withAll
+            onAll={(_checked) => toggleAll(setSelRotations, rotations, _checked)}
+          />
+          <CheckGrid
+            list={rotations}
+            selected={selRotations}
+            onToggle={(optKey) => toggle(setSelRotations, optKey)}
+          />
         </Card>
 
         {/* Resources */}
         <Card>
-          <HeaderRow title="Resources" withAll onAll={(checked) => toggleAll(setSelResources, resources, checked)} />
-          <CheckGrid list={resources} selected={selResources} onToggle={(k) => toggle(setSelResources, k)} />
+          <HeaderRow
+            title="Resources"
+            withAll
+            onAll={(_checked) => toggleAll(setSelResources, resources, _checked)}
+          />
+          <CheckGrid
+            list={resources}
+            selected={selResources}
+            onToggle={(optKey) => toggle(setSelResources, optKey)}
+          />
         </Card>
 
         {/* Disciplines */}
         <Card>
-          <HeaderRow title="Discipline" withAll onAll={(checked) => toggleAll(setSelDisciplines, disciplines, checked)} />
-          <CheckGrid list={disciplines} selected={selDisciplines} onToggle={(k) => toggle(setSelDisciplines, k)} />
+          <HeaderRow
+            title="Discipline"
+            withAll
+            onAll={(_checked) => toggleAll(setSelDisciplines, disciplines, _checked)}
+          />
+          <CheckGrid
+            list={disciplines}
+            selected={selDisciplines}
+            onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
+          />
         </Card>
 
-        {/* Systems (locked until ≥1 discipline) */}
+        {/* Systems */}
         <Card>
-          <HeaderRow title="System" withAll disabledAll={!allowSystems} onAll={(checked) => toggleAll(setSelSystems, systems, checked)} />
+          <HeaderRow
+            title="System"
+            withAll
+            disabledAll={!allowSystems}
+            onAll={(_checked) => toggleAll(setSelSystems, systems, _checked)}
+          />
           <CheckGrid
             list={systems}
             selected={selSystems}
-            onToggle={(k) => toggle(setSelSystems, k)}
+            onToggle={(optKey) => toggle(setSelSystems, optKey)}
             disabled={!allowSystems}
           />
           {!allowSystems && (
@@ -179,10 +214,12 @@ Questions=${qCount}`
           )}
         </Card>
 
-        {/* Question count + Create button */}
+        {/* Count + Create */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-slate-700">Number of Questions</label>
+            <label className="text-sm font-medium text-slate-700">
+              Number of Questions
+            </label>
             <input
               type="number"
               min={1}
@@ -209,7 +246,8 @@ Questions=${qCount}`
         </div>
 
         <p className="text-xs text-slate-500">
-          If you do not select rotations/resources/question mode, defaults are applied automatically (all rotations/resources; Unanswered mode).
+          If you do not select rotations/resources/question mode, defaults are applied
+          automatically (all rotations/resources; Unanswered mode).
         </p>
       </section>
     </Shell>
@@ -224,7 +262,7 @@ function HeaderRow({
 }: {
   title: string;
   withAll?: boolean;
-  onAll?: (checked: boolean) => void;
+  onAll?: (_checked: boolean) => void;
   disabledAll?: boolean;
 }) {
   return (
@@ -253,7 +291,7 @@ function CheckGrid({
 }: {
   list: Option[];
   selected: string[];
-  onToggle: (k: string) => void;
+  onToggle: (_optKey: string) => void;
   disabled?: boolean;
 }) {
   return (
@@ -282,12 +320,13 @@ function CheckGrid({
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white border border-[#E6F0F7] p-4 shadow">{children}</div>
+    <div className="rounded-2xl bg-white border border-[#E6F0F7] p-4 shadow">
+      {children}
+    </div>
   );
 }
 
 function CountPill() {
-  // placeholder count until backend wired; you can load counts per tag here.
   return (
     <span className="text-xs rounded-full bg-[#F3F9FC] text-[#2F6F8F] px-2 py-0.5">
       —

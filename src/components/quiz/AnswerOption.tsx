@@ -14,7 +14,7 @@ export default function AnswerOption({
   label: string;
   text: string;
   picked: string | null;
-  setPicked: (s: string) => void;
+  setPicked: (_s: string) => void;
   submitted: boolean;
   correctLabel: string | null;
   perChoicePercent: Record<string, number>;

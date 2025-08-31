@@ -1,7 +1,7 @@
 // src/lib/dev-magic.ts
 declare global {
   // ensure a single shared object in dev
-  // eslint-disable-next-line no-var
+   
   var __devMagic__: { email?: string; url?: string } | undefined;
 }
 

@@ -18,12 +18,12 @@ const emailProvider = Email({
   server: useDevNoSmtp
     ? { jsonTransport: true } // DEV: no email sent; message is logged
     : {
-        host: process.env.EMAIL_SERVER_HOST,      // smtp.gmail.com
+        host: process.env.EMAIL_SERVER_HOST, // smtp.gmail.com
         port: Number(process.env.EMAIL_SERVER_PORT ?? 465),
         secure: true,
         auth: {
-          user: process.env.EMAIL_SERVER_USER,    // your Gmail
-          pass: process.env.EMAIL_SERVER_PASSWORD // Gmail App Password
+          user: process.env.EMAIL_SERVER_USER, // your Gmail
+          pass: process.env.EMAIL_SERVER_PASSWORD, // Gmail App Password
         },
       },
 });
@@ -49,7 +49,8 @@ export const authOptions: NextAuthConfig = {
     async sendVerificationRequest({ identifier, url }) {
       // Show the link in console AND store it for the /api/dev-magic route
       if (useDevNoSmtp) {
-        console.log(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
+         
+        console.warn(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
         setDevMagic(identifier, url);
       }
     },

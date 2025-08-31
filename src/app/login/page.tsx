@@ -1,12 +1,22 @@
 // src/app/login/page.tsx
 "use client";
 
+import { Suspense } from "react";
+import AuthTopBar from "@/components/AuthTopBar";
 import { useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import AuthTopBar from "@/components/AuthTopBar";
 
 export default function Login() {
+  // Wrap the inner component (which uses useSearchParams) in Suspense.
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const error = searchParams.get("error");

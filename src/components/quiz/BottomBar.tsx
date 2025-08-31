@@ -10,7 +10,7 @@ export default function BottomBar({
   onEnd,
 }: {
   lockAnswers: boolean;
-  setLockAnswers: (v: boolean) => void;
+  setLockAnswers: (_v: boolean) => void;
   elapsedMs: number;
   onEnd: () => void;
 }) {

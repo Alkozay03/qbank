@@ -25,7 +25,7 @@ function mergeRanges(ranges: Range[]) {
   return out;
 }
 
-function walkTextNodes(root: Node, cb: (n: Text) => void) {
+function walkTextNodes(root: Node, cb: (_n: Text) => void) {
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let n: Node | null = w.nextNode();
   while (n) {

@@ -18,7 +18,7 @@ export default function LeftNavigator({
     lastCorrect: boolean | null;
   }[];
   currentIndex: number;
-  onJump: (i: number) => void;
+  onJump: (_i: number) => void;
 }) {
   return (
     <aside

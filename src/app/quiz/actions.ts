@@ -1,3 +1,4 @@
+// src/app/quiz/actions.ts
 "use server";
 
 import { db } from "@/lib/db";
@@ -62,7 +63,10 @@ export async function submitAnswer(params: {
   };
 }
 
-export async function endBlock(quizId: string) {
+export async function endBlock(_quizId: string) {
+  // mark param as intentionally unused (appeases eslint)
+  void _quizId;
+
   revalidatePath(`/performance`);
   return { redirectTo: "/performance" };
 }
