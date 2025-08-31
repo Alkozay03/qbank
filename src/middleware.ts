@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-// Public routes (unchanged)
+// Public routes (same behavior you had)
 const PUBLIC = [
   "/", "/login", "/login/check", "/years",
   "/api/dev-magic", "/api/health",
@@ -12,55 +12,50 @@ function isPublic(pathname: string) {
   return PUBLIC.some((p) => pathname === p || pathname.startsWith(p));
 }
 
-// Very small bot/preview detector for the email callback
+// Block link-scanners ONLY on the email callback
 const BOT_SIGNS = [
-  "google-safebrowsing",
-  "google-inspectiontool",
-  "apis-google",
-  "gmailimageproxy",
-  "googleimageproxy",
-  "outlook",
-  "microsoft office",
-  "yahoo",
-  "barracuda",
-  "proofpoint",
-  "slackbot",
-  "discordbot",
-  "facebookexternalhit",
-  "twitterbot",
-  "skypeuripreview",
-  "linkpreview",
-  "link-checker",
-  "curl",
-  "python-requests",
+  "google-safebrowsing","google-inspectiontool","apis-google",
+  "gmailimageproxy","googleimageproxy","outlook","microsoft office",
+  "yahoo","barracuda","proofpoint","slackbot","discordbot",
+  "facebookexternalhit","twitterbot","skypeuripreview","linkpreview",
+  "link-checker","curl","python-requests"
 ].map(s => s.toLowerCase());
 
 function looksLikeBot(req: NextRequest) {
-  const ua = (req.headers.get("user-agent") || "").toLowerCase();
-  const purpose = (req.headers.get("purpose") || "").toLowerCase();
-  const secPurpose = (req.headers.get("sec-purpose") || "").toLowerCase();
-  const fetchDest = (req.headers.get("sec-fetch-dest") || "").toLowerCase();
+  const h = (n: string) => (req.headers.get(n) || "").toLowerCase();
+  const ua = h("user-agent");
+  const purpose = h("purpose") + " " + h("sec-purpose");
+  const dest = h("sec-fetch-dest");
+  const mode = h("sec-fetch-mode");
+  const user = h("sec-fetch-user");
+  const accept = h("accept");
+
   const isHeadOrOptions = req.method === "HEAD" || req.method === "OPTIONS";
-  const isUAHit = BOT_SIGNS.some(sig => ua.includes(sig));
-  const isPrefetch = purpose.includes("prefetch") || secPurpose.includes("prefetch") || fetchDest.includes("prefetch");
-  return isUAHit || isPrefetch || isHeadOrOptions;
+  const uaBot = BOT_SIGNS.some(sig => ua.includes(sig)) || /bot|crawler|spider/i.test(ua);
+  const isPrefetch = purpose.includes("prefetch") || dest.includes("prefetch");
+  // A real user navigation usually has these; Safari may miss sec-fetch headers
+  const likelyHuman =
+    req.method === "GET" &&
+    (user.includes("?1") || dest.includes("document") || /text\/html/.test(accept)) &&
+    /(chrome|safari|firefox|edg)/i.test(ua);
+
+  return isHeadOrOptions || uaBot || isPrefetch || !likelyHuman;
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1) Protect the NextAuth email callback from link scanners ONLY.
+  // 1) Protect NextAuth email callback tokens
   if (pathname.startsWith("/api/auth/callback/email")) {
     if (looksLikeBot(req)) {
-      // Do NOT forward to NextAuth (would consume the one-time token)
+      // Don’t let scanners burn the one-time token
       return new NextResponse(null, { status: 204 });
     }
     return NextResponse.next();
   }
 
-  // 2) Allow public routes (including /api/auth/* as you already had)
+  // 2) Allow public paths (and your /login→/years auto-redirect if already signed in)
   if (isPublic(pathname)) {
-    // Your existing "if already signed in, redirect /login → /years"
     if (pathname === "/login") {
       const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "dev-secret";
       const token = await getToken({ req, secret });
@@ -84,7 +79,6 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-// Keep your matcher
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
