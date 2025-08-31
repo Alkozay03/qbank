@@ -12,7 +12,7 @@ export default function Shell({
   children,
 }: {
   title: string;
-  pageName?: string; // e.g. "Dashboard", "Performance", etc.
+  pageName?: string;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -39,70 +39,51 @@ export default function Shell({
     } catch {}
   }, []);
 
-  // match Sidebar widths so the page glides with it
-  const leftPad = collapsed ? 64 : 288;
+  const leftPad = collapsed ? 64 : 288; // px
 
   return (
     <div className="min-h-screen bg-[#F7FBFF] overflow-x-hidden">
-      {/* Sidebar (keeps its own animation & brand) */}
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} /> {/* :contentReference[oaicite:1]{index=1} */}
+      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
 
-      {/* Header row (NOT fixed). It hosts the pageName on the left and the icons on the right. */}
-      <header
-        className={clsx(
-          "relative flex items-center h-14",
-          "transition-[padding-left] duration-400 ease-in-out"
-        )}
-        style={{ paddingLeft: leftPad, paddingRight: 16 }}
-      >
-        {/* Big page name near the sidebar (optional) */}
-        {pageName ? (
-          <div
-            className="pointer-events-none select-none font-extrabold tracking-tight"
-            style={{
-              color: "#2F6F8F",
-              fontSize: "28px",
-              letterSpacing: "-0.02em",
-              marginLeft: 16, // small breathing room from the sidebar edge
-              transition: "transform 400ms ease-in-out",
-            }}
-          >
-            {pageName}
-          </div>
-        ) : null}
-
-        {/* Right-top icons positioned inside this header so they scroll away with it */}
-        <div className="absolute right-0 top-0 h-14 flex items-center">
-          <TopRightBar /> {/* uses absolute internally; contained by this relative header */} {/* :contentReference[oaicite:2]{index=2} */}
-        </div>
-      </header>
-
-      {/* Title bar (your existing 'title' — e.g., “Welcome, Student”) */}
+      {/* Top row: icons scroll with content on Year 4 pages */}
       <div
-        className={clsx(
-          "transition-[padding-left] duration-400 ease-in-out",
-        )}
+        className="h-14 transition-[padding] duration-400 ease-in-out flex justify-end items-center"
         style={{ paddingLeft: leftPad }}
       >
-        <div className="px-4 py-3">
-          {/* No border here (removes faint line) */}
-          <div className="text-xl font-semibold text-[#2F6F8F]">{title}</div>
-        </div>
+        <TopRightBar mode="inline" />
       </div>
 
-      {/* Page content */}
+      {/* Big page label near the sidebar */}
+      {pageName && (
+        <div
+          className={clsx(
+            "fixed top-0 z-20 h-14 flex items-center pointer-events-none select-none",
+            "transition-transform duration-400 ease-in-out"
+          )}
+          style={{ left: 16, transform: `translateX(${leftPad}px)` }}
+        >
+          <span
+            className="font-extrabold tracking-tight"
+            style={{ color: "#2F6F8F", fontSize: "28px", letterSpacing: "-0.02em" }}
+          >
+            {pageName}
+          </span>
+        </div>
+      )}
+
+      {/* Content area */}
       <main
-        className={clsx(
-          "transition-[padding-left] duration-400 ease-in-out"
-        )}
+        className="pb-10 transition-[padding] duration-400 ease-in-out overflow-x-hidden"
         style={{ paddingLeft: leftPad }}
       >
+        {/* Subtitle/title bar (per page) */}
+        <div className="px-4 py-3 border-b border-[#E6F0F7] bg-[#F7FBFF]/80 backdrop-blur">
+          <div className="text-xl font-semibold text-[#2F6F8F]">{title}</div>
+        </div>
+
         <div
-          className="mx-auto px-4 pb-10"
-          style={{
-            maxWidth: 1024,
-            width: "100%",
-          }}
+          className="mx-auto px-4 pt-6"
+          style={{ maxWidth: 1024, width: "100%" }}
         >
           {children}
         </div>

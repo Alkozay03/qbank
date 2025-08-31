@@ -51,8 +51,9 @@ async function main() {
       },
     });
   }
+  
 
-  console.warn("Seeding complete");
+console.warn("Seeding complete");
 }
 
 main()

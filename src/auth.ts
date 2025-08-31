@@ -14,7 +14,7 @@ function isAllowedEmail(email?: string | null) {
 const useDevNoSmtp = process.env.AUTH_DEV_NO_SMTP === "true";
 
 const emailProvider = Email({
-  from: process.env.EMAIL_FROM, // In Gmail SMTP, set this to your Gmail or a verified alias
+  from: process.env.EMAIL_FROM, // e.g., "Clerkship QBank <you@gmail.com>"
   server: useDevNoSmtp
     ? { jsonTransport: true } // DEV: no email sent; message is logged
     : {
@@ -22,37 +22,46 @@ const emailProvider = Email({
         port: Number(process.env.EMAIL_SERVER_PORT ?? 465),
         secure: true,
         auth: {
-          user: process.env.EMAIL_SERVER_USER, // your Gmail
+          user: process.env.EMAIL_SERVER_USER,
           pass: process.env.EMAIL_SERVER_PASSWORD, // Gmail App Password
         },
       },
+  // DEV helper to print/store the magic link (same behavior you had, but correctly placed)
+  async sendVerificationRequest({ identifier, url }) {
+    if (useDevNoSmtp) {
+      console.warn(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
+      setDevMagic(identifier, url);
+      return;
+    }
+    // In production, NextAuth will send via the 'server' transport above.
+  },
 });
 
 export const authOptions: NextAuthConfig = {
   adapter: PrismaAdapter(db),
 
-  // 45-day session
+  // 45-day session, JWT strategy
   session: { strategy: "jwt", maxAge: 45 * 24 * 60 * 60 },
 
   providers: [emailProvider],
   pages: { signIn: "/login" },
   secret: process.env.AUTH_SECRET,
 
+  // IMPORTANT: include user.id in the session for server components
   callbacks: {
+    async session({ session, token, user }) {
+      if (session.user) {
+        (session.user as any).id = token?.sub ?? user?.id ?? null;
+      }
+      return session;
+    },
+    async jwt({ token, user }) {
+      if (user?.id) token.sub = user.id;
+      return token;
+    },
     async signIn({ user, email }) {
       const addr = user?.email ?? email?.email;
       return isAllowedEmail(addr);
-    },
-  },
-
-  events: {
-    async sendVerificationRequest({ identifier, url }) {
-      // Show the link in console AND store it for the /api/dev-magic route
-      if (useDevNoSmtp) {
-         
-        console.warn(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
-        setDevMagic(identifier, url);
-      }
     },
   },
 };

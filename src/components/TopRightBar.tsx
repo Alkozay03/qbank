@@ -5,7 +5,11 @@ import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Icon } from "./Icons";
 
-export default function TopRightBar() {
+type Props = {
+  mode?: string; // optional; ignored, just to satisfy existing usage
+};
+
+export default function TopRightBar(_props: Props) {
   const router = useRouter();
 
   return (
@@ -13,7 +17,6 @@ export default function TopRightBar() {
       <button
         onClick={() => {
           try {
-            // Remember where the user came from
             const here = window.location.pathname + window.location.search;
             sessionStorage.setItem("profileBackTo", here);
           } catch {}

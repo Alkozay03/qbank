@@ -1,5 +1,5 @@
 // src/app/api/auth/[...nextauth]/route.ts
 import { handlers } from "@/auth";
 
-// Expose NextAuth handlers at /api/auth/*
 export const { GET, POST } = handlers;
+export const runtime = "nodejs"; // ensure Node runtime for NextAuth v5

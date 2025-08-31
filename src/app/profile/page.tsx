@@ -71,7 +71,7 @@ export default function Profile() {
     <main className="min-h-screen bg-[#F7FBFF]">
       {/* Top brand + (icons handled elsewhere if needed) */}
       <div className="py-6 px-6 flex items-center justify-between">
-        <span className="font-black text-4xl text-[#7DB8D9]">Clerkship</span>
+        <span className="font-black text-4xl text-[#56A2CD]">Clerkship</span>
       </div>
 
       {/* Center container vertically and horizontally */}
