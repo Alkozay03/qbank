@@ -1,7 +1,8 @@
 // src/app/year4/performance/page.tsx
+export const dynamic = "force-dynamic";
 import Shell from "@/components/Shell";
 import { auth } from "@/auth";
-import { db } from "@/server/db";
+import { prisma } from "@/server/db";
 
 export default async function Performance() {
   const session = await auth();
@@ -22,43 +23,63 @@ export default async function Performance() {
     });
 
     const totalQuestions = await db.question.count();
+
     const responses = await db.response.findMany({
-      where: { quizItem: { quiz: { userId: user?.id ?? "" } } },
-      select: { isCorrect: true /* , timeSeconds, prevState */ },
+      where: {
+        userId: user?.id ?? "",
+      },
+      select: {
+        isCorrect: true,
+        createdAt: true,
+        timeSeconds: true,
+        quizItem: { select: { questionId: true } },
+      },
+      orderBy: { createdAt: "asc" },
     });
 
     const answered = responses.length;
     totalCorrect = responses.filter((r) => r.isCorrect).length;
     totalIncorrect = answered - totalCorrect;
 
-    // Omitted: depends on your schema; left as 0 unless you store it
     totalOmitted = 0;
 
     avgPercent = answered ? Math.round((totalCorrect / answered) * 100) : 0;
-    usedPercent = totalQuestions
-      ? Math.round((answered / totalQuestions) * 100)
-      : 0;
+    usedPercent = totalQuestions ? Math.round((answered / totalQuestions) * 100) : 0;
 
-    // Answer change placeholders
-    c2i = 0;
-    i2c = 0;
-    i2i = 0;
+    const byQuestion = new Map<string, typeof responses>();
+    for (const r of responses) {
+      const qid = r.quizItem.questionId;
+      if (!qid) continue;
+      if (!byQuestion.has(qid)) byQuestion.set(qid, []);
+      byQuestion.get(qid)!.push(r);
+    }
 
-    // Avg time placeholder
-    avgSeconds = 0;
+    for (const [, attempts] of byQuestion) {
+      for (let i = 1; i < attempts.length; i++) {
+        const prev = attempts[i - 1].isCorrect;
+        const cur = attempts[i].isCorrect;
+        if (prev === true && cur === false) c2i++;
+        else if (prev === false && cur === true) i2c++;
+        else if (prev === false && cur === false) i2i++;
+      }
+    }
+
+    const times = responses
+      .map((r) => (typeof r.timeSeconds === "number" ? r.timeSeconds : Number(r.timeSeconds)))
+      .filter((n) => Number.isFinite(n) && (n as number) > 0) as number[];
+
+    avgSeconds = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
   } catch {
-    // keep placeholders
+    // defaults remain
   }
 
   return (
     <Shell title="Statistics & Milestones" pageName="Performance">
-      {/* Progress circles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <CircleStat label="Average Score" value={avgPercent} />
         <CircleStat label="Qbank Usage" value={usedPercent} />
       </div>
 
-      {/* Two mini tables */}
       <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-[#E6F0F7] shadow p-4">
           <div className="text-lg font-semibold text-[#2F6F8F]">Your Score</div>
@@ -79,7 +100,6 @@ export default async function Performance() {
         </div>
       </div>
 
-      {/* Avg time */}
       <div className="mt-10 text-center">
         <div className="text-5xl font-extrabold text-[#2F6F8F]">~{avgSeconds}</div>
         <div className="text-slate-600">Seconds Spent on a Question</div>
@@ -109,7 +129,15 @@ function CircleStat({ label, value }: { label: string; value: number }) {
           strokeLinecap="round"
           transform="rotate(-90 80 80)"
         />
-        <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="28" fontWeight="800" fill="#2F6F8F">
+        <text
+          x="50%"
+          y="50%"
+          dominantBaseline="middle"
+          textAnchor="middle"
+          fontSize="28"
+          fontWeight="800"
+          fill="#2F6F8F"
+        >
           {value}%
         </text>
       </svg>

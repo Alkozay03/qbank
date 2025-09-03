@@ -1,0 +1,1 @@
+﻿ALTER TABLE "public"."Response" ADD COLUMN IF NOT EXISTS "timeSeconds" integer;

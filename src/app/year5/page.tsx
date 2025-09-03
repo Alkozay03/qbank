@@ -1,4 +1,5 @@
 // src/app/year5/page.tsx
+export const dynamic = "force-dynamic"; // add at top of the page file
 import TopRightBar from "@/components/TopRightBar";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";

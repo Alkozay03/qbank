@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"; // add at top of the page file
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { auth } from "@/auth";

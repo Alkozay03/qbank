@@ -16,7 +16,9 @@
     "check:knip": "knip",
     "check:tsprune": "ts-prune -p tsconfig.json",
     "check:unimported": "unimported",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "check:deps": "depcheck --skip-missing=true"
+    
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
@@ -49,5 +51,8 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5",
     "unimported": "^1.31.1"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.cjs"
   }
 }

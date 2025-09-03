@@ -1,8 +1,8 @@
-// src/app/year4/create-test/page.tsx
 "use client";
 
 import Shell from "@/components/Shell";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Option = { key: string; label: string; hint?: string };
 
@@ -75,6 +75,7 @@ const systems: Option[] = [
 
 export default function CreateTest() {
   const title = "Create Your Test";
+  const router = useRouter();
 
   const [selModes, setSelModes] = useState<string[]>([]);
   const [selRotations, setSelRotations] = useState<string[]>([]);
@@ -82,6 +83,7 @@ export default function CreateTest() {
   const [selDisciplines, setSelDisciplines] = useState<string[]>([]);
   const [selSystems, setSelSystems] = useState<string[]>([]);
   const [qCount, setQCount] = useState<number>(0);
+  const [busy, setBusy] = useState(false);
 
   const allowSystems = selDisciplines.length > 0;
 
@@ -108,17 +110,34 @@ export default function CreateTest() {
     setter(_checked ? list.map((o) => o.key) : []);
   }
 
-  function submit() {
-    if (!valid) return;
-    alert(
-      `Creating test with: 
-Modes=${effectiveModes.join(", ")} 
-Rotations=${effectiveRot.join(", ")} 
-Resources=${effectiveRes.join(", ")} 
-Disciplines=${selDisciplines.join(", ")} 
-Systems=${selSystems.join(", ")} 
-Questions=${qCount}`
-    );
+  async function submit() {
+    if (!valid || busy) return;
+
+    try {
+      setBusy(true);
+      // Send exactly your chip keys; backend maps and randomizes
+      const res = await fetch("/api/quiz/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          year: "Y4",
+          rotationKeys: effectiveRot,       // ["im","gs",...]
+          resources: effectiveRes,          // kept for future use
+          disciplines: selDisciplines,      // kept for future use
+          systems: selSystems,              // kept for future use
+          count: qCount,
+          types: effectiveModes,            // ["unused","incorrect","marked",...]
+          mode: "RANDOM",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to create quiz");
+      router.push(`/year4/quiz/${data.id}`);
+    } catch (e: any) {
+      alert(e.message || "Error creating quiz");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -232,7 +251,7 @@ Questions=${qCount}`
           </div>
 
           <button
-            disabled={!valid}
+            disabled={!valid || busy}
             onClick={submit}
             className="
               rounded-2xl px-6 py-2 font-semibold text-white
@@ -241,7 +260,7 @@ Questions=${qCount}`
               shadow transition
             "
           >
-            Create Test!
+            {busy ? "Creating..." : "Create Test!"}
           </button>
         </div>
 

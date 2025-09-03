@@ -1,6 +1,7 @@
 // src/components/Sidebar.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "./Icons";
 import clsx from "clsx";
@@ -12,11 +13,12 @@ export type SidebarItem = {
   icon: keyof typeof Icon;
 };
 
-const items: SidebarItem[] = [
+const baseItems: SidebarItem[] = [
   { key: "dashboard",  label: "Dashboard",       href: "/year4",                 icon: "Dashboard" },
   { key: "performance",label: "Performance",     href: "/year4/performance",     icon: "Performance" },
   { key: "create",     label: "Create Test",     href: "/year4/create-test",     icon: "Create" },
   { key: "previous",   label: "Previous Tests",  href: "/year4/previous-tests",  icon: "Tests" },
+  { key: "schedule",   label: "Schedule",        href: "/year4/schedule",        icon: "Calendar" },
   { key: "help",       label: "Help",            href: "/year4/help",            icon: "Help" },
   { key: "reset",      label: "Reset",           href: "/year4/reset",           icon: "Reset" },
 ];
@@ -30,8 +32,17 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [role, setRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | "">("");
+
+  useEffect(() => {
+    fetch("/api/me/role", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setRole(j?.role ?? ""))
+      .catch(() => {});
+  }, []);
 
   const width = collapsed ? "w-16" : "w-72";
+  const items: SidebarItem[] = [...baseItems];
 
   return (
     <aside
@@ -41,7 +52,7 @@ export default function Sidebar({
         width
       )}
     >
-      {/* Header: Hamburger + Brand (brand is always in DOM, animated reveal/cover) */}
+      {/* Header */}
       <div className="flex items-center h-14 px-3">
         <button
           onClick={() => {
@@ -57,24 +68,22 @@ export default function Sidebar({
           <Icon.Hamburger />
         </button>
 
-        {/* Animated brand container */}
+        {/* Brand */}
         <div
           className="ml-2 overflow-hidden transition-all duration-400 ease-in-out"
           style={{
-            maxWidth: collapsed ? 0 : 220,       // smoothly “covers”/reveals the text
+            maxWidth: collapsed ? 0 : 220,
             opacity: collapsed ? 0 : 1,
             transform: collapsed ? "translateX(-6px)" : "translateX(0)",
             willChange: "max-width, opacity, transform",
           }}
           aria-hidden={collapsed}
         >
-          <div className="text-3xl font-black tracking-tight text-[#56A2CD] select-none">
-            Clerkship
-          </div>
+          <div className="text-3xl font-black tracking-tight text-[#56A2CD] select-none">Clerkship</div>
         </div>
       </div>
 
-      {/* Items */}
+      {/* Nav items */}
       <nav className="mt-4 space-y-1 px-2">
         {items.map((it) => {
           const ActiveIcon = Icon[it.icon];
@@ -91,12 +100,10 @@ export default function Sidebar({
               )}
             >
               <ActiveIcon className={clsx("shrink-0", active ? "text-[#2F6F8F]" : "text-[#3B82A0]")} />
-
-              {/* Animated label container (never unmounted) */}
               <span
                 className="overflow-hidden transition-all duration-400 ease-in-out"
                 style={{
-                  maxWidth: collapsed ? 0 : 999, // large enough for any label
+                  maxWidth: collapsed ? 0 : 999,
                   opacity: collapsed ? 0 : 1,
                   transform: collapsed ? "translateX(-6px)" : "translateX(0)",
                   willChange: "max-width, opacity, transform",
@@ -107,6 +114,26 @@ export default function Sidebar({
             </button>
           );
         })}
+
+        {/* Admin Settings (role-gated) */}
+        {(role === "ADMIN" || role === "MASTER_ADMIN") && (
+          <button
+            onClick={() => router.push("/year4/admin")}
+            className="group w-full mt-2 flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors duration-200 text-slate-700 hover:bg-[#F3F9FC]"
+          >
+            <Icon.Settings className="text-[#3B82A0]" />
+            <span
+              className="overflow-hidden transition-all duration-400 ease-in-out"
+              style={{
+                maxWidth: collapsed ? 0 : 999,
+                opacity: collapsed ? 0 : 1,
+                transform: collapsed ? "translateX(-6px)" : "translateX(0)",
+              }}
+            >
+              Year 4 Admin Settings
+            </span>
+          </button>
+        )}
       </nav>
 
       {/* Bottom Home */}
@@ -119,10 +146,9 @@ export default function Sidebar({
           <span
             className="overflow-hidden transition-all duration-400 ease-in-out"
             style={{
-              maxWidth: collapsed ? 0 : 200,
+              maxWidth: collapsed ? 0 : 999,
               opacity: collapsed ? 0 : 1,
               transform: collapsed ? "translateX(-6px)" : "translateX(0)",
-              willChange: "max-width, opacity, transform",
             }}
           >
             Home

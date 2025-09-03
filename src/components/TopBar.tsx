@@ -1,11 +1,11 @@
 // src/components/TopBar.tsx
 "use client";
 
+
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
-import { Menu, Palette, User, LogOut, Sun, Moon } from "lucide-react";
+import { Menu, User, LogOut, Sun, Moon } from "lucide-react";
 
 type TopBarProps = {
   onHamburger?: () => void;
@@ -14,7 +14,7 @@ type TopBarProps = {
 
 export default function TopBar({ onHamburger, showHamburger = true }: TopBarProps) {
   const { data: session } = useSession();
-  const pathname = usePathname();
+  
 
   const [isDark, setIsDark] = useState<boolean>(true);
 

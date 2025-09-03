@@ -2,7 +2,7 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Email from "next-auth/providers/email";
-import { db } from "@/server/db";
+import { prisma } from "@/server/db";
 import { setDevMagic } from "@/lib/dev-magic";
 
 // allow only u########@sharjah.ac.ae
@@ -22,25 +22,25 @@ const emailProvider = Email({
   server: useDevNoSmtp
     ? { jsonTransport: true } // DEV: don't send; log JSON to console
     : {
-        host: process.env.EMAIL_SERVER_HOST, // smtp.gmail.com
+        host: process.env.EMAIL_SERVER_HOST, // e.g. "smtp.gmail.com"
         port,
         secure,
         auth: {
           user: process.env.EMAIL_SERVER_USER,
-          pass: process.env.EMAIL_SERVER_PASSWORD, // Gmail App Password
+          pass: process.env.EMAIL_SERVER_PASSWORD, // e.g. Gmail App Password
         },
       },
-  // Only override in DEV to capture the link; in prod we use the provider's default sender.
+  // DEV: capture the magic link instead of emailing
   ...(useDevNoSmtp && {
     async sendVerificationRequest({ identifier, url }: { identifier: string; url: string }) {
       console.warn(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
       setDevMagic(identifier, url);
     },
   }),
-} as any);
+});
 
 export const authOptions: NextAuthConfig = {
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(prisma),
 
   // 45-day session with JWT
   session: { strategy: "jwt", maxAge: 45 * 24 * 60 * 60 },
@@ -50,18 +50,32 @@ export const authOptions: NextAuthConfig = {
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
 
   callbacks: {
-    async signIn({ user, email }) {
-      const addr = user?.email ?? email?.email;
+    /**
+     * IMPORTANT:
+     * - When requesting a magic link (account.provider === "email" and no user yet), ALLOW.
+     * - When consuming the link (user exists), enforce allowed domain.
+     */
+    async signIn({ user, account }) {
+      // 1) Requesting the token (no user yet) -> allow so the token can be created/sent/logged
+      if (account?.provider === "email" && !user) return true;
+
+      // 2) Consuming the token (user resolved) -> enforce allowlist
+      const addr = user?.email;
       return isAllowedEmail(addr);
     },
-    async session({ session, token, user }) {
+
+    async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token?.sub ?? user?.id ?? null;
+        // add id without using `any`
+        (session.user as { id?: string | null }).id = token?.sub ?? null;
+        if (token?.email) session.user.email = token.email as string;
       }
       return session;
     },
+
     async jwt({ token, user }) {
       if (user?.id) token.sub = user.id;
+      if (user?.email) token.email = user.email;
       return token;
     },
   },

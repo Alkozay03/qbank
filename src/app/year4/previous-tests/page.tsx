@@ -1,14 +1,16 @@
 // src/app/year4/previous-tests/page.tsx
+export const dynamic = "force-dynamic";
+
 import Shell from "@/components/Shell";
 import { auth } from "@/auth";
-import { db } from "@/server/db";
+import { prisma } from "@/server/db";
 import Link from "next/link";
 
 export default async function PreviousTests() {
   const session = await auth();
   const email = session?.user?.email ?? null;
 
-  // Prefer session.user.id (after Fix #1 it will exist). Fallback to resolving by email.
+  // Prefer session.user.id if present
   let userId = (session?.user as any)?.id ?? null;
   if (!userId && email) {
     const u = await db.user.findUnique({ where: { email }, select: { id: true } });
@@ -32,31 +34,43 @@ export default async function PreviousTests() {
     );
   }
 
+  // Only select fields that are guaranteed to exist in the current schema.
+  // (Avoid selecting `status` or `mode`, which may mismatch legacy data.)
   const quizzes = await db.quiz.findMany({
     where: { userId },
-    select: { id: true, createdAt: true, mode: true },
+    select: { id: true, createdAt: true },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
 
-  const rows = await Promise.all(
-    quizzes.map(async (q) => {
-      const [count, total, correct] = await Promise.all([
-        db.quizItem.count({ where: { quizId: q.id } }),
-        db.response.count({ where: { quizItem: { quizId: q.id } } }),
-        db.response.count({ where: { quizItem: { quizId: q.id }, isCorrect: true } }),
-      ]);
+  // Run the three counts for each quiz inside a single transaction,
+  // and iterate sequentially to avoid pool starvation (connection_limit=1).
+  const rows: Array<{
+    id: string;
+    name: string;
+    scorePercent: number;
+    mode: string;
+    count: number;
+    createdAt: Date;
+  }> = [];
 
-      return {
-        id: q.id,
-        name: `Test ${q.id.slice(0, 6)}`, // schema has no Quiz.name
-        scorePercent: total ? Math.round((correct / total) * 100) : 0,
-        mode: q.mode,
-        count,
-        createdAt: q.createdAt,
-      };
-    })
-  );
+  for (const q of quizzes) {
+    const [count, total, correct] = await db.$transaction([
+      db.quizItem.count({ where: { quizId: q.id } }),
+      db.response.count({ where: { quizItem: { quizId: q.id } } }),
+      db.response.count({ where: { quizItem: { quizId: q.id }, isCorrect: true } }),
+    ]);
+
+    rows.push({
+      id: q.id,
+      name: `Test ${q.id.slice(0, 6)}`,
+      scorePercent: total ? Math.round((correct / total) * 100) : 0,
+      // Display placeholder to preserve design when mode/status not available.
+      mode: "—",
+      count,
+      createdAt: q.createdAt,
+    });
+  }
 
   return (
     <Shell title="Your Previous Tests" pageName="Previous Tests">

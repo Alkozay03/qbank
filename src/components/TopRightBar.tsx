@@ -4,16 +4,19 @@
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Icon } from "./Icons";
+import NotificationsBell from "@/components/NotificationsBell";
 
-type Props = {
-  mode?: string; // optional; ignored, just to satisfy existing usage
-};
+type Props = { mode?: string };
 
 export default function TopRightBar(_props: Props) {
   const router = useRouter();
 
   return (
     <div className="absolute top-0 right-6 z-40 h-14 flex items-center gap-2">
+      {/* Notifications */}
+      <NotificationsBell />
+
+      {/* Profile */}
       <button
         onClick={() => {
           try {
@@ -29,6 +32,7 @@ export default function TopRightBar(_props: Props) {
         <Tooltip>Profile</Tooltip>
       </button>
 
+      {/* Logout */}
       <button
         onClick={() => signOut({ callbackUrl: "/login" })}
         aria-label="Log out"
