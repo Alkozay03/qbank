@@ -26,5 +26,5 @@
     "noUnusedParameters": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", ".next", "out", "**/_archive/**"]
+  "exclude": ["node_modules", ".next", "out", "**/_archive/**", "*.js", "fix-*.js", "test-*.js", "add-*.js", ".next/**/*", "out/**/*"]
 }

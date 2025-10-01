@@ -9,13 +9,7 @@ const nextConfig = {
   },
   
   // Speed up dev mode with Turbopack (Next.js 15 format)
-  turbopack: {
-    rules: {
-      // Optimize common file types
-      '*.tsx': ['typescript'],
-      '*.ts': ['typescript'],
-    }
-  },
+  // Removed custom rules to fix TypeScript loader issues
   
   // Clean and simple - no AI-related exclusions needed
   serverExternalPackages: [],

@@ -23,6 +23,11 @@ const config = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "*.js",
+      "fix-*.js", 
+      "test-*.js",
+      "add-*.js",
+      "**/_archive/**",
     ],
   },
 

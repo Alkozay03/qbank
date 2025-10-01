@@ -36,6 +36,20 @@ export async function middleware(req: NextRequest) {
       const token = await getToken({ req, secret });
       if (token) return NextResponse.redirect(new URL("/years", req.url));
     }
+    if (pathname === "/") {
+      const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "dev-secret";
+      const token = await getToken({ req, secret });
+      // Fallback: detect session cookie directly if decoding fails
+      const hasSessionCookie = Boolean(
+        req.cookies.get("next-auth.session-token")?.value ||
+        req.cookies.get("__Secure-next-auth.session-token")?.value ||
+        req.cookies.get("authjs.session-token")?.value ||
+        req.cookies.get("__Secure-authjs.session-token")?.value
+      );
+      if (token || hasSessionCookie) {
+        return NextResponse.redirect(new URL("/years", req.url));
+      }
+    }
     return NextResponse.next();
   }
 

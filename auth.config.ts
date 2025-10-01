@@ -6,6 +6,9 @@ export default {
   // IMPORTANT: keep providers empty in auth.config.ts so middleware stays Edge compatible.
   providers: [],
 
+  // Trust localhost for development and production
+  trustHost: true,
+
   pages: {
     signIn: "/login",
   },

@@ -1,0 +1,45 @@
+{
+  "extraction_method": "SIMPLE_PERFECT_SECTIONS",
+  "platform": "UWORLD",
+  "question": "A 43-year-old woman complains of numbness that prevents her from sleeping. She has no problems with her legs. The patient has chronic kidney disease due to IgA nephropathy and receives hemodialysis On examination, she hasdiminished sensation in both hands over the palmar aspect of the thumb, index and middle fingers, and radial half of the ring finger. Which of the following is the most likely underlying mechanism of this patient's current symptoms?",
+  "answers": [
+    {
+      "letter": "A",
+      "text": "Endomysial inflammatory infiltration",
+      "is_correct": false
+    },
+    {
+      "letter": "B",
+      "text": "Endoneural arteriole hyalinization",
+      "is_correct": false
+    },
+    {
+      "letter": "C",
+      "text": "Endoneural multifocal demyelination",
+      "is_correct": false
+    },
+    {
+      "letter": "D",
+      "text": "Mutations of a muscle structural protein gene",
+      "is_correct": false
+    },
+    {
+      "letter": "E",
+      "text": "Nerve compression within an anatomic compartment",
+      "is_correct": true
+    }
+  ],
+  "explanation": "Carpal tunnel syndrome (CTS) is a peripheral mononeuropathy caused by compression of the median nerve in the carpal tunnel, an area between the carpal bones and transverse carpal ligament on the palmar surface of the wrist.The median nerve and tendons of the long flexors of the digits pass through the carpal tunnel, and there is lttle room for expansion in this anatomic compartment. CTS is associated with conditions that reduce carpal tunnel space, including pregnancy (fluid accumulation), hypothyroidism (glycosaminoglycan buildup), diabetes mellitus (connective tissue thickening), and rheumatoid arthritis (tendon inflammation). Patients with a long history of hemodialysis can develop median nerve compression through deposition of beta-2 microglobulin (dialysis-associated amyloidosis) in the carpal tunnel. Symptoms and signs of CTS often occur bilaterally (in up to 65% of patients) and include: sensory impairment, pain, and/or paresthesias in the median nerve distribution (palmar surface of the first 3 digits and radial half of the fourth).Symptoms are usually worse at night. motor weakness during thumb abduction/opposition and thenar atrophy. Tinel sign (tapping over the flexor surface of the wrist reproduces symptoms) and Phalen sign (flexion of the wrist reproduces symptoms). (Choice A) Endomysial inflammatory infiltration is found on muscle biopsy in polymyositis, a myopathy that usually presents with proximal muscle weakness, not distal sensory symptoms as seen in this patient. (Choice B) Endoneural arteriole hyalinization can occur in diabetes melitus (diabetic microangiopathy) and most commonly results in a distal, symmetric peripheral polyneuropathy that usually starts in the feet. This patient does not have diabetes and her symptoms follow a median nerve distribution, which is more likely due to compressive neuropathy. focal, not multifocal, demyelination. predominantly affects young boys and presents with proximal muscle weakness and pseudohypertrophy of the calves.",
+  "educational_objective": "Carpal tunnel syndrome is a peripheral neuropathy characterized by pain/paresthesia in a median nerve distribution (palmar surface of the first 3 digits and radial half of the fourth digit), weakness on thumb abduction/opposition, thenar atrophy, and a positive Tinel sign caused by median nerve compression at the transverse carpal ligament.",
+  "image_description": "Carpal tunnel anatomy diagram showing palmar view with median nerve, transverse carpal ligament, carpal bones (trapezium, pisiform), and anatomical structures labeled",
+  "tags": {
+    "subject": "Pathology",
+    "system": "Nervous System",
+    "topic": "Median nerve injury",
+    "resource": "UWORLD"
+  },
+  "stats": {
+    "total_text_blocks": 67,
+    "choices_found": 5
+  }
+}

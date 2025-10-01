@@ -5,63 +5,30 @@ generator client {
 datasource db {
   provider          = "postgresql"
   url               = env("DATABASE_URL")
+  directUrl         = env("DIRECT_DATABASE_URL")
   shadowDatabaseUrl = env("PRISMA_MIGRATION_SHADOW_DATABASE_URL")
 }
 
-/// IMPORTANT: We map Prisma enum values to the existing Postgres enum labels:
-/// - MEMBER       -> "User"         (existing)
-/// - ADMIN        -> "Admin"        (existing)
-/// - MASTER_ADMIN -> "MASTER_ADMIN" (we will add this label via migration)
-enum Role {
-  MEMBER       @map("User")
-  ADMIN        @map("Admin")
-  MASTER_ADMIN @map("MASTER_ADMIN")
-
-  @@map("Role") // map enum to existing Postgres type "Role"
-}
-
-enum Rotation {
-  PEDIATRICS
-  INTERNAL_MEDICINE
-  GENERAL_SURGERY
-  OBSTETRICS_GYNECOLOGY
-  PRE_CLINICAL
-}
-
-enum ScheduleItemType {
-  HOSPITAL_SHIFT
-  LECTURE
-}
-
-enum TagType {
-  SUBJECT
-  SYSTEM
-  TOPIC
-  ROTATION
-  RESOURCE
-  MODE
-}
-
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  firstName String?
-  lastName  String?
-  image     String?
-  role      Role      @default(MEMBER) // maps to DB 'User'
-  rotation  Rotation?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime? @updatedAt
-
-  accounts Account[]
-  sessions Session[]
-
-  quizzes   Quiz[]
-  responses Response[] @relation("UserResponses")
-
-  notifications Notification[] @relation("NotificationCreator")
-  schedules     Schedule[]     @relation("ScheduleCreator")
-  gradYear   Int?
+  id                String             @id @default(cuid())
+  firstName         String?
+  lastName          String?
+  email             String             @unique
+  image             String?
+  role              Role               @default(MEMBER)
+  gradYear          Int?
+  rotation          String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime?          @updatedAt
+  timezone          String?
+  accounts          Account[]
+  notifications     Notification[]     @relation("NotificationCreator")
+  notificationReads NotificationRead[]
+  questionComments  QuestionComment[]  @relation("QuestionCommentAuthor")
+  quizzes           Quiz[]
+  responses         Response[]         @relation("UserResponses")
+  schedules         Schedule[]         @relation("ScheduleCreator")
+  sessions          Session[]
 }
 
 model Account {
@@ -77,8 +44,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -100,64 +66,120 @@ model VerificationToken {
 }
 
 model Question {
-  id          String  @id @default(cuid())
-  customId    Int?    @unique
-  text        String?
-  explanation String?
-  objective   String?
+  id                 String               @id @default(cuid())
+  explanation        String?
+  createdAt          DateTime             @default(now())
+  objective          String?
+  customId           Int?                 @unique
+  text               String?
+  updatedAt          DateTime?            @updatedAt
+  yearCaptured       String?
+  rotationNumber     String?
+  iduScreenshotUrl   String?
+  questionImageUrl   String?
+  explanationImageUrl String?
+  references         String?
+  extraction         AIExtraction?
+  answers          Answer[]
+  comments         QuestionComment[]
+  occurrences      QuestionOccurrence[]
+  questionTags     QuestionTag[]
+  quizItems        QuizItem[]
 
-  answers   Answer[]
-  quizItems QuizItem[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime?  @updatedAt
+  @@index([id], map: "idx_question_id")
+}
 
-  questionTags QuestionTag[]
+model QuestionComment {
+  id          String   @id @default(cuid())
+  questionId  String
+  authorName  String?
+  body        String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  origin      String   @default("runner")
+  createdBy   User?    @relation("QuestionCommentAuthor", fields: [createdById], references: [id])
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId], map: "idx_questioncomment_questionid")
+  @@index([createdById], map: "idx_questioncomment_createdbyid")
+}
+
+model QuestionOccurrence {
+  id         String   @id @default(cuid())
+  questionId String
+  year       String?
+  rotation   String?
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, year, rotation], map: "uniq_questionoccurrence_questionid_year_rotation")
+  @@index([questionId], map: "idx_questionoccurrence_questionid")
 }
 
 model Answer {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
   questionId String
   text       String
-  isCorrect  Boolean @default(false)
+  isCorrect  Boolean  @default(false)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  @@map("Choice")
 }
 
 model Quiz {
-  id        String    @id @default(cuid())
+  id        String     @id @default(cuid())
   userId    String
+  mode      QuizMode   @default(RANDOM)
+  count     Int
+  createdAt DateTime   @default(now())
+  updatedAt DateTime?  @updatedAt
   status    String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime? @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     QuizItem[]
 
-  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items QuizItem[]
+  @@index([userId], map: "idx_quiz_userid")
+  @@index([userId, createdAt], map: "idx_quiz_userid_createdat")
 }
 
 model QuizItem {
-  id         String  @id @default(cuid())
-  quizId     String
-  questionId String
-  order      Int?
-  marked     Boolean @default(false)
+  id          String     @id @default(cuid())
+  quizId      String
+  questionId  String
+  marked      Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  orderInQuiz Int?
+  updatedAt   DateTime   @updatedAt
+  question    Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  quiz        Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  responses   Response[]
 
-  quiz      Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  question  Question   @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  responses Response[]
+  @@index([id, quizId], map: "idx_quizitem_id_quizid")
+  @@index([questionId], map: "idx_quizitem_questionid")
+  @@index([quizId], map: "idx_quizitem_quizid")
 }
 
 model Response {
   id          String   @id @default(cuid())
   quizItemId  String
-  userId      String?
   choiceId    String?
   isCorrect   Boolean?
   createdAt   DateTime @default(now())
   timeSeconds Int?
   changeCount Int?     @default(0)
+  userId      String?
+  quizItem    QuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
+  user        User?    @relation("UserResponses", fields: [userId], references: [id], onDelete: Cascade)
 
-  quizItem QuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
-  user     User?    @relation("UserResponses", fields: [userId], references: [id], onDelete: Cascade)
+  @@index([quizItemId, isCorrect, createdAt], map: "idx_response_quizitem_quiz")
+  @@index([quizItemId], map: "idx_response_quizitemid")
+  @@index([quizItemId, id], map: "idx_response_quizitemid_id")
+  @@index([userId], map: "idx_response_userid")
+  @@index([userId, isCorrect, createdAt], map: "idx_response_userid_correct_createdat")
+  @@index([userId, createdAt], map: "idx_response_userid_createdat")
 }
 
 model Tag {
@@ -167,44 +189,59 @@ model Tag {
   questions QuestionTag[]
 
   @@unique([type, value])
+  @@index([type], map: "idx_tag_type")
+  @@index([type, value], map: "idx_tag_type_value")
 }
 
 model QuestionTag {
   questionId String
   tagId      String
-
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([questionId, tagId])
+  @@index([questionId], map: "idx_questiontag_questionid")
+  @@index([tagId], map: "idx_questiontag_tagid")
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  shortId   Int      @unique
-  title     String
-  body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isDeleted Boolean  @default(false)
+  id           String             @id @default(cuid())
+  shortId      Int                @unique
+  title        String
+  body         String
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  isDeleted    Boolean            @default(false)
+  createdById  String?
+  createdBy    User?              @relation("NotificationCreator", fields: [createdById], references: [id])
+  readReceipts NotificationRead[]
 
-  createdById String?
-  createdBy   User?   @relation("NotificationCreator", fields: [createdById], references: [id])
+  @@index([isDeleted], map: "idx_notification_isdeleted")
+}
+
+model NotificationRead {
+  id             String       @id @default(cuid())
+  notificationId String
+  userId         String
+  readAt         DateTime     @default(now())
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([notificationId], map: "idx_notificationread_notificationid")
+  @@index([userId], map: "idx_notificationread_userid")
+  @@index([userId, notificationId], map: "idx_notificationread_userid_notificationid")
 }
 
 model Schedule {
-  id        String   @id @default(cuid())
-  title     String   @default("Week Schedule")
-  weekStart DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id          String         @id @default(cuid())
+  title       String         @default("Week Schedule")
+  weekStart   DateTime       @unique
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   createdById String?
-  createdBy   User?   @relation("ScheduleCreator", fields: [createdById], references: [id])
-
-  items ScheduleItem[]
-
-  @@unique([weekStart])
+  createdBy   User?          @relation("ScheduleCreator", fields: [createdById], references: [id])
+  items       ScheduleItem[]
 }
 
 model ScheduleItem {
@@ -212,16 +249,85 @@ model ScheduleItem {
   scheduleId String
   dayOfWeek  Int
   type       ScheduleItemType
-
-  startsAt DateTime
-  endsAt   DateTime
-
-  topic    String?
-  tutor    String?
-  location String?
-  link     String?
-
-  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  startsAt   DateTime
+  endsAt     DateTime
+  topic      String?
+  tutor      String?
+  location   String?
+  link       String?
+  schedule   Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
   @@index([scheduleId, dayOfWeek])
+}
+
+model AIExtraction {
+  id             String            @id @default(cuid())
+  questionId     String?           @unique
+  imagePath      String?
+  rawText        String?
+  confidence     Float?
+  template       String?
+  processingTime Float?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime?         @updatedAt
+  question       Question?         @relation(fields: [questionId], references: [id])
+  images         ExtractionImage[]
+}
+
+model ExtractionImage {
+  id           String       @id @default(cuid())
+  extractionId String
+  type         String
+  imageData    Bytes?
+  imageUrl     String?
+  ocrText      String?
+  confidence   Float?
+  createdAt    DateTime     @default(now())
+  extraction   AIExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+}
+
+/// IMPORTANT: We map Prisma enum values to the existing Postgres enum labels:
+/// - MEMBER       -> "User"         (existing)
+/// - ADMIN        -> "Admin"        (existing)
+/// - MASTER_ADMIN -> "MASTER_ADMIN" (we will add this label via migration)
+enum Role {
+  MEMBER       @map("User")
+  ADMIN        @map("Admin")
+  MASTER_ADMIN @map("MASTER_ADMIN")
+
+  @@map("Role")
+}
+
+enum ScheduleItemType {
+  HOSPITAL_SHIFT
+  LECTURE
+}
+
+enum TagType {
+  SUBJECT
+  SYSTEM
+  TOPIC
+  ROTATION
+  RESOURCE
+  MODE
+}
+
+enum QuizMode {
+  RANDOM
+  CUSTOM
+  EXAM
+
+  @@map("QuizMode")
+}
+
+model HelpItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  orderIndex  Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("HelpItem")
 }
