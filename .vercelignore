@@ -1,12 +1,9 @@
 # Vercel ignore file - exclude heavy files from deployment
 
-# AI/ML model files
-*.json
-*.dump
-*.sql
+# AI/ML Python scripts and data files (keep package.json!)
 *.py
 *.traineddata
-*.mjs
+*.dump
 debug_*
 test_*
 check-*
@@ -30,17 +27,36 @@ paddlex_*
 perfect_*
 quick_*
 simple_*
+universal_*
+working_*
+validate_*
 
-# Backup files
+# Backup files and large datasets
 backup_*
+*.csv
+training_data/
+cache/
+runs/
 
-# Development files
+# Development configs (keep essential ones)
 *.bat
 knip.json
-eslint.config.mjs
 next.config.slow.mjs
 next.config.ultra-fast.mjs
 next.config.ts
+eslint.config.mjs
+
+# AI/ML directories (these are huge!)
+ai-question-extractor/
+ai-question-extractor.venv_yolo/
+Qwen2.5-VL/
+detectron2/
+debug_images/
+docker/
+node_modules.bak.20250903194847/
+public/backgrounds/
+public/uploads/
+src/archive/
 
 # Node modules and build artifacts
 node_modules/
@@ -64,4 +80,5 @@ dist/
 # Database files
 *.db
 *.sqlite
-prisma/migrations/
+prisma/migrations_backup_*
+prisma/temp_origin.sql
