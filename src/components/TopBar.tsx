@@ -5,14 +5,18 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
-import { Menu, User, LogOut, Sun, Moon } from "lucide-react";
+import { MenuIcon, UserIcon, LogOutIcon, SunIcon, MoonIcon } from "./LightweightIcons";
 
 type TopBarProps = {
-  onHamburger?: () => void;
+  // React 19/Next 15: only allow function props that are clearly client-side
+  // and not treated as Server Actions by naming convention.
+  // Rename to end with `Action` to satisfy IDE diagnostics when imported
+  // from server components.
+  onHamburgerAction?: () => void;
   showHamburger?: boolean;
 };
 
-export default function TopBar({ onHamburger, showHamburger = true }: TopBarProps) {
+export default function TopBar({ onHamburgerAction, showHamburger = true }: TopBarProps) {
   const { data: session } = useSession();
   
 
@@ -40,18 +44,18 @@ export default function TopBar({ onHamburger, showHamburger = true }: TopBarProp
           {showHamburger && (
             <button
               aria-label="Toggle sidebar"
-              onClick={onHamburger}
+              onClick={onHamburgerAction}
               className="inline-flex items-center justify-center p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded-md"
               title="Toggle sidebar"
             >
               {/* minimalist, thicker icon, no outer box */}
-              <Menu size={28} strokeWidth={2.75} />
+              <MenuIcon />
             </button>
           )}
 
           <Link
             href="/"
-            className="text-lg font-semibold tracking-tight text-white hover:opacity-90"
+            className="text-lg font-semibold tracking-tight text-white hover:opacity-90 color-smooth"
           >
             Clerkship
           </Link>
@@ -62,18 +66,18 @@ export default function TopBar({ onHamburger, showHamburger = true }: TopBarProp
           <button
             onClick={toggleTheme}
             title="Toggle theme"
-            className="rounded-lg p-2 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white/30 outline-none"
+            className="rounded-lg p-2 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white/30 outline-none icon-hover color-smooth"
           >
-            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+            {isDark ? <SunIcon /> : <MoonIcon />}
           </button>
 
           {/* Profile (if authenticated go to profile/settings; otherwise to login) */}
           <Link
             href={session ? "/profile" : "/login"}
             title={session ? "Profile" : "Sign in"}
-            className="rounded-lg p-2 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white/30 outline-none"
+            className="rounded-lg p-2 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white/30 outline-none icon-hover color-smooth"
           >
-            <User size={20} />
+            <UserIcon />
           </Link>
 
           {/* Logout icon (only if session) */}
@@ -81,9 +85,9 @@ export default function TopBar({ onHamburger, showHamburger = true }: TopBarProp
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
               title="Sign out"
-              className="rounded-lg p-2 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white/30 outline-none"
+              className="rounded-lg p-2 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-white/30 outline-none icon-hover color-smooth"
             >
-              <LogOut size={20} />
+              <LogOutIcon />
             </button>
           )}
         </div>

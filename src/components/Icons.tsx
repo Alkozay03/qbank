@@ -51,4 +51,9 @@ export const Icon = {
       <path d="M3 12h2M19 12h2M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M5 19l1.5-1.5" stroke="currentColor" strokeWidth="2"/>
     </svg>
   ),
+  Bell: (p: Props) => (
+    <svg viewBox="0 0 24 24" width="24" height="24" {...p}>
+      <path d="M12 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 006 14h12a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm0 20a3 3 0 01-3-3h6a3 3 0 01-3 3z" stroke="currentColor" strokeWidth="2" fill="none"/>
+    </svg>
+  ),
 };

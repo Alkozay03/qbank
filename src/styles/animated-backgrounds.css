@@ -1,0 +1,21 @@
+/* src/styles/animated-backgrounds.css */
+
+/* Base styling for blurred background elements */
+.blob {
+  @apply absolute rounded-full opacity-60 bg-blue-500/30;
+  filter: blur(80px);
+  will-change: transform, width, height, opacity, background-color;
+}
+
+/* Prevent background animations from causing scrollbars */
+.animated-background-container {
+  @apply relative min-h-screen overflow-hidden;
+}
+
+/* Add some animation to cards on background */
+.card-on-background {
+  @apply backdrop-blur-sm transition-all duration-500;
+}
+.card-on-background:hover {
+  @apply backdrop-blur-md;
+}

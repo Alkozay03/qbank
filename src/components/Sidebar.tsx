@@ -14,21 +14,24 @@ export type SidebarItem = {
 };
 
 const baseItems: SidebarItem[] = [
-  { key: "dashboard",  label: "Dashboard",       href: "/year4",                 icon: "Dashboard" },
-  { key: "performance",label: "Performance",     href: "/year4/performance",     icon: "Performance" },
-  { key: "create",     label: "Create Test",     href: "/year4/create-test",     icon: "Create" },
-  { key: "previous",   label: "Previous Tests",  href: "/year4/previous-tests",  icon: "Tests" },
-  { key: "schedule",   label: "Schedule",        href: "/year4/schedule",        icon: "Calendar" },
-  { key: "help",       label: "Help",            href: "/year4/help",            icon: "Help" },
-  { key: "reset",      label: "Reset",           href: "/year4/reset",           icon: "Reset" },
+  { key: "dashboard",     label: "Dashboard",       href: "/year4",                 icon: "Dashboard" },
+  { key: "performance",   label: "Performance",     href: "/year4/performance",     icon: "Performance" },
+  { key: "create",        label: "Create Test",     href: "/year4/create-test",     icon: "Create" },
+  { key: "previous",      label: "Previous Tests",  href: "/year4/previous-tests",  icon: "Tests" },
+  { key: "schedule",      label: "Schedule",        href: "/year4/schedule",        icon: "Calendar" },
+  { key: "notifications", label: "Notifications",   href: "/notifications",         icon: "Bell" },
+  { key: "help",          label: "Help",            href: "/year4/help",            icon: "Help" },
+  { key: "reset",         label: "Reset",           href: "/year4/reset",           icon: "Reset" },
 ];
 
 export default function Sidebar({
   collapsed,
-  onToggle,
+  toggleSidebarAction,
+  isMobile = false,
 }: {
   collapsed: boolean;
-  onToggle: () => void;
+  toggleSidebarAction: () => void;
+  isMobile?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -42,49 +45,36 @@ export default function Sidebar({
   }, []);
 
   const width = collapsed ? "w-16" : "w-72";
+  const zIndex = isMobile ? "z-50" : "z-40"; // Higher z-index on mobile for overlay
   const items: SidebarItem[] = [...baseItems];
 
   return (
     <aside
       className={clsx(
-        "fixed left-0 top-0 bottom-0 z-40 border-r border-[#E6F0F7] bg-white",
-        "transition-all duration-400 ease-in-out overflow-hidden",
-        width
+        "fixed left-0 top-0 bottom-0 border-r border-[#E6F0F7] bg-gradient-to-b from-white/95 to-[#F8FCFF]/95 backdrop-blur-md",
+        "transition-all duration-300 ease-in-out overflow-hidden shadow-xl",
+        width,
+        zIndex
       )}
     >
-      {/* Header */}
-      <div className="flex items-center h-14 px-3">
+      {/* Enhanced Header */}
+      <div className="flex items-center h-16 px-3 border-b border-[#E6F0F7] bg-gradient-to-r from-[#F8FCFF] to-white">
         <button
-          onClick={() => {
-            onToggle();
-            try {
-              const next = !collapsed;
-              localStorage.setItem("sidebar-collapsed", next ? "1" : "0");
-            } catch {}
-          }}
+          onClick={toggleSidebarAction}
           aria-label="Toggle sidebar"
-          className="p-2 rounded hover:bg-[#F3F9FC] text-[#3B82A0]"
+          className="group relative p-2 rounded-full hover:bg-[#2F6F8F] focus:outline-none shrink-0 transition-all duration-200 transform hover:scale-105"
         >
-          <Icon.Hamburger />
+          <Icon.Hamburger className="text-[#2F6F8F] group-hover:text-white w-6 h-6" />
         </button>
 
         {/* Brand */}
-        <div
-          className="ml-2 overflow-hidden transition-all duration-400 ease-in-out"
-          style={{
-            maxWidth: collapsed ? 0 : 220,
-            opacity: collapsed ? 0 : 1,
-            transform: collapsed ? "translateX(-6px)" : "translateX(0)",
-            willChange: "max-width, opacity, transform",
-          }}
-          aria-hidden={collapsed}
-        >
-          <div className="text-3xl font-black tracking-tight text-[#56A2CD] select-none">Clerkship</div>
+        <div className={clsx("ml-1 transition-opacity duration-300", collapsed ? "opacity-0" : "opacity-100")}>
+          <div className="brand-title select-none text-4xl font-bold tracking-tight transform -translate-y-0.5">Clerkship</div>
         </div>
       </div>
 
-      {/* Nav items */}
-      <nav className="mt-4 space-y-1 px-2">
+      {/* Enhanced Nav items */}
+      <nav className="mt-4 space-y-1 px-3">
         {items.map((it) => {
           const ActiveIcon = Icon[it.icon];
           const active = pathname === it.href;
@@ -93,64 +83,78 @@ export default function Sidebar({
               key={it.key}
               onClick={() => router.push(it.href)}
               className={clsx(
-                "group w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors duration-200",
+                "group w-full flex items-center justify-start rounded-xl text-left px-2 py-2.5 gap-2 transition-all duration-200 ease-out btn-hover",
                 active
-                  ? "bg-[#F3F9FC] text-[#2F6F8F] font-semibold"
-                  : "text-slate-700 hover:bg-[#F3F9FC]"
+                  ? "bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white shadow-lg"
+                  : "text-[#2F6F8F] hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10"
               )}
             >
-              <ActiveIcon className={clsx("shrink-0", active ? "text-[#2F6F8F]" : "text-[#3B82A0]")} />
-              <span
-                className="overflow-hidden transition-all duration-400 ease-in-out"
-                style={{
-                  maxWidth: collapsed ? 0 : 999,
-                  opacity: collapsed ? 0 : 1,
-                  transform: collapsed ? "translateX(-6px)" : "translateX(0)",
-                  willChange: "max-width, opacity, transform",
-                }}
-              >
-                <span className="inline-block truncate align-middle">{it.label}</span>
+              <ActiveIcon className={clsx(
+                "shrink-0 w-6 h-6 transition-colors duration-200",
+                active ? "text-white" : "text-[#56A2CD] group-hover:text-[#2F6F8F]"
+              )} />
+              <span className={clsx(
+                "font-medium text-lg whitespace-nowrap transition-opacity duration-300",
+                collapsed ? "opacity-0" : "opacity-100"
+              )}>
+                {it.label}
               </span>
             </button>
           );
         })}
 
-        {/* Admin Settings (role-gated) */}
-        {(role === "ADMIN" || role === "MASTER_ADMIN") && (
+        {/* Admin Settings (role-gated) - Only for ADMIN role, not MASTER_ADMIN */}
+        {role === "ADMIN" && (
           <button
             onClick={() => router.push("/year4/admin")}
-            className="group w-full mt-2 flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors duration-200 text-slate-700 hover:bg-[#F3F9FC]"
+            className="group w-full flex items-center rounded-xl text-left text-[#2F6F8F] hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10 px-2 py-2.5 gap-2 transition-all duration-200 ease-out transform hover:scale-[1.02] hover:shadow-md"
           >
-            <Icon.Settings className="text-[#3B82A0]" />
-            <span
-              className="overflow-hidden transition-all duration-400 ease-in-out"
-              style={{
-                maxWidth: collapsed ? 0 : 999,
-                opacity: collapsed ? 0 : 1,
-                transform: collapsed ? "translateX(-6px)" : "translateX(0)",
-              }}
-            >
+            <Icon.Settings className="text-[#56A2CD] shrink-0 w-6 h-6" />
+            <span className={clsx(
+              "text-lg whitespace-nowrap transition-opacity duration-300",
+              collapsed ? "opacity-0" : "opacity-100"
+            )}>
               Year 4 Admin Settings
+            </span>
+          </button>
+        )}
+
+        {/* Master Admin Settings (only for MASTER_ADMIN) */}
+        {role === "MASTER_ADMIN" && (
+          <button
+            onClick={() => router.push("/year4/master-admin")}
+            className="group w-full flex items-center rounded-xl text-left text-[#2F6F8F] hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10 px-2 py-2.5 gap-2 transition-all duration-200 ease-out transform hover:scale-[1.02] hover:shadow-md"
+          >
+            <Icon.Settings className="text-[#56A2CD] shrink-0 w-6 h-6" />
+            <span className={clsx(
+              "text-lg whitespace-nowrap transition-opacity duration-300",
+              collapsed ? "opacity-0" : "opacity-100"
+            )}>
+              Master Admin
             </span>
           </button>
         )}
       </nav>
 
       {/* Bottom Home */}
-      <div className="absolute bottom-3 left-0 right-0 px-2">
+      <div className="absolute bottom-3 left-0 right-0 px-3">
         <button
           onClick={() => router.push("/years")}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors duration-200 text-slate-700 hover:bg-[#F3F9FC]"
+          className={clsx(
+            "group w-full flex items-center rounded-xl text-left px-2 py-2.5 gap-2 transition-all duration-200 ease-out btn-hover",
+            pathname === "/years"
+              ? "bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white shadow-lg"
+              : "text-[#2F6F8F] hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10"
+          )}
         >
-          <Icon.Home className="text-[#3B82A0]" />
-          <span
-            className="overflow-hidden transition-all duration-400 ease-in-out"
-            style={{
-              maxWidth: collapsed ? 0 : 999,
-              opacity: collapsed ? 0 : 1,
-              transform: collapsed ? "translateX(-6px)" : "translateX(0)",
-            }}
-          >
+          <Icon.Home className={clsx(
+            "shrink-0 w-6 h-6", 
+            pathname === "/years" ? "text-white" : "text-[#56A2CD] group-hover:text-[#2F6F8F]"
+          )} />
+          <span className={clsx(
+            "font-medium text-lg whitespace-nowrap transition-opacity duration-300",
+            collapsed ? "opacity-0" : "opacity-100"
+          )}>
             Home
           </span>
         </button>

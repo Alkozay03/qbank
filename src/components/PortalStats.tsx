@@ -2,8 +2,24 @@
 
 import { useEffect, useState } from "react";
 
+type PerQuestionRow = {
+  questionId: string;
+  stem?: string | null;
+  attempts: number;
+  avgTimeSec: number | null;
+  avgChanges: number | null;
+};
+
+type StatsData = {
+  portal?: string;
+  totalAnswered: number;
+  avgTimeSec: number | null;
+  avgChanges: number | null;
+  perQuestion?: PerQuestionRow[];
+};
+
 export default function PortalStats({ portal }: { portal: string }) {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<StatsData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -14,8 +30,9 @@ export default function PortalStats({ portal }: { portal: string }) {
         if (!res.ok) throw new Error(await res.text());
         const json = await res.json();
         if (isMounted) setData(json);
-      } catch (e: any) {
-        setError(e?.message || "Failed to load stats");
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Failed to load stats";
+        setError(msg);
       }
     })();
     return () => {
@@ -28,7 +45,7 @@ export default function PortalStats({ portal }: { portal: string }) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Portal Performance — {data.portal}</h2>
+      <h2 className="text-xl font-semibold">Portal Performance{data.portal ? ` - ${data.portal}` : ""}</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-2xl shadow p-4">
@@ -56,7 +73,7 @@ export default function PortalStats({ portal }: { portal: string }) {
             </tr>
           </thead>
           <tbody>
-            {data.perQuestion.map((row: any) => (
+            {data.perQuestion?.map((row) => (
               <tr key={row.questionId} className="border-t">
                 <td className="p-3 max-w-[520px]">
                   <div className="line-clamp-2">

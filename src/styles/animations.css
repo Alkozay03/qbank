@@ -1,0 +1,130 @@
+/* Global Animation Utilities */
+:root {
+  --animation-duration: 200ms;
+  --animation-timing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth hover transitions for all interactive elements */
+button,
+a,
+[role="button"],
+.interactive {
+  transition: all var(--animation-duration) var(--animation-timing);
+}
+
+/* Only apply hover effects to elements with specific classes */
+
+/* Hover effects */
+.hover-lift {
+  transform: translateY(0);
+  transition: transform var(--animation-duration) var(--animation-timing);
+}
+
+.hover-lift:hover {
+  transform: translateY(-1px);
+}
+
+.hover-scale {
+  transform: scale(1);
+  transition: transform var(--animation-duration) var(--animation-timing);
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.hover-scale-sm {
+  transform: scale(1);
+  transition: transform var(--animation-duration) var(--animation-timing);
+}
+
+.hover-scale-sm:hover {
+  transform: scale(1.02);
+}
+
+/* Button hover effects */
+.btn-hover {
+  position: relative;
+  overflow: hidden;
+  transition: all var(--animation-duration) var(--animation-timing);
+}
+
+.btn-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-hover:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Icon hover animations */
+.icon-hover {
+  transition: all var(--animation-duration) var(--animation-timing);
+}
+
+.icon-hover:hover {
+  transform: scale(1.1);
+}
+
+/* Fade in animations */
+.fade-in {
+  animation: fadeIn 300ms var(--animation-timing);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Pulse animation for notifications */
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Loading spinner */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Focus rings with animation */
+.focus-ring {
+  transition: box-shadow var(--animation-duration) var(--animation-timing);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* Smooth color transitions */
+.color-transition {
+  transition: color var(--animation-duration) var(--animation-timing),
+              background-color var(--animation-duration) var(--animation-timing),
+              border-color var(--animation-duration) var(--animation-timing);
+}

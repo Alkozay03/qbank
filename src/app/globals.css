@@ -3,6 +3,15 @@
 /* Tailwind v4 single import */
 @import "tailwindcss";
 
+/* Import gradient theme */
+@import "../styles/gradient-theme.css";
+
+/* Import lightweight hover animations */
+@import "../styles/hover-animations.css";
+
+/* Import Tiptap editor styles */
+@import "../styles/tiptap.css";
+
 /* Base page styling */
 html, body, #__next, :root { height: 100%; }
 
@@ -16,6 +25,47 @@ html:not(.dark) body {
   color: #0a0a0a;
 }
 
+/* Animation classes for popups and tooltips */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tooltipFadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateX(-50%) translateY(-5px);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes tooltipScale {
+  from { 
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to { 
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
 /* Dark mode default */
 .dark body {
   background-color: #0a0a0a; /* neutral-950 adjacent */
@@ -24,3 +74,28 @@ html:not(.dark) body {
 
 /* Utility tweaks */
 a { text-decoration: none; }
+
+/* Animated Background Styles */
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  opacity: 0.6;
+  background-color: rgba(59, 130, 246, 0.3);
+  filter: blur(80px);
+  will-change: transform, width, height, opacity, background-color;
+}
+
+.animated-background-container {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.card-on-background {
+  backdrop-filter: blur(4px);
+  transition: all 500ms;
+}
+
+.card-on-background:hover {
+  backdrop-filter: blur(12px);
+}

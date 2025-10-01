@@ -1,10 +1,9 @@
 // src/components/Shell.tsx
 "use client";
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import TopRightBar from "./TopRightBar";
-import clsx from "clsx";
 
 export default function Shell({
   title,
@@ -18,17 +17,22 @@ export default function Shell({
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
-      return localStorage.getItem("sidebar-collapsed") === "1";
+      // On mobile, default to collapsed
+      const isMobile = window.innerWidth < 768;
+      const saved = localStorage.getItem("sidebar-collapsed");
+      return saved ? saved === "1" : isMobile;
     } catch {
       return false;
     }
   });
 
-  useLayoutEffect(() => {
+  const handleToggleSidebar = () => {
+    const newState = !collapsed;
+    setCollapsed(newState);
     try {
-      localStorage.setItem("sidebar-collapsed", collapsed ? "1" : "0");
+      localStorage.setItem("sidebar-collapsed", newState ? "1" : "0");
     } catch {}
-  }, [collapsed]);
+  };
 
   useEffect(() => {
     try {
@@ -37,53 +41,80 @@ export default function Shell({
         localStorage.setItem("last-page", path);
       }
     } catch {}
-  }, []);
+
+    // Add window resize listener for mobile responsiveness
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile && !collapsed) {
+        setCollapsed(true);
+        localStorage.setItem("sidebar-collapsed", "1");
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [collapsed]);
 
   const leftPad = collapsed ? 64 : 288; // px
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#F7FBFF] overflow-x-hidden">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
+    <div className="min-h-screen gradient-background-subtle overflow-x-hidden">
+      {/* Mobile overlay */}
+      {isMobile && !collapsed && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30"
+          onClick={() => setCollapsed(true)}
+        />
+      )}
+      
+      <Sidebar collapsed={collapsed} toggleSidebarAction={handleToggleSidebar} isMobile={isMobile} />
 
-      {/* Top row: icons scroll with content on Year 4 pages */}
+      {/* Enhanced Top row: icons and page title */}
       <div
-        className="h-14 transition-[padding] duration-400 ease-in-out flex justify-end items-center"
-        style={{ paddingLeft: leftPad }}
+        className="h-16 transition-[padding] duration-400 ease-in-out flex justify-between items-center bg-white/50 backdrop-blur-md shadow-sm"
+        style={{ paddingLeft: isMobile ? 16 : leftPad }}
       >
+        {/* Page title on the left */}
+        {pageName && (
+          <div className="flex items-center ml-6">
+            <div className="w-1 h-8 bg-gradient-to-b from-[#2F6F8F] to-[#56A2CD] rounded-full mr-3"></div>
+            <span className="font-extrabold tracking-tight text-3xl bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] bg-clip-text text-transparent">
+              {pageName}
+            </span>
+          </div>
+        )}
+        
+        {/* Top right icons */}
         <TopRightBar mode="inline" />
       </div>
 
-      {/* Big page label near the sidebar */}
-      {pageName && (
-        <div
-          className={clsx(
-            "fixed top-0 z-20 h-14 flex items-center pointer-events-none select-none",
-            "transition-transform duration-400 ease-in-out"
-          )}
-          style={{ left: 16, transform: `translateX(${leftPad}px)` }}
-        >
-          <span
-            className="font-extrabold tracking-tight"
-            style={{ color: "#2F6F8F", fontSize: "28px", letterSpacing: "-0.02em" }}
-          >
-            {pageName}
-          </span>
-        </div>
-      )}
-
-      {/* Content area */}
+      {/* Enhanced Content area */}
       <main
         className="pb-10 transition-[padding] duration-400 ease-in-out overflow-x-hidden"
-        style={{ paddingLeft: leftPad }}
+        style={{ paddingLeft: isMobile ? 16 : leftPad }}
       >
-        {/* Subtitle/title bar (per page) */}
-        <div className="px-4 py-3 border-b border-[#E6F0F7] bg-[#F7FBFF]/80 backdrop-blur">
-          <div className="text-xl font-semibold text-[#2F6F8F]">{title}</div>
+        {/* Enhanced Subtitle/title bar */}
+        <div className="px-6 py-4 bg-gradient-to-r from-white/80 to-[#F8FCFF]/80 backdrop-blur border-b border-[#E6F0F7]">
+          <div className="text-xl font-semibold text-[#2F6F8F] flex items-center">
+            <div className="w-0.5 h-6 bg-[#56A2CD] rounded-full mr-3"></div>
+            {title}
+          </div>
         </div>
 
+        {/* Enhanced main content container */}
         <div
-          className="mx-auto px-4 pt-6"
-          style={{ maxWidth: 1024, width: "100%" }}
+          className="mx-auto px-6 pt-8"
+          style={{ maxWidth: 1200, width: "100%" }}
         >
           {children}
         </div>
