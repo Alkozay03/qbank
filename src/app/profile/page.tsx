@@ -10,6 +10,8 @@ type Me = {
   gradYear: number | null;
   email: string;
   role?: string;
+  timezone?: string;
+  rotation?: string;
 };
 
 export default function Profile() {
@@ -134,6 +136,79 @@ export default function Profile() {
                   readOnly
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  Current Rotation
+                </label>
+                <select
+                  name="rotation"
+                  defaultValue={me.rotation ?? ""}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+                >
+                  <option value="">Select Rotation</option>
+                  <option value="Pediatrics">Pediatrics</option>
+                  <option value="Internal Medicine">Internal Medicine</option>
+                  <option value="General Surgery">General Surgery</option>
+                  <option value="Obstetrics & Gynecology">Obstetrics & Gynecology</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  Preferred Timezone (Optional)
+                </label>
+                <select
+                  name="timezone"
+                  defaultValue={me.timezone ?? ""}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+                >
+                  <option value="">Use Local Time Only</option>
+                  <optgroup label="Americas">
+                    <option value="America/New_York">New York (EST/EDT)</option>
+                    <option value="America/Chicago">Chicago (CST/CDT)</option>
+                    <option value="America/Denver">Denver (MST/MDT)</option>
+                    <option value="America/Los_Angeles">Los Angeles (PST/PDT)</option>
+                    <option value="America/Toronto">Toronto</option>
+                    <option value="America/Vancouver">Vancouver</option>
+                  </optgroup>
+                  <optgroup label="Europe">
+                    <option value="Europe/London">London</option>
+                    <option value="Europe/Paris">Paris</option>
+                    <option value="Europe/Berlin">Berlin</option>
+                    <option value="Europe/Rome">Rome</option>
+                    <option value="Europe/Madrid">Madrid</option>
+                    <option value="Europe/Amsterdam">Amsterdam</option>
+                  </optgroup>
+                  <optgroup label="Asia">
+                    <option value="Asia/Tokyo">Tokyo</option>
+                    <option value="Asia/Shanghai">Shanghai</option>
+                    <option value="Asia/Hong_Kong">Hong Kong</option>
+                    <option value="Asia/Singapore">Singapore</option>
+                    <option value="Asia/Seoul">Seoul</option>
+                    <option value="Asia/Dubai">Dubai</option>
+                  </optgroup>
+                  <optgroup label="Middle East">
+                    <option value="Asia/Riyadh">Saudi Arabia</option>
+                    <option value="Asia/Kuwait">Kuwait</option>
+                    <option value="Asia/Qatar">Qatar</option>
+                    <option value="Asia/Bahrain">Bahrain</option>
+                    <option value="Asia/Dubai">United Arab Emirates</option>
+                    <option value="Asia/Muscat">Oman</option>
+                    <option value="Asia/Tehran">Iran</option>
+                    <option value="Asia/Baghdad">Iraq</option>
+                    <option value="Asia/Damascus">Syria</option>
+                    <option value="Asia/Beirut">Lebanon</option>
+                    <option value="Asia/Amman">Jordan</option>
+                    <option value="Asia/Jerusalem">Palestine</option>
+                    <option value="Europe/Istanbul">Turkey</option>
+                    <option value="Africa/Cairo">Egypt</option>
+                  </optgroup>
+                  <optgroup label="Australia">
+                    <option value="Australia/Sydney">Sydney</option>
+                    <option value="Australia/Melbourne">Melbourne</option>
+                    <option value="Australia/Perth">Perth</option>
+                  </optgroup>
+                </select>
               </div>
             </div>
 

@@ -1,11 +1,10 @@
 // src/app/login/page.tsx
 "use client";
 
-import { Suspense } from "react";
-import AuthTopBar from "@/components/AuthTopBar";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import BackgroundWrapper from "@/components/BackgroundWrapper";
 
 export default function Login() {
   return (
@@ -49,6 +48,16 @@ function LoginInner() {
       // 1) mark intent so only this browser can consume the magic link
       await fetch("/api/auth/email-intent", { method: "POST", credentials: "include" });
 
+      // Persist remember choice in a cookie (45 days)
+      try {
+        if (remember) {
+          const maxAge = 45 * 24 * 60 * 60; // 45 days
+          document.cookie = `remember=1; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+        } else {
+          document.cookie = `remember=; Max-Age=0; Path=/; SameSite=Lax`;
+        }
+      } catch {}
+
       // 2) request the magic link (no redirect — we show the “check inbox” page)
       const res = await signIn("email", {
         email,
@@ -72,18 +81,19 @@ function LoginInner() {
   }
 
   return (
-    <main className="
-      min-h-screen flex items-center justify-center px-4
-      bg-gradient-to-b from-[#F3F9FC] via-[#CCE3F0] to-[#FFFFFF]
-    ">
-      <AuthTopBar />
-      <div className="w-full max-w-md mt-14 rounded-2xl bg-white shadow p-6 sm:p-8 border border-[#E6F0F7]">
-        <h1 className="text-2xl font-bold text-[#56A2CD] text-center">Sign in</h1>
-        <p className="mt-2 text-center text-sm text-[#7DB8D9]">Enter your university email</p>
+    <>
+      <BackgroundWrapper />
+      <main className="min-h-screen flex items-center justify-center px-4 relative z-20">
+        <div className="fixed top-6 left-6 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2 shadow-md">
+          <div className="brand-title text-3xl font-bold">Clerkship</div>
+        </div>
+        <div className="w-full max-w-lg mt-14 gradient-card shadow-lg p-8 sm:p-10 backdrop-blur-md">
+        <h1 className="text-4xl font-bold text-center mb-6 text-[#2F6F8F]">Sign in</h1>
+        <p className="text-center text-lg text-readable-light mb-8">Enter your university email</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        <form onSubmit={onSubmit} className="space-y-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="email" className="block text-base font-semibold text-readable mb-3">
               University Email
             </label>
             <input
@@ -95,17 +105,16 @@ function LoginInner() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="u12345678@sharjah.ac.ae"
-              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2
-                         text-slate-900 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+              className="gradient-input text-lg py-4"
             />
           </div>
 
-          <label className="flex items-center gap-2 select-none text-sm text-slate-700">
+          <label className="flex items-center gap-2 select-none text-sm text-readable">
             <input
               type="checkbox"
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-[#56A2CD] focus:ring-[#A5CDE4]"
+              className="h-4 w-4 rounded border-slate-300 text-[#2F6F8F] focus:ring-2 focus:ring-[#2F6F8F]"
             />
             Remember Me
           </label>
@@ -116,15 +125,13 @@ function LoginInner() {
             type="submit"
             disabled={sending}
             aria-busy={sending}
-            className="w-full rounded-2xl px-4 py-2 font-semibold text-white bg-[#7DB8D9] shadow
-                       transition duration-200 ease-out hover:scale-[1.02] hover:bg-[#56A2CD]
-                       active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed
-                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#A5CDE4]"
+            className="gradient-btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {sending ? "Sending…" : "Sign in"}
           </button>
         </form>
       </div>
     </main>
+    </>
   );
 }

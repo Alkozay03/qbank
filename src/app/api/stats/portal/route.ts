@@ -1,7 +1,7 @@
 ﻿// src/app/api/stats/portal/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { auth } from "@/auth";
 
@@ -15,7 +15,7 @@ import { auth } from "@/auth";
  * Note: current schema has no `portal` or per-question aggregates on Response.
  * We accept ?portal for forward-compat, but ignore it here.
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
   if (!userId) {

@@ -19,8 +19,7 @@ export async function POST(req: Request) {
 
   // You can log in dev to verify
   if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.log("[feedback] user:", userId, "payload:", payload);
+    console.warn("[feedback] user:", userId, "payload:", payload);
   }
 
   return NextResponse.json({ ok: true });

@@ -1,6 +1,6 @@
 // src/app/api/admin/schedule/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/db";
+import db from "@/lib/db";
 import { requireRole } from "@/lib/rbac";
 import { startOfWeekMonday } from "@/lib/dates";
 

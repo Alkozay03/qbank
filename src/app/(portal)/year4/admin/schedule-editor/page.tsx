@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type ItemType = "HOSPITAL_SHIFT" | "LECTURE";
@@ -31,9 +31,7 @@ export default function ScheduleEditorPage() {
     return `${dd} → ${end.toLocaleDateString()}`;
   }, [weekStart]);
 
-  useEffect(() => { void loadCurrent(); }, [weekStart]);
-
-  async function loadCurrent() {
+  const loadCurrent = useCallback(async () => {
     setLoading(true);
     try {
       const r = await fetch(`/api/admin/schedule?weekStart=${encodeURIComponent(weekStart)}`, { cache: "no-store" });
@@ -45,7 +43,9 @@ export default function ScheduleEditorPage() {
         setTitle("Week Schedule"); setItems([]);
       }
     } finally { setLoading(false); }
-  }
+  }, [weekStart]);
+
+  useEffect(() => { void loadCurrent(); }, [loadCurrent]);
 
   function addRow() {
     const now = new Date(weekStart);

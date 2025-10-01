@@ -1,5 +1,4 @@
 export const dynamic = "force-dynamic"; // add at top of the page file
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
@@ -11,7 +10,7 @@ export default async function AccountPage() {
   if (!session?.user?.id) redirect("/login?callbackUrl=/account");
 
   const user = await db.user.findUnique({
-    where: { id: (session.user as any).id },
+    where: { id: session.user.id as string },
     select: { email: true, firstName: true, lastName: true, gradYear: true },
   });
 
@@ -26,7 +25,7 @@ export default async function AccountPage() {
     const gradYear  = Number.isFinite(gradYearV) ? gradYearV : null;
 
     await db.user.update({
-      where: { id: (s.user as any).id },
+      where: { id: s.user?.id as string },
       data: { firstName, lastName, gradYear },
     });
 

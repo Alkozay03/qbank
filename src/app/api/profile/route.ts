@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import { Role } from "@prisma/client";
+import { databaseUnavailableResponse, isDatabaseUnavailableError } from "@/server/db/errors";
 
 export async function GET() {
   const session = await auth();
@@ -12,37 +13,48 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: {
-      firstName: true,
-      lastName: true,
-      gradYear: true,
-      email: true,
-      role: true,
-    },
-  });
-
-  if (!user) {
-    const created = await prisma.user.upsert({
+  try {
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      update: {},
-      create: {
-        email: session.user.email,
-        role: Role.MEMBER, // ✅ valid enum
-      },
       select: {
         firstName: true,
         lastName: true,
         gradYear: true,
         email: true,
         role: true,
+        timezone: true,
       },
     });
-    return NextResponse.json(created);
-  }
 
-  return NextResponse.json(user);
+    if (!user) {
+      const created = await prisma.user.upsert({
+        where: { email: session.user.email },
+        update: {},
+        create: {
+          email: session.user.email,
+          role: Role.MEMBER, // ✅ valid enum
+        },
+        select: {
+          firstName: true,
+          lastName: true,
+          gradYear: true,
+          email: true,
+          role: true,
+          timezone: true,
+          rotation: true,
+        },
+      });
+      return NextResponse.json(created);
+    }
+
+    return NextResponse.json(user);
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      console.warn("[profile] Database unavailable", error);
+      return databaseUnavailableResponse();
+    }
+    throw error;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -56,25 +68,40 @@ export async function POST(req: NextRequest) {
   const lastName = (form.get("lastName") || "") as string;
   const gradYearRaw = form.get("gradYear") as string | null;
   const gradYear = gradYearRaw ? Number(gradYearRaw) : null;
+  const timezone = (form.get("timezone") || null) as string | null;
+  const rotation = (form.get("rotation") || null) as string | null;
 
-  const updated = await prisma.user.upsert({
-    where: { email: session.user.email },
-    update: { firstName, lastName, gradYear },
-    create: {
-      email: session.user.email,
-      role: Role.MEMBER, // ✅ use enum, not string
-      firstName,
-      lastName,
-      gradYear,
-    },
-    select: {
-      firstName: true,
-      lastName: true,
-      gradYear: true,
-      email: true,
-      role: true,
-    },
-  });
+  let updated;
+  try {
+    updated = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: { firstName, lastName, gradYear, timezone, rotation },
+      create: {
+        email: session.user.email,
+        role: Role.MEMBER, // ✅ use enum, not string
+        firstName,
+        lastName,
+        gradYear,
+        timezone,
+        rotation,
+      },
+      select: {
+        firstName: true,
+        lastName: true,
+        gradYear: true,
+        email: true,
+        role: true,
+        timezone: true,
+        rotation: true,
+      },
+    });
+  } catch (error) {
+    if (isDatabaseUnavailableError(error)) {
+      console.warn("[profile] Database unavailable on update", error);
+      return databaseUnavailableResponse();
+    }
+    throw error;
+  }
 
   // Handle redirect vs JSON response
   const wantsRedirect = form.get("__redirect") === "1";

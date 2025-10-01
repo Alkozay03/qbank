@@ -6,6 +6,39 @@ import { prisma } from "@/server/db";
 import { requireRole } from "@/lib/rbac";
 import { generateShortNumericId } from "@/lib/ids";
 import { TagType } from "@prisma/client";
+import {
+  canonicalizeQuestionMode,
+  deriveModeFromHistory,
+  getCurrentQuestionMode,
+  setQuestionMode,
+} from "@/lib/quiz/questionMode";
+
+function normalizeReferenceInput(
+  referenceText?: string | null,
+  referenceList?: Array<{ url: string }>
+): string | null {
+  const values = new Set<string>();
+
+  if (typeof referenceText === "string") {
+    referenceText
+      .replace(/\r/g, "")
+      .split(/\n+|,|;|\u2022|\u2023|\u25E6/g)
+      .forEach((piece) => {
+        const trimmed = piece.trim();
+        if (trimmed) values.add(trimmed);
+      });
+  }
+
+  if (Array.isArray(referenceList)) {
+    referenceList.forEach((entry) => {
+      const trimmed = typeof entry?.url === "string" ? entry.url.trim() : "";
+      if (trimmed) values.add(trimmed);
+    });
+  }
+
+  if (!values.size) return null;
+  return Array.from(values).join("\n");
+}
 
 /**
  * GET /api/admin/questions?customId=123456
@@ -31,17 +64,20 @@ export async function GET(req: Request) {
 
   if (!q) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const refs = await prisma.tag.findMany({
-    where: { type: TagType.RESOURCE, questions: { some: { questionId: q.id } } },
-  });
+  const referencesList = (q.references ?? "")
+    .replace(/\r/g, "")
+    .split(/\n+/)
+    .map((url) => url.trim())
+    .filter((url) => url.length > 0);
 
   return NextResponse.json({
     customId: q.customId,
     text: q.text,
     explanation: q.explanation,
     objective: q.objective,
+    references: q.references ?? "",
+    refs: referencesList.map((url) => ({ url })),
     answers: q.answers.map((a) => ({ id: a.id, text: a.text, isCorrect: a.isCorrect })),
-    refs: refs.map((r) => ({ url: r.value })),
     tags: q.questionTags.map((t) => ({ type: t.tag.type, value: t.tag.value })),
   });
 }
@@ -60,6 +96,7 @@ export async function POST(req: Request) {
     explanation?: string | null;
     objective?: string | null;
     refs?: Array<{ url: string }>;
+    references?: string | null;
     tags?: Array<{ type: keyof typeof TagType; value: string }>;
   };
 
@@ -81,6 +118,7 @@ export async function POST(req: Request) {
       text: body.text,
       explanation: body.explanation ?? null,
       objective: body.objective ?? null,
+      references: normalizeReferenceInput(body.references, body.refs),
       answers: {
         create: body.answers.map((a) => ({ text: a.text, isCorrect: a.isCorrect })),
       },
@@ -100,17 +138,8 @@ export async function POST(req: Request) {
     }
   }
 
-  // attach resource refs as Tag(type=RESOURCE, value=url)
-  if (Array.isArray(body.refs) && body.refs.length) {
-    for (const r of body.refs) {
-      const tag = await prisma.tag.upsert({
-        where: { type_value: { type: TagType.RESOURCE, value: r.url } },
-        update: {},
-        create: { type: TagType.RESOURCE, value: r.url },
-      });
-      await prisma.questionTag.create({ data: { questionId: q.id, tagId: tag.id } });
-    }
-  }
+  // Ensure new questions always start as unused
+  await setQuestionMode(q.id, "unused");
 
   return NextResponse.json({ ok: true, customId: q.customId });
 }
@@ -130,6 +159,7 @@ export async function PUT(req: Request) {
     explanation?: string | null;
     objective?: string | null;
     refs?: Array<{ url: string }>;
+    references?: string | null;
     tags?: Array<{ type: keyof typeof TagType; value: string }>;
   };
 
@@ -140,12 +170,15 @@ export async function PUT(req: Request) {
   const existing = await prisma.question.findUnique({ where: { customId: body.customId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const previousMode = await getCurrentQuestionMode(existing.id);
+
   await prisma.question.update({
     where: { id: existing.id },
     data: {
       text: body.text,
       explanation: body.explanation ?? null,
       objective: body.objective ?? null,
+      references: normalizeReferenceInput(body.references, body.refs),
     },
   });
 
@@ -164,9 +197,15 @@ export async function PUT(req: Request) {
   // Replace tags & refs
   await prisma.questionTag.deleteMany({ where: { questionId: existing.id } });
 
+  let providedMode: string | null = null;
+
   if (Array.isArray(body.tags) && body.tags.length) {
     for (const t of body.tags) {
       const type = TagType[t.type] ?? TagType.TOPIC;
+      if (type === TagType.MODE) {
+        providedMode = typeof t.value === "string" ? t.value : null;
+        continue;
+      }
       const tag = await prisma.tag.upsert({
         where: { type_value: { type, value: t.value } },
         update: {},
@@ -176,15 +215,14 @@ export async function PUT(req: Request) {
     }
   }
 
-  if (Array.isArray(body.refs) && body.refs.length) {
-    for (const r of body.refs) {
-      const tag = await prisma.tag.upsert({
-        where: { type_value: { type: TagType.RESOURCE, value: r.url } },
-        update: {},
-        create: { type: TagType.RESOURCE, value: r.url },
-      });
-      await prisma.questionTag.create({ data: { questionId: existing.id, tagId: tag.id } });
-    }
+  const normalizedMode = canonicalizeQuestionMode(providedMode);
+  if (normalizedMode) {
+    await setQuestionMode(existing.id, normalizedMode);
+  } else if (previousMode) {
+    await setQuestionMode(existing.id, previousMode);
+  } else {
+    const derived = await deriveModeFromHistory(existing.id);
+    await setQuestionMode(existing.id, derived);
   }
 
   return NextResponse.json({ ok: true });

@@ -1,77 +1,58 @@
 // src/app/year4/page.tsx
-export const dynamic = "force-dynamic"; // add at top of the page file
 import Shell from "@/components/Shell";
 import { auth } from "@/auth";
-import { prisma } from "@/server/db";
-import ClientClock from "@/components/ClientClock"; // ✅ use the client clock
+import ClientClock from "@/components/ClientClock";
+import DashboardStatsClient from "@/components/year4/DashboardStatsClient";
+import { headers } from "next/headers";
+
+type ProfileResponse = {
+  firstName?: string | null;
+  timezone?: string | null;
+};
 
 export default async function Dashboard() {
   const session = await auth();
-  const userEmail = session?.user?.email ?? "";
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
+  const proto = headerList.get("x-forwarded-proto") ?? (process.env.NODE_ENV === "production" ? "https" : "http");
 
-  // Defaults so UI never breaks
-  let name = "Student";
-  let avgPercent = 0;
-  let usedPercent = 0;
-  let testsCompleted = 0;
-  let answered = 0; // ✅ y
-  let totalQuestions = 0; // ✅ z
+  let profile: ProfileResponse | null = null;
+  let dbUnavailable = false;
 
-  try {
-    const user = await db.user.findUnique({
-      where: { email: userEmail },
-      select: { firstName: true, email: true, id: true },
-    });
-    if (user?.firstName) name = user.firstName;
-
-    totalQuestions = await db.question.count();
-    const responsesAll = await db.response.findMany({
-      where: { quizItem: { quiz: { userId: user?.id ?? "" } } },
-      select: { isCorrect: true },
-    });
-
-    const correct = responsesAll.filter((r) => r.isCorrect).length;
-    answered = responsesAll.length;
-
-    avgPercent = answered > 0 ? Math.round((correct / answered) * 100) : 0;
-    usedPercent = totalQuestions > 0 ? Math.round((answered / totalQuestions) * 100) : 0;
-
-    testsCompleted = await db.quiz.count({ where: { userId: user?.id ?? "" } });
-  } catch {
-    // keep defaults
+  if (host) {
+    try {
+      const res = await fetch(`${proto}://${host}/api/profile`, { cache: "no-store" });
+      if (res.ok) {
+        profile = (await res.json()) as ProfileResponse;
+      } else if (res.status === 503) {
+        dbUnavailable = true;
+      }
+    } catch {
+      dbUnavailable = true;
+    }
   }
+
+  const fallbackName = session?.user?.name || session?.user?.email || "Student";
+  const name = dbUnavailable ? "Offline Mode" : profile?.firstName || fallbackName;
+  const userForClock = { timezone: profile?.timezone || undefined };
 
   return (
     <Shell title={`Welcome, ${name}`} pageName="Dashboard">
-      {/* 3 stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Question Score */}
-        <div className="rounded-2xl bg-white border border-[#E6F0F7] p-4 shadow">
-          <div className="text-sm text-slate-600">Question Score</div>
-          <div className="mt-2 text-4xl font-extrabold text-[#2F6F8F]">{avgPercent}%</div>
-          <div className="text-sm text-slate-600">Correct</div>
+      {dbUnavailable && (
+        <div className="mb-6 rounded-xl border border-[#F5C06C] bg-[#FFF7E6] p-4 text-[#8B6D00]">
+          We couldn’t reach the database. Some dynamic features are disabled, but you can continue reviewing static
+          content. Check your DATABASE_URL/LOCAL_DATABASE_URL or start the local database to restore full
+          functionality.
         </div>
+      )}
 
-        {/* Qbank Usage */}
-        <div className="rounded-2xl bg-white border border-[#E6F0F7] p-4 shadow">
-          <div className="text-sm text-slate-600">Qbank Usage</div>
-          <div className="mt-2 text-4xl font-extrabold text-[#2F6F8F]">
-            {usedPercent}%
-          </div>
-          <div className="text-base text-slate-600">
-            {answered}/{totalQuestions} Questions Used
-          </div>
-        </div>
+      <DashboardStatsClient />
 
-        {/* Tests Completed */}
-        <div className="rounded-2xl bg-white border border-[#E6F0F7] p-4 shadow">
-          <div className="text-sm text-slate-600">Tests completed</div>
-          <div className="mt-2 text-4xl font-extrabold text-[#2F6F8F]">{testsCompleted}</div>
+      <div className="rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] p-6 shadow-lg">
+        <div className="flex justify-center items-center">
+          <ClientClock user={userForClock} />
         </div>
       </div>
-
-      {/* Date + Time */}
-      <ClientClock />
     </Shell>
   );
 }

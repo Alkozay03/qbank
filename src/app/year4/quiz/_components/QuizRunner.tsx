@@ -1,5 +1,25 @@
 ﻿"use client";
 
+import {
+  Calculator,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Flag,
+  FlaskConical,
+  Highlighter as HighlighterIcon,
+  Maximize2,
+  MessageSquare,
+  Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PauseCircle,
+  Undo2,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import Image from "next/image";
 import React, {
   memo,
   useCallback,
@@ -9,9 +29,34 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+import clsx from "clsx";
+import QuestionDiscussion from "./QuestionDiscussion";
 
+type TagType = "SUBJECT" | "SYSTEM" | "TOPIC" | "ROTATION" | "RESOURCE" | "MODE";
+type DisplayTagType = Exclude<TagType, "MODE" | "TOPIC">;
+type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { id: string; text: string; isCorrect: boolean };
-type Question = { id: string; stem: string; explanation?: string | null; choices: Choice[] };
+type Question = {
+  id: string;
+  customId?: number | null;
+  stem: string;
+  explanation?: string | null;
+  objective?: string | null;
+  questionYear?: string | null;
+  rotationNumber?: string | null;
+  iduScreenshotUrl?: string | null;
+  questionImageUrl?: string | null;
+  explanationImageUrl?: string | null;
+  references?: string | null;
+  choices: Choice[];
+  tags?: QuestionTag[];
+  occurrences?: Array<{
+    year: string | null;
+    rotation: string | null;
+    orderIndex: number | null;
+  }>;
+};
+
 type Item = {
   id: string;
   order: number | null;
@@ -19,24 +64,149 @@ type Item = {
   question: Question;
   responses: { choiceId: string | null; isCorrect: boolean | null }[];
 };
+
+type Viewer = {
+  name: string | null;
+  email: string | null;
+  role: "MEMBER" | "ADMIN" | "MASTER_ADMIN" | null;
+};
+
+type QuestionFirstAttemptStats = {
+  totalFirstAttempts: number;
+  firstAttemptCorrect: number;
+  percent: number | null;
+  choiceFirstAttempts: Record<string, { count: number; percent: number | null }>;
+};
+
 type InitialQuiz = {
   id: string;
   status: "Active" | "Suspended" | "Ended";
   items: Item[];
+  viewer?: Viewer;
 };
 
 const TOP_H = 56;
 const BOTTOM_H = 56;
 const DEFAULT_OBJECTIVE = "This section summarizes the key takeaway for rapid review.";
 
+const PALETTE = {
+  primary: "#2F6F8F",
+  accent: "#56A2CD",
+  accentSoft: "#E4F2FB",
+  surface: "#FFFFFF",
+  surfaceAlt: "#F4FAFF",
+  outline: "#E6F0F7",
+  success: "#16a34a",
+  danger: "#e11d48",
+};
+
+const TAG_LABELS: Record<DisplayTagType, string> = {
+  SUBJECT: "Subject/Discipline",
+  SYSTEM: "System",
+  ROTATION: "Rotation",
+  RESOURCE: "Resource",
+};
+
 /** Persisted HTML (with highlights) per item and section */
 type SectionHTML = { stem: string; explanation: string; objective: string };
+
+const SECTION_SELECTOR = '[data-section="stem"],[data-section="explanation"],[data-section="objective"]';
+
+function findSection(node: Node | null): { el: HTMLElement; key: keyof SectionHTML } | null {
+  if (!node) return null;
+
+  let el: Element | null = null;
+
+  if (node instanceof Element) {
+    el = node.closest(SECTION_SELECTOR);
+  } else if (node instanceof Text) {
+    const parent = node.parentNode;
+    el = parent instanceof Element ? parent.closest(SECTION_SELECTOR) : null;
+  } else {
+    const parent = (node as ChildNode | null)?.parentNode ?? null;
+    el = parent instanceof Element ? parent.closest(SECTION_SELECTOR) : null;
+  }
+
+  if (!el) return null;
+  const section = el.getAttribute("data-section");
+  if (section === "stem" || section === "explanation" || section === "objective") {
+    return { el: el as HTMLElement, key: section as keyof SectionHTML };
+  }
+  return null;
+}
+
+const isHL = (n: Node | null): n is HTMLElement =>
+  !!n &&
+  n.nodeType === Node.ELEMENT_NODE &&
+  (n as HTMLElement).tagName.toLowerCase() === "mark" &&
+  (n as HTMLElement).getAttribute("data-qa") === "highlight";
+
+const skipEmptyText = (n: Node | null, backwards = false): Node | null => {
+  let cursor = n;
+  while (cursor) {
+    if (cursor.nodeType === Node.TEXT_NODE) {
+      const value = (cursor as Text).nodeValue;
+      if (value && value.length > 0) break;
+    } else if (cursor.nodeType !== Node.COMMENT_NODE) {
+      break;
+    }
+    cursor = backwards ? cursor.previousSibling : cursor.nextSibling;
+  }
+  return cursor;
+};
+
+const unwrap = (el: HTMLElement) => {
+  const parent = el.parentNode;
+  if (!parent) return;
+  while (el.firstChild) parent.insertBefore(el.firstChild, el);
+  parent.removeChild(el);
+};
+
+const mergeWithNeighbors = (markEl: HTMLElement) => {
+  const targetColor = window.getComputedStyle(markEl).backgroundColor;
+
+  const prev = skipEmptyText(markEl.previousSibling, true);
+  if (prev && isHL(prev) && window.getComputedStyle(prev).backgroundColor === targetColor) {
+    while (markEl.firstChild) prev.appendChild(markEl.firstChild);
+    markEl.remove();
+    markEl = prev;
+  }
+
+  let next = skipEmptyText(markEl.nextSibling, false);
+  while (next && isHL(next) && window.getComputedStyle(next).backgroundColor === targetColor) {
+    const nextEl = next as HTMLElement;
+    while (nextEl.firstChild) markEl.appendChild(nextEl.firstChild);
+    const after = nextEl.nextSibling;
+    nextEl.remove();
+    next = skipEmptyText(after, false);
+  }
+
+  return markEl;
+};
+
+const normalizeInsertedMark = (markEl: HTMLElement) => {
+  const inner = Array.from(markEl.querySelectorAll('mark[data-qa="highlight"]')) as HTMLElement[];
+  inner.forEach((im) => unwrap(im));
+  return mergeWithNeighbors(markEl);
+};
+
+const normalizeSectionHighlights = (sectionEl: Element) => {
+  const nested = Array.from(
+    sectionEl.querySelectorAll('mark[data-qa="highlight"] mark[data-qa="highlight"]')
+  ) as HTMLElement[];
+  nested.forEach((n) => unwrap(n));
+
+  const marks = Array.from(sectionEl.querySelectorAll('mark[data-qa="highlight"]')) as HTMLElement[];
+  marks.forEach((m) => mergeWithNeighbors(m));
+};
 
 export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }) {
   const [id] = useState(initialQuiz.id);
   const [items, setItems] = useState<Item[]>(initialQuiz.items);
   const [curIndex, setCurIndex] = useState(0);
   const [status, setStatus] = useState<"Active" | "Suspended" | "Ended">(initialQuiz.status);
+  const [statsByQuestion, setStatsByQuestion] = useState<Record<string, QuestionFirstAttemptStats>>({});
+  const statsLoadedRef = useRef(false);
 
   // Sidebar (narrower)
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -89,7 +259,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const changeRef = useRef<number>(0);
   const lastChoiceRef = useRef<string | null>(null);
 
-
   // Answers
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [crossed, setCrossed] = useState<Record<string, boolean>>({});
@@ -113,7 +282,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
           explanation:
             toHTML(currentItem.question.explanation ?? "") ||
             "<div class='text-sm text-slate-500'>No explanation provided.</div>",
-          objective: toHTML(DEFAULT_OBJECTIVE),
+          objective: toHTML(currentItem.question.objective ?? DEFAULT_OBJECTIVE),
         },
       };
     });
@@ -148,13 +317,46 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // Reset per-question state
   useEffect(() => {
-  setQuestionSeconds(0);
-  setSelectedChoiceId(null);
-  setCrossed({});
-  // --- added: reset change counter & last choice on question change ---
-  changeRef.current = 0;
-  lastChoiceRef.current = null;
-}, [curIndex]);
+    setQuestionSeconds(0);
+    setSelectedChoiceId(null);
+    setCrossed({});
+    // --- added: reset change counter & last choice on question change ---
+    changeRef.current = 0;
+    lastChoiceRef.current = null;
+  }, [curIndex]);
+
+  const fetchQuestionStats = useCallback(async (questionIds: string[]) => {
+    if (!Array.isArray(questionIds) || questionIds.length === 0) return;
+    try {
+      const res = await fetch(`/api/questions/stats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionIds }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        stats?: Record<string, QuestionFirstAttemptStats>;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Unable to load question stats");
+      }
+      if (payload?.stats) {
+        setStatsByQuestion((prev) => ({ ...prev, ...payload.stats }));
+      }
+    } catch (err) {
+      console.warn("question stats load failed", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (statsLoadedRef.current) return;
+    const ids = Array.from(new Set(items.map((it) => it.question.id))).filter(Boolean);
+    if (!ids.length) return;
+    statsLoadedRef.current = true;
+    fetchQuestionStats(ids).catch(() => {
+      /* handled in helper */
+    });
+  }, [items, fetchQuestionStats]);
 
   const fmtHMS = (secs: number) => {
     const h = Math.floor(secs / 3600);
@@ -184,12 +386,21 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const localCorrect =
       currentItem.question.choices.find((c) => c.id === selectedChoiceId)?.isCorrect ?? null;
     try {
-      const res = await fetch(`/api/quiz/${id}/answer`, {
+      const res = await fetch(`/api/quiz/${id}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quizItemId: currentItem.id, choiceId: selectedChoiceId, timeSeconds: questionSeconds, changeCount: changeRef.current }),
+        body: JSON.stringify({
+          quizItemId: currentItem.id,
+          choiceId: selectedChoiceId,
+          timeSeconds: questionSeconds,
+          changeCount: changeRef.current,
+        }),
       });
-      const data = (await res.json().catch(() => ({}))) as { isCorrect?: boolean };
+      const data = (await res.json().catch(() => ({}))) as { isCorrect?: boolean; pickedId?: string; error?: string };
+
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Failed to submit answer");
+      }
 
       if (tickRef.current) window.clearInterval(tickRef.current);
       if (qTickRef.current) window.clearInterval(qTickRef.current);
@@ -201,11 +412,20 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       setItems((prev) =>
         prev.map((it) =>
           it.id === currentItem.id
-            ? { ...it, responses: [{ choiceId: selectedChoiceId, isCorrect: Boolean(finalCorrect) }] }
+            ? {
+                ...it,
+                responses: [
+                  {
+                    choiceId: data?.pickedId ?? selectedChoiceId,
+                    isCorrect: Boolean(finalCorrect),
+                  },
+                ],
+              }
             : it
         )
       );
-    } catch {
+      void fetchQuestionStats([currentItem.question.id]);
+    } catch (error) {
       setItems((prev) =>
         prev.map((it) =>
           it.id === currentItem.id
@@ -213,6 +433,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             : it
         )
       );
+      console.warn("quiz answer submission failed", error);
+      void fetchQuestionStats([currentItem.question.id]);
     }
   }
 
@@ -258,38 +480,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // ---------- Highlighting (persist across renders) ----------
 
-  // Section lookup using closest() – robust & avoids wrapping titles
-  const SECTION_Q = '[data-section="stem"],[data-section="explanation"],[data-section="objective"]';
-
-  const findSection = (node: Node | null): { el: HTMLElement; key: keyof SectionHTML } | null => {
-    if (!node) return null;
-
-    let el: Element | null = null;
-
-    if (node instanceof Element) {
-      // If we clicked an element, search from it
-      el = node.closest(SECTION_Q);
-    } else if (node instanceof Text) {
-      // If it's a text node, use its parent *element*
-      const p = node.parentNode;
-      el = p instanceof Element ? p.closest(SECTION_Q) : null;
-    } else {
-      // Any other node type: attempt parentNode → closest
-      const p = (node as any)?.parentNode ?? null;
-      el = p instanceof Element ? p.closest(SECTION_Q) : null;
-    }
-
-    if (!el) return null;
-    const section = el.getAttribute("data-section");
-    if (section === "stem" || section === "explanation" || section === "objective") {
-      return { el: el as HTMLElement, key: section as keyof SectionHTML };
-    }
-    return null;
-  };
-
-
-  const isInsideAllowed = (node: Node | null) => Boolean(findSection(node));
-
   const saveSectionHTML = useCallback(
     (sectionEl: Element, sectionKey: keyof SectionHTML) => {
       if (!currentItem) return;
@@ -305,72 +495,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     [currentItem]
   );
 
-  // Helpers to flatten/merge highlights (avoid stacked layers & spacing)
-  const isHL = (n: Node | null): n is HTMLElement =>
-    !!n &&
-    n.nodeType === Node.ELEMENT_NODE &&
-    (n as HTMLElement).tagName.toLowerCase() === "mark" &&
-    (n as HTMLElement).getAttribute("data-qa") === "highlight";
-
-  const skipEmptyText = (n: Node | null, backwards = false): Node | null => {
-    while (n && n.nodeType === Node.TEXT_NODE && !(n as Text).nodeValue?.trim()) {
-      n = backwards ? n.previousSibling : n.nextSibling;
-    }
-    return n;
-  };
-
-  const unwrap = (el: HTMLElement) => {
-    const p = el.parentNode;
-    if (!p) return;
-    while (el.firstChild) p.insertBefore(el.firstChild, el);
-    p.removeChild(el);
-  };
-
-  const mergeWithNeighbors = (markEl: HTMLElement) => {
-    const targetColor = window.getComputedStyle(markEl).backgroundColor;
-
-    // Merge with previous if same color
-    let prev = skipEmptyText(markEl.previousSibling, true);
-    if (prev && isHL(prev) && window.getComputedStyle(prev).backgroundColor === targetColor) {
-      while (markEl.firstChild) prev.appendChild(markEl.firstChild);
-      markEl.remove();
-      markEl = prev;
-    }
-
-    // Merge forward with any following same-color marks
-    let next = skipEmptyText(markEl.nextSibling, false);
-    while (next && isHL(next) && window.getComputedStyle(next).backgroundColor === targetColor) {
-      const nextEl = next as HTMLElement;
-      while (nextEl.firstChild) markEl.appendChild(nextEl.firstChild);
-      const after = nextEl.nextSibling;
-      nextEl.remove();
-      next = skipEmptyText(after, false);
-    }
-
-    return markEl;
-  };
-
-  const normalizeInsertedMark = (markEl: HTMLElement) => {
-    // Remove any nested highlight marks INSIDE this mark (outer color wins)
-    const inner = Array.from(markEl.querySelectorAll('mark[data-qa="highlight"]')) as HTMLElement[];
-    inner.forEach((im) => unwrap(im));
-
-    // Merge with adjacent same-color marks
-    return mergeWithNeighbors(markEl);
-  };
-
-  const normalizeSectionHighlights = (sectionEl: Element) => {
-    // Remove nested highlights anywhere in this section
-    const nested = Array.from(
-      sectionEl.querySelectorAll('mark[data-qa="highlight"] mark[data-qa="highlight"]')
-    ) as HTMLElement[];
-    nested.forEach((n) => unwrap(n));
-
-    // Merge neighbors for all marks
-    const marks = Array.from(sectionEl.querySelectorAll('mark[data-qa="highlight"]')) as HTMLElement[];
-    marks.forEach((m) => mergeWithNeighbors(m));
-  };
-
   const applyHighlight = useCallback(() => {
     if (!highlightEnabled) return;
 
@@ -379,15 +503,19 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const range = sel.getRangeAt(0);
     if (range.collapsed) return;
 
-    if (!isInsideAllowed(range.commonAncestorContainer)) return;
+  if (!findSection(range.commonAncestorContainer)) return;
 
     const mark = document.createElement("mark");
     mark.style.backgroundColor = highlightColor;
     mark.style.padding = "0"; // no gaps within words
     mark.style.margin = "0";
     mark.style.borderRadius = "2px";
-    (mark.style as any).boxDecorationBreak = "clone";
-    (mark.style as any).WebkitBoxDecorationBreak = "clone";
+    const markStyle = mark.style as CSSStyleDeclaration & {
+      boxDecorationBreak?: string;
+      WebkitBoxDecorationBreak?: string;
+    };
+    markStyle.boxDecorationBreak = "clone";
+    markStyle.WebkitBoxDecorationBreak = "clone";
     mark.setAttribute("data-qa", "highlight");
 
     let sectionInfo: { el: Element; key: keyof SectionHTML } | null = null;
@@ -418,7 +546,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     if (sectionInfo) saveSectionHTML(sectionInfo.el, sectionInfo.key);
 
     lastMarkInsertAtRef.current = Date.now();
-  }, [highlightEnabled, highlightColor, isInsideAllowed, saveSectionHTML]);
+  }, [highlightEnabled, highlightColor, saveSectionHTML]);
 
   // Touch devices
   const onTouchEndHighlight = useCallback(() => {
@@ -427,6 +555,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // Click a mark to remove it
   useEffect(() => {
+    if (!highlightEnabled) return;
+
     function onClick(ev: Event) {
       const t = ev.target as HTMLElement; // plain click removes highlight
       if (t?.getAttribute?.("data-qa") === "highlight") {
@@ -445,14 +575,36 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const rootEl: Document | HTMLElement = mainRef.current ?? document;
     (rootEl as EventTarget).addEventListener("click", onClick as EventListener);
     return () => (rootEl as EventTarget).removeEventListener("click", onClick as EventListener);
-  }, [saveSectionHTML]);
+  }, [highlightEnabled, saveSectionHTML]);
 
-  function BarIconBtn({ title, onClick, children }: { title: string; onClick: () => void; children: ReactNode }) {
+  function BarIconBtn({
+    title,
+    onClick,
+    children,
+    active = false,
+    disabled = false,
+  }: {
+    title: string;
+    onClick: () => void;
+    children: ReactNode;
+    active?: boolean;
+    disabled?: boolean;
+  }) {
     return (
       <button
+        type="button"
         onClick={onClick}
+        disabled={disabled}
         title={title}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-[#2F6F8F] hover:bg-white/70 transition"
+        aria-label={title}
+        className={clsx(
+          "group inline-flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ease-out",
+          disabled
+            ? "cursor-not-allowed text-[#9DBED5]"
+            : active
+            ? "bg-white text-[#1D4D66] shadow-md hover:-translate-y-0.5"
+            : "text-[#2F6F8F] hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-md"
+        )}
       >
         {children}
       </button>
@@ -493,15 +645,13 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 >
                   <span className="text-base">{i + 1}</span>
                   <span className="ml-auto inline-flex items-center gap-2">
-                    {it.marked && (
-                      <svg width="18" height="18" viewBox="0 0 24 24" aria-label="Flagged">
-                        <path fill="#e11d48" d="M6 2v20H4V2h2Zm2 2h9.5l-2.2 3 2.2 3H8V4Z"/>
-                      </svg>
-                    )}
+                    {it.marked && <Flag aria-hidden size={18} className="text-[#e11d48]" />}
                     {_answered && (
-                      <span className="text-lg font-extrabold" style={{ color: _correct ? "#16a34a" : "#e11d48" }}>
-                        {_correct ? "✓" : "×"}
-                      </span>
+                      _correct ? (
+                        <Check aria-hidden size={18} className="text-[#16a34a]" />
+                      ) : (
+                        <X aria-hidden size={18} className="text-[#e11d48]" />
+                      )
                     )}
                   </span>
                 </button>
@@ -514,90 +664,138 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* TOP BAR */}
       <header
         className={[
-          "fixed left-0 right-0 top-0 z-30 border-b bg-[#E6F0F7] backdrop-blur",
-          "border-[#E6F0F7] h-14",
-          "transition-[padding-left] duration-300 ease-in-out"
+          "fixed left-0 right-0 top-0 z-30 border-b border-[#E6F0F7]",
+          "bg-gradient-to-r from-[#F4FAFF] via-white to-[#F4FAFF] backdrop-blur",
+          "h-14 transition-[padding-left] duration-300 ease-in-out"
         ].join(" ")}
         style={{ paddingLeft: `var(--sbw)` }}
       >
-        <div className="flex h-full items-center justify-between px-3">
+        <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <BarIconBtn title="Toggle sidebar" onClick={() => setSidebarOpen((v) => !v)}>
-              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
-                <rect x="3" y="5" width="14" height="2" rx="1" />
-                <rect x="3" y="9" width="14" height="2" rx="1" />
-                <rect x="3" y="13" width="14" height="2" rx="1" />
-              </svg>
+            <BarIconBtn
+              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              onClick={() => setSidebarOpen((v) => !v)}
+            >
+              {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
             </BarIconBtn>
 
-            <div className="text-sm font-semibold text-[#2F6F8F]">
+            <div className="rounded-xl border border-[#E6F0F7] bg-white/90 px-3 py-1.5 text-sm font-semibold text-[#1D4D66] shadow-sm">
               Question {curIndex + 1} of {total}
             </div>
 
-            <label className="ml-2 inline-flex items-center gap-2 rounded-xl bg-white px-2 py-1 border border-[#A5CDE4]">
-              <input type="checkbox" checked={Boolean(currentItem?.marked)} onChange={(e) => toggleFlag(e.target.checked)} />
-              <span className="inline-flex items-center gap-1 text-sm text-[#2F6F8F]">
-                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#e11d48" d="M6 2v20H4V2h2Zm2 2h9.5l-2.2 3 2.2 3H8V4Z"/></svg>
-                Mark
-              </span>
-            </label>
+            <button
+              type="button"
+              onClick={() => currentItem && toggleFlag(!currentItem.marked)}
+              className={clsx(
+                "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition",
+                currentItem?.marked
+                  ? "border-[#F3D1D6] bg-[#FFF5F6] text-[#b91c1c]"
+                  : "border-[#E6F0F7] bg-white text-[#2F6F8F] hover:bg-[#F3F9FC]"
+              )}
+              aria-pressed={currentItem?.marked ?? false}
+            >
+              <Flag
+                size={18}
+                className={currentItem?.marked ? "text-[#e11d48]" : "text-[#2F6F8F]"}
+                aria-hidden
+              />
+              {currentItem?.marked ? "Marked" : "Mark"}
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
-            <BarIconBtn title="Previous" onClick={() => setCurIndex((i) => Math.max(0, i - 1))}>
-              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M12.5 5l-5 5 5 5" /></svg>
+            <BarIconBtn
+              title="Previous question"
+              onClick={() => setCurIndex((i) => Math.max(0, i - 1))}
+              disabled={curIndex === 0}
+            >
+              <ChevronLeft size={18} />
             </BarIconBtn>
-            <BarIconBtn title="Next" onClick={() => setCurIndex((i) => Math.min(total - 1, i + 1))}>
-              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M7.5 5l5 5-5 5" /></svg>
+            <BarIconBtn
+              title="Next question"
+              onClick={() => setCurIndex((i) => Math.min(total - 1, i + 1))}
+              disabled={curIndex >= total - 1}
+            >
+              <ChevronRight size={18} />
             </BarIconBtn>
           </div>
 
-          <div className="relative flex items-center gap-1" ref={paletteRef}>
-            {/* Highlighter */}
-            <BarIconBtn
-              title="Highlighter"
-              onClick={() => {
-                const next = !showHighlighter;
-                setShowHighlighter(next);
-                setHighlightEnabled(next);
-              }}
+          <div className="relative flex items-center gap-2" ref={paletteRef}>
+            <button
+              type="button"
+              onClick={() => setShowHighlighter((prev) => !prev)}
+              className={clsx(
+                "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition",
+                highlightEnabled
+                  ? "border-[#56A2CD] bg-[#E4F2FB] text-[#1D4D66] shadow-sm"
+                  : "border-[#E6F0F7] bg-white text-[#2F6F8F] hover:bg-[#F3F9FC]"
+              )}
+              aria-expanded={showHighlighter}
             >
-              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M3 14l-1 3 3-1 9-9-2-2-9 9zM14 3l3 3" />
-              </svg>
-            </BarIconBtn>
+              <HighlighterIcon size={18} />
+              Highlight
+            </button>
             {showHighlighter && (
-              <div className="absolute right-0 top-12 z-40 rounded-2xl border border-[#E6F0F7] bg-white p-2 shadow">
-                <div className="flex items-center gap-2">
+              <div className="absolute right-0 top-12 z-40 mt-2 w-56 rounded-2xl border border-[#E6F0F7] bg-white/95 p-3 shadow-lg">
+                <div className="flex items-center justify-between gap-3 border-b border-[#E6F0F7] pb-2">
+                  <div className="text-sm font-semibold text-[#1D4D66]">Highlighter</div>
+                  <button
+                    type="button"
+                    onClick={() => setHighlightEnabled((prev) => !prev)}
+                    className={clsx(
+                      "relative flex h-6 w-11 items-center rounded-full transition-colors",
+                      highlightEnabled ? "bg-[#56A2CD]" : "bg-slate-300"
+                    )}
+                    aria-pressed={highlightEnabled}
+                    title={highlightEnabled ? "Disable highlighter" : "Enable highlighter"}
+                  >
+                    <span className="sr-only">Toggle highlighter</span>
+                    <span
+                      className={clsx(
+                        "absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform",
+                        highlightEnabled ? "translate-x-5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-3">
                   {[
-                    { c: "#e11d48", n: "red" },
-                    { c: "#16a34a", n: "green" },
-                    { c: "#56A2CD", n: "blue" },
-                    { c: "#ffe066", n: "yellow" },
+                    { c: PALETTE.danger, n: "Red" },
+                    { c: PALETTE.success, n: "Green" },
+                    { c: PALETTE.accent, n: "Blue" },
+                    { c: "#ffe066", n: "Yellow" },
                   ].map((k) => (
                     <button
                       key={k.n}
                       onClick={() => setHighlightColor(k.c)}
-                      className="h-6 w-6 rounded-full border border-[#E6F0F7]"
-                      style={{ backgroundColor: k.c, outline: highlightColor === k.c ? "2px solid #A5CDE4" : "none" }}
+                      className={clsx(
+                        "h-7 w-7 rounded-full border border-[#E6F0F7] transition-all",
+                        highlightColor === k.c ? "ring-2 ring-[#A5CDE4]" : "",
+                        highlightEnabled ? "hover:scale-105" : "opacity-60"
+                      )}
+                      style={{ backgroundColor: k.c }}
                       title={k.n}
+                      type="button"
                     />
                   ))}
                 </div>
-                <div className="mt-2 text-[11px] text-slate-500">
-                  Select text in the question / explanation / objective. Release to apply.
+                <div className="mt-3 text-[11px] text-slate-500">
+                  {highlightEnabled
+                    ? "Select text in the question or explanation and release to apply."
+                    : "Enable the highlighter to start selecting text."}
                 </div>
               </div>
             )}
 
-            {/* Text size (bigger controls + new reset icon) */}
-            <div className="ml-1 inline-flex items-center gap-1 rounded-xl border border-[#A5CDE4] bg-white p-1">
+            {/* Text size */}
+            <div className="ml-1 inline-flex items-center gap-1 rounded-xl border border-[#E6F0F7] bg-white/90 p-1 shadow-sm">
               <button
                 onClick={decFont}
                 className="rounded-lg px-3 py-2 text-xl leading-none text-[#2F6F8F] hover:bg-[#F3F9FC]"
                 title="Smaller"
               >
-                −
+                <ZoomOut size={18} />
               </button>
 
               <button
@@ -605,21 +803,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 className="rounded-lg px-2 py-1 text-[#2F6F8F] hover:bg-[#F3F9FC]"
                 title="Reset to default"
               >
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="25"
-                  height="25"
-                  viewBox="0 0 20 24"
-                  fill="currentColor"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <text x="-1" y="20" fontSize="14" fontFamily="sans-serif">A</text>
-                  <text x="8" y="20" fontSize="20" fontFamily="sans-serif">A</text>
-                  
-                </svg>
+                <Undo2 size={18} />
               </button>
 
               <button
@@ -627,7 +811,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 className="rounded-lg px-3 py-2 text-xl leading-none text-[#2F6F8F] hover:bg-[#F3F9FC]"
                 title="Larger"
               >
-                +
+                <ZoomIn size={18} />
               </button>
             </div>
 
@@ -643,31 +827,19 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   setIsFullscreen(false);
                 }
               }}
+              active={isFullscreen}
             >
-              {isFullscreen ? (
-                <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3H3v4h2V5h2V3zm8 0h-4v2h2v2h2V3zM3 17h4v-2H5v-2H3v4zm14-4h-2v2h-2v2h4v-4z" /></svg>
-              ) : (
-                <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h4v2H5v2H3V3zm14 0v4h-2V5h-2V3h4zM3 17v-4h2v2h2v2H3zm14-4h2v4h-4v-2h2v-2z" /></svg>
-              )}
+              {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
             </BarIconBtn>
 
             {/* Calculator */}
-            <BarIconBtn title="Calculator" onClick={() => setShowCalc(true)}>
-              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
-                <rect x="4" y="3" width="12" height="14" rx="2" />
-                <rect x="6" y="6" width="8" height="3" rx="1" fill="white" />
-                <circle cx="7.5" cy="12" r="1.2" fill="white" />
-                <circle cx="10" cy="12" r="1.2" fill="white" />
-                <circle cx="12.5" cy="12" r="1.2" fill="white" />
-                <rect x="9" y="13.5" width="6" height="2" rx="1" fill="white" />
-              </svg>
+            <BarIconBtn title="Calculator" onClick={() => setShowCalc(true)} active={showCalc}>
+              <Calculator size={20} />
             </BarIconBtn>
 
             {/* Lab values */}
-            <BarIconBtn title="Lab Values" onClick={() => setShowLabs(true)}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M10 3v5.5L5.2 17.4A3 3 0 0 0 7.9 22h8.2a3 3 0 0 0 2.7-4.6L14 8.5V3h-4Zm2 10.5 4.1 7H7.9l4.1-7Z"/>
-              </svg>
+            <BarIconBtn title="Lab Values" onClick={() => setShowLabs(true)} active={showLabs}>
+              <FlaskConical size={20} />
             </BarIconBtn>
           </div>
         </div>
@@ -676,46 +848,54 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* BOTTOM BAR */}
       <footer
         className={[
-          "fixed bottom-0 left-0 right-0 z-30 border-t bg-[#F3F9FC] backdrop-blur",
-          "border-[#E6F0F7] h-14",
-          "transition-[padding-left] duration-300 ease-in-out"
+          "fixed bottom-0 left-0 right-0 z-30 border-t border-[#E6F0F7]",
+          "bg-gradient-to-r from-[#F4FAFF] via-white to-[#F4FAFF] backdrop-blur",
+          "h-14 transition-[padding-left] duration-300 ease-in-out"
         ].join(" ")}
         style={{ paddingLeft: `var(--sbw)` }}
       >
-        <div className="flex h-full items-center justify-between px-3">
-          <div className="text-sm font-semibold text-[#2F6F8F]">
+        <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
+          <div className="text-sm font-semibold text-[#1D4D66]">
             Block Elapsed Time: <span className="tabular-nums">{fmtHMS(blockSeconds)}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowFeedback(true)}
-              className="inline-flex items-center justify-center rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm font-semibold text-[#2F6F8F] shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#F3F9FC] hover:shadow-md"
               title="Send feedback"
             >
+              <MessageSquare size={18} />
               Feedback
             </button>
 
             <button
               onClick={() => setConfirmSuspend(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm font-semibold text-[#2F6F8F] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#F3F9FC] hover:shadow-md"
               title="Suspend"
             >
-              <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true">
-                <circle cx="24" cy="24" r="22" fill="#A5CDE4" stroke="#2F6F8F" strokeWidth="3"/>
-                <rect x="18" y="14" width="5" height="20" rx="2" fill="#2F6F8F"/>
-                <rect x="25" y="14" width="5" height="20" rx="2" fill="#2F6F8F"/>
-              </svg>
+              <PauseCircle size={18} />
               Suspend
             </button>
 
             <button
               onClick={() => setConfirmEnd(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#F3D1D6] bg-white px-3 py-2 text-[#e11d48] hover:bg-[#FFF5F6]"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#F3D1D6] bg-white px-3 py-2 text-sm font-semibold text-[#b91c1c] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#FFF5F6] hover:shadow-md"
               title="End block"
             >
-              <svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true">
-                <polygon points="30,5 70,5 95,30 95,70 70,95 30,95 5,70 5,30" fill="#e11d48" stroke="#b91c1c" strokeWidth="3"/>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 100 100"
+                aria-hidden="true"
+                className="drop-shadow-sm"
+              >
+                <polygon
+                  points="30,5 70,5 95,30 95,70 70,95 30,95 5,70 5,30"
+                  fill="#e11d48"
+                  stroke="#b91c1c"
+                  strokeWidth="6"
+                />
               </svg>
               End Block
             </button>
@@ -748,34 +928,91 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             />
           </div>
 
-          <div className="mt-4 space-y-2">
-            {currentItem?.question.choices.map((ch, idx) => (
-              <AnswerRow
-                key={ch.id}
-                choice={ch}
-                index={idx}
-                submittedId={currentItem?.responses?.[0]?.choiceId ?? null}
-                submitted={Boolean(currentItem?.responses?.[0]?.choiceId)}
-                selectedId={selectedChoiceId}
-                crossed={!!crossed[ch.id]}
-                status={status}
-                fontScale={fontScale}
-                onSelect={() => {
-                  if (currentItem?.responses?.[0]?.choiceId || status !== "Active" || crossed[ch.id]) return;
-                  setSelectedChoiceId((prev) => {
-  const next = prev === ch.id ? null : ch.id;
-  if (next !== prev) { changeRef.current += 1; }
-  lastChoiceRef.current = next;
-  return next;
-});
-                }}
-                onCross={() => {
-                  if (currentItem?.responses?.[0]?.choiceId) return;
-                  setCrossed((m) => ({ ...m, [ch.id]: !m[ch.id] }));
-                  if (selectedChoiceId === ch.id) { setSelectedChoiceId(null); changeRef.current += 1; lastChoiceRef.current = null; }
-                }}
+          {/* Question Image */}
+          {currentItem?.question.questionImageUrl && (
+            <div className="mt-4">
+              <Image
+                src={currentItem.question.questionImageUrl}
+                alt="Question image"
+                width={1024}
+                height={768}
+                className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
+                unoptimized
               />
-            ))}
+            </div>
+          )}
+
+          <div className="mt-4 space-y-2">
+            {currentItem?.question.choices.map((ch, idx) => {
+              const questionId = currentItem?.question.id;
+              if (!questionId) return null;
+              const questionStats = statsByQuestion[questionId];
+              const totalFirstAttempts = questionStats?.totalFirstAttempts;
+              const hasAttemptData =
+                typeof totalFirstAttempts === "number" && Number.isFinite(totalFirstAttempts) && totalFirstAttempts > 0;
+              const choiceStats = questionStats?.choiceFirstAttempts?.[ch.id];
+              const isCorrectChoice = ch.isCorrect === true;
+              let percentValue: number | null | undefined;
+              if (!hasAttemptData) {
+                percentValue = null;
+              } else if (typeof choiceStats?.percent === "number" && Number.isFinite(choiceStats.percent)) {
+                percentValue = choiceStats.percent;
+              } else if (isCorrectChoice && typeof questionStats?.percent === "number" && Number.isFinite(questionStats.percent)) {
+                percentValue = questionStats.percent;
+              } else {
+                percentValue = 0;
+              }
+
+              let countValue: number | undefined;
+              if (!hasAttemptData) {
+                countValue = undefined;
+              } else if (typeof choiceStats?.count === "number" && Number.isFinite(choiceStats.count)) {
+                countValue = choiceStats.count;
+              } else if (
+                isCorrectChoice &&
+                typeof questionStats?.firstAttemptCorrect === "number" &&
+                Number.isFinite(questionStats.firstAttemptCorrect)
+              ) {
+                countValue = questionStats.firstAttemptCorrect;
+              } else {
+                countValue = 0;
+              }
+              return (
+                <AnswerRow
+                  key={ch.id}
+                  choice={ch}
+                  index={idx}
+                  submittedId={currentItem?.responses?.[0]?.choiceId ?? null}
+                  submitted={Boolean(currentItem?.responses?.[0]?.choiceId)}
+                  selectedId={selectedChoiceId}
+                  crossed={!!crossed[ch.id]}
+                  status={status}
+                  fontScale={fontScale}
+                  firstAttemptPercent={percentValue}
+                  firstAttemptCount={countValue}
+                  onSelect={() => {
+                    if (currentItem?.responses?.[0]?.choiceId || status !== "Active" || crossed[ch.id]) return;
+                    setSelectedChoiceId((prev) => {
+                      const next = prev === ch.id ? null : ch.id;
+                      if (next !== prev) {
+                        changeRef.current += 1;
+                      }
+                      lastChoiceRef.current = next;
+                      return next;
+                    });
+                  }}
+                  onCross={() => {
+                    if (currentItem?.responses?.[0]?.choiceId) return;
+                    setCrossed((m) => ({ ...m, [ch.id]: !m[ch.id] }));
+                    if (selectedChoiceId === ch.id) {
+                      setSelectedChoiceId(null);
+                      changeRef.current += 1;
+                      lastChoiceRef.current = null;
+                    }
+                  }}
+                />
+              );
+            })}
           </div>
 
           {!isAnswered && status === "Active" && (
@@ -793,6 +1030,37 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
           {(() => {
             if (!currentItem || !isAnswered) return null;
             const wasCorrect = currentItem.responses?.[0]?.isCorrect ?? null;
+            const tagsByType = (currentItem.question.tags ?? []).reduce<
+              Partial<Record<DisplayTagType, string[]>>
+            >((acc, tag) => {
+              if (!tag?.label) return acc;
+              const key = tag.type;
+              const label = tag.label.trim();
+              if (!label) return acc;
+              const bucket = acc[key] ?? [];
+              if (!bucket.includes(label)) bucket.push(label);
+              acc[key] = bucket;
+              return acc;
+            }, {});
+            const references = parseReferences(currentItem.question.references);
+            const screenshotUrl = currentItem.question.iduScreenshotUrl
+              ? currentItem.question.iduScreenshotUrl.trim()
+              : "";
+            const occurrenceItems = (currentItem.question.occurrences ?? [])
+              .map((occ) => {
+                const pieces: string[] = [];
+                if (occ?.year && occ.year.trim()) pieces.push(occ.year.trim());
+                if (occ?.rotation && occ.rotation.trim()) pieces.push(occ.rotation.trim());
+                const label = pieces.join(" · ");
+                return label ? { key: `${pieces.join("|")}`, label } : null;
+              })
+              .filter((item): item is { key: string; label: string } => Boolean(item))
+              .filter((item, index, arr) => arr.findIndex((candidate) => candidate.key === item.key) === index);
+            const questionStats = statsByQuestion[currentItem.question.id];
+            const percentLabel =
+              questionStats && questionStats.percent !== null
+                ? `${questionStats.percent}%`
+                : "—%";
             return (
               <div className="mt-5 rounded-2xl border bg-white p-4" style={{ borderColor: wasCorrect ? "#CDEFE1" : "#F3D1D6" }}>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -803,8 +1071,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   </div>
                   <div className="flex items-center justify-center">
                     <div className="text-center">
-                      <div className="text-3xl font-extrabold text-[#2F6F8F]">—%</div>
-                      <div className="text-xs leading-tight text-slate-500">Answered<br/>Correctly</div>
+                      <div className="text-3xl font-extrabold text-[#2F6F8F]">{percentLabel}</div>
+                      <div className="text-xs leading-tight text-slate-500">Answered Correctly</div>
                     </div>
                   </div>
                   <div className="flex items-center justify-center">
@@ -817,8 +1085,54 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   </div>
                 </div>
 
+                {screenshotUrl ? (
+                  <div className="mt-6">
+                    <div className="text-lg font-bold text-[#2F6F8F]">IDU Screenshot:</div>
+                    <div className="mt-3 overflow-hidden rounded-2xl border border-[#E6F0F7] bg-[#F8FBFD]">
+                      <Image
+                        src={screenshotUrl}
+                        alt="IDU Screenshot"
+                        width={1280}
+                        height={720}
+                        className="h-auto w-full max-h-[480px] object-contain bg-[#F8FBFD]"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                {occurrenceItems.length ? (
+                  <div className="mt-6">
+                    <div className="text-lg font-bold text-[#2F6F8F]">Question Occurrences:</div>
+                    <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {occurrenceItems.map((occ) => (
+                        <li
+                          key={occ.key}
+                          className="rounded-xl border border-[#E6F0F7] bg-[#F9FCFF] px-3 py-2 text-sm text-[#2F6F8F] flex-shrink-0"
+                        >
+                          <span className="font-bold">{occ.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
                 <div className="quiz-explanation mt-6">
                   <div className="text-lg font-bold text-[#2F6F8F]">Explanation:</div>
+                  
+                  {/* Explanation Image */}
+                  {currentItem?.question.explanationImageUrl && (
+                    <div className="mt-3">
+                      <Image
+                        src={currentItem.question.explanationImageUrl}
+                        alt="Explanation image"
+                        width={1024}
+                        height={768}
+                        className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
+                        unoptimized
+                      />
+                    </div>
+                  )}
+                  
                   <div
                     data-section="explanation"
                     className="prose mt-2 max-w-none text-neutral-900"
@@ -845,21 +1159,66 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 </div>
 
                 <div className="mt-6">
-                  <div className="text-lg font-bold text-[#2F6F8F]">References :</div>
-                  <ul className="mt-2 list-inside list-disc text-neutral-900">
-                    <li><span className="text-slate-600">Add reference links here.</span></li>
-                  </ul>
+                  <div className="text-lg font-bold text-[#2F6F8F]">References:</div>
+                  {references.length ? (
+                    <ul className="mt-2 list-inside list-disc space-y-1 text-neutral-900">
+                      {references.map((ref, idx) => {
+                        const isLink = /^https?:\/\//i.test(ref);
+                        return (
+                          <li key={`${ref}-${idx}`}>
+                            {isLink ? (
+                              <a
+                                href={ref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#2F6F8F] underline decoration-[#A5CDE4] underline-offset-2 transition hover:text-[#1D4D66]"
+                              >
+                                {ref}
+                              </a>
+                            ) : (
+                              <span>{ref}</span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <div className="mt-2 text-sm text-slate-500">No references provided.</div>
+                  )}
                 </div>
 
                 <div className="mt-6 border-t border-[#E6F0F7] pt-3">
                   <div className="flex flex-wrap gap-6 text-sm">
-                    {["Subject/Discipline","System","Topic","Rotation","Resource"].map((t)=>(
-                      <div key={t}>
-                        <div className="text-[#2F6F8F] font-semibold">{t}</div>
-                        <div className="mt-1 text-neutral-900">—</div>
-                      </div>
-                    ))}
+                    {Object.entries(TAG_LABELS).map(([type, label]) => {
+                      const typed = type as DisplayTagType;
+                      const display = tagsByType?.[typed] ?? [];
+                      return (
+                        <div key={typed}>
+                          <div className="text-[#2F6F8F] font-semibold">{label}</div>
+                          <div className="mt-1 text-neutral-900">
+                            {display.length ? (
+                              <div className="flex flex-wrap gap-1">
+                                {display.map((value) => (
+                                  <span
+                                    key={`${typed}-${value}`}
+                                    className="rounded-full bg-[#F3F9FC] px-2 py-0.5 text-xs font-medium text-[#2F6F8F] border border-[#E6F0F7]"
+                                  >
+                                    {value}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                </div>
+
+                <div className="mt-6">
+                  <QuestionDiscussion questionId={currentItem.question.id} />
                 </div>
               </div>
             );
@@ -922,7 +1281,18 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 /* ---------- subcomponents ---------- */
 
 const AnswerRow = memo(function AnswerRow({
-  choice, index, submittedId, submitted, selectedId, crossed, status, fontScale, onSelect, onCross
+  choice,
+  index,
+  submittedId,
+  submitted,
+  selectedId,
+  crossed,
+  status,
+  fontScale,
+  firstAttemptPercent,
+  firstAttemptCount,
+  onSelect,
+  onCross,
 }: {
   choice: Choice;
   index: number;
@@ -932,11 +1302,22 @@ const AnswerRow = memo(function AnswerRow({
   crossed: boolean;
   status: "Active" | "Suspended" | "Ended";
   fontScale: number;
+  firstAttemptPercent: number | null | undefined;
+  firstAttemptCount: number | undefined;
   onSelect: () => void;
   onCross: () => void;
 }) {
   const isSelected = selectedId === choice.id || (submitted && submittedId === choice.id);
   const isCorrectChoice = choice.isCorrect;
+  const percentLabel =
+    typeof firstAttemptPercent === "number" && Number.isFinite(firstAttemptPercent)
+      ? `${firstAttemptPercent}%`
+      : "—%";
+  const statTitle = submitted
+    ? `First-attempt users choosing this option: ${percentLabel}${
+        typeof firstAttemptCount === "number" ? ` (${firstAttemptCount})` : ""
+      }`
+    : "First-attempt users choosing this option";
 
   return (
     <div className={[
@@ -963,7 +1344,12 @@ const AnswerRow = memo(function AnswerRow({
             ) : (
               <span className="text-lg font-extrabold" style={{ color: "#16a34a" }} title="Correct">✓</span>
             )}
-            <span className={["text-xs", isSelected ? "text-white/80" : "text-slate-500"].join(" ")} title="Students who chose this (coming soon)">— %</span>
+            <span
+              className={["text-xs tabular-nums", isSelected ? "text-white/80" : "text-slate-500"].join(" ")}
+              title={statTitle}
+            >
+              {percentLabel}
+            </span>
           </>
         )}
         <button
@@ -982,6 +1368,20 @@ const AnswerRow = memo(function AnswerRow({
 });
 
 function toHTML(s: string) { return s.replace(/\n/g, "<br/>"); }
+
+function parseReferences(refs?: string | null): string[] {
+  if (!refs) return [];
+  const normalized = refs
+    .replace(/\r/g, "")
+    .replace(/[•\u2022\u2023\u25E6]/g, "\n");
+  const segments = normalized
+    .split(/\n+/)
+    .flatMap((segment) => segment.split(/\s*;\s*/));
+  const filtered = segments
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return Array.from(new Set(filtered));
+}
 
 function Modal({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string; }) {
   useEffect(() => {

@@ -12,13 +12,13 @@ import { auth } from "@/auth";
  */
 export async function POST(
   req: Request,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = ctx.params;
+  const { id } = await ctx.params;
   const { action } = (await req.json().catch(() => ({}))) as {
     action?: "suspend" | "resume";
   };

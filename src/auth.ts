@@ -1,8 +1,7 @@
 // src/auth.ts
 import NextAuth, { type NextAuthConfig } from "next-auth";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import { ClerkshipAdapter } from "@/lib/adapter";
 import Email from "next-auth/providers/email";
-import { prisma } from "@/server/db";
 import { setDevMagic } from "@/lib/dev-magic";
 
 // allow only u########@sharjah.ac.ae
@@ -40,7 +39,7 @@ const emailProvider = Email({
 });
 
 export const authOptions: NextAuthConfig = {
-  adapter: PrismaAdapter(prisma),
+  adapter: ClerkshipAdapter(),
 
   // 45-day session with JWT
   session: { strategy: "jwt", maxAge: 45 * 24 * 60 * 60 },
@@ -61,7 +60,8 @@ export const authOptions: NextAuthConfig = {
 
       // 2) Consuming the token (user resolved) -> enforce allowlist
       const addr = user?.email;
-      return isAllowedEmail(addr);
+      const allowAny = process.env.AUTH_ALLOW_ANY_EMAIL === "true";
+      return allowAny || isAllowedEmail(addr);
     },
 
     async session({ session, token }) {

@@ -41,8 +41,9 @@ export default function NotificationsAdminPage() {
       if (!r.ok) throw new Error(`Failed: ${r.status}`);
       const data = (await r.json()) as { notifications: NotificationRow[] };
       setRows(data.notifications || []);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load notifications");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to load notifications";
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -67,8 +68,9 @@ export default function NotificationsAdminPage() {
       setCustomId(notification.shortId);
       setSearchId(String(notification.shortId));
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (e: any) {
-      alert(e?.message || "Unable to load notification");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unable to load notification";
+      alert(msg);
     }
   }
 

@@ -3,28 +3,38 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
+import { setQuestionMode } from "@/lib/quiz/questionMode";
+import { auth } from "@/auth";
 
-export async function POST(req: Request) {
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth();
+    const userId = session?.user?.id ?? null;
+
     const {
       quizItemId,
       choiceId,
       choiceText,
       chosenLabel, // legacy field; if provided, we try to match by text
+      timeSeconds,
+      changeCount,
     } = (await req.json()) as {
       quizItemId: string;
       choiceId?: string;
       choiceText?: string;
       chosenLabel?: string;
+      timeSeconds?: number;
+      changeCount?: number;
     };
 
     if (!quizItemId || (!choiceId && !choiceText && !chosenLabel)) {
       return NextResponse.json({ error: "Bad request" }, { status: 400 });
     }
 
-    const item = await prisma.quizItem.findUnique({
-      where: { id: quizItemId },
-      include: { question: { include: { answers: true } } }, // schema uses Answer[]
+    const { id: quizId } = await ctx.params;
+    const item = await prisma.quizItem.findFirst({
+      where: { id: quizItemId, quizId },
+      include: { question: { include: { answers: true } } },
     });
 
     if (!item) {
@@ -48,16 +58,52 @@ export async function POST(req: Request) {
     const isCorrect = pickedChoice.id === correctChoice.id;
 
     // Upsert one response per quiz item (schema has quizItemId, userId optional)
-    const existing = await prisma.response.findFirst({ where: { quizItemId } });
+  const parsedTime = Number(timeSeconds);
+  const numericTime = Number.isFinite(parsedTime) && parsedTime >= 0 ? parsedTime : null;
+  const parsedChange = Number(changeCount);
+  const numericChangeCount = Number.isFinite(parsedChange) && parsedChange >= 0 ? Math.trunc(parsedChange) : null;
+
+    const responseWhere = userId
+      ? { quizItemId, userId }
+      : { quizItemId, userId: null };
+
+    const existing = await prisma.response.findFirst({ where: responseWhere });
     if (existing) {
       await prisma.response.update({
         where: { id: existing.id },
-        data: { choiceId: pickedChoice.id, isCorrect },
+        data: {
+          choiceId: pickedChoice.id,
+          isCorrect,
+          timeSeconds: numericTime ?? undefined,
+          changeCount: numericChangeCount ?? undefined,
+        },
       });
     } else {
       await prisma.response.create({
-        data: { quizItemId, choiceId: pickedChoice.id, isCorrect },
+        data: {
+          quizItemId,
+          userId: userId ?? null,
+          choiceId: pickedChoice.id,
+          isCorrect,
+          timeSeconds: numericTime ?? undefined,
+          changeCount: numericChangeCount ?? undefined,
+        },
       });
+    }
+
+    // If the answer is correct, automatically unmark the question
+    if (isCorrect && item.marked) {
+      await prisma.quizItem.update({
+        where: { id: quizItemId },
+        data: { marked: false },
+      });
+    }
+
+    // Update global mode tag to reflect latest outcome
+    try {
+      await setQuestionMode(item.questionId, isCorrect ? "correct" : "incorrect");
+    } catch (modeError) {
+      console.warn("Failed to update mode tag for question", item.questionId, modeError);
     }
 
     return NextResponse.json({

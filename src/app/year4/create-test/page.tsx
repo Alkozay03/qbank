@@ -1,7 +1,7 @@
 "use client";
 
 import Shell from "@/components/Shell";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Option = { key: string; label: string; hint?: string };
@@ -22,7 +22,8 @@ const rotations: Option[] = [
 ];
 
 const resources: Option[] = [
-  { key: "uworld", label: "UWorld" },
+  { key: "uworld_s1", label: "UWorld - Step 1" },
+  { key: "uworld_s2", label: "UWorld - Step 2" },
   { key: "amboss", label: "Amboss" },
   { key: "beyond", label: "Boards & beyond" },
   { key: "previouses", label: "Previouses" },
@@ -84,6 +85,20 @@ export default function CreateTest() {
   const [selSystems, setSelSystems] = useState<string[]>([]);
   const [qCount, setQCount] = useState<number>(0);
   const [busy, setBusy] = useState(false);
+  const [modeCounts, setModeCounts] = useState<{
+    unused: number;
+    incorrect: number;
+    correct: number;
+    omitted: number;
+    marked: number;
+  }>({ unused: 0, incorrect: 0, correct: 0, omitted: 0, marked: 0 });
+  const [counts, setCounts] = useState<{
+    rotations: Record<string, number>;
+    resources: Record<string, number>;
+    disciplines: Record<string, number>;
+    systems: Record<string, number>;
+    topics?: Record<string, number>;
+  } | null>(null);
 
   const allowSystems = selDisciplines.length > 0;
 
@@ -110,6 +125,66 @@ export default function CreateTest() {
     setter(_checked ? list.map((o) => o.key) : []);
   }
 
+  // Get count for specific mode
+  function getModeCount(modeKey: string): number {
+    switch (modeKey) {
+      case "unused": return modeCounts.unused;
+      case "incorrect": return modeCounts.incorrect;
+      case "correct": return modeCounts.correct;
+      case "omitted": return modeCounts.omitted;
+      case "marked": return modeCounts.marked;
+      default: return 0;
+    }
+  }
+
+  // Fetch dynamic counts when selections change (debounced)
+  useEffect(() => {
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const rotationKeys = selRotations;
+        const resourceValues = selResources;
+        const disciplineValues = selDisciplines;
+        const systemValues = selSystems;
+        const r = await fetch("/api/quiz/options-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({ rotationKeys, resourceValues, disciplineValues, systemValues }),
+        });
+        if (!r.ok) return;
+        const j = await r.json();
+        setCounts(j);
+      } catch {
+        // ignore
+      }
+    }, 250);
+    return () => { controller.abort(); clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(",")]);
+
+  // Fetch mode counts on mount and when tab regains focus
+  useEffect(() => {
+    const fetchModeCounts = async () => {
+      try {
+        const response = await fetch("/api/quiz/mode-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (response.ok) {
+          const counts = await response.json();
+          setModeCounts(counts);
+        }
+      } catch (error) {
+        console.error("Failed to fetch mode counts:", error);
+      }
+    };
+    fetchModeCounts();
+    const onFocus = () => fetchModeCounts();
+    window.addEventListener('visibilitychange', onFocus);
+    return () => window.removeEventListener('visibilitychange', onFocus);
+  }, []);
+
   async function submit() {
     if (!valid || busy) return;
 
@@ -133,8 +208,9 @@ export default function CreateTest() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create quiz");
       router.push(`/year4/quiz/${data.id}`);
-    } catch (e: any) {
-      alert(e.message || "Error creating quiz");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Error creating quiz";
+      alert(msg);
     } finally {
       setBusy(false);
     }
@@ -146,27 +222,52 @@ export default function CreateTest() {
         {/* Modes */}
         <Card>
           <HeaderRow title="Question Mode" />
-          <div className="mt-3 flex flex-wrap gap-3">
-            {modes.map((m) => (
-              <label
-                key={m.key}
-                className="inline-flex items-center gap-2 bg-white border border-[#E6F0F7] rounded-xl px-3 py-2"
-              >
-                <input
-                  type="checkbox"
-                  checked={selModes.includes(m.key)}
-                  onChange={() => toggle(setSelModes, m.key)}
-                  className="h-4 w-4"
-                />
-                <span>{m.label}</span>
-                {m.hint && (
-                  <span className="ml-1 text-xs text-slate-500" title={m.hint}>
-                    ⓘ
-                  </span>
-                )}
-                <CountPill />
-              </label>
-            ))}
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {modes.map((m) => {
+              const isSelected = selModes.includes(m.key);
+              return (
+                <label
+                  key={m.key}
+                  className={`
+                    group relative inline-flex items-center justify-between gap-2 rounded-xl px-4 py-3 cursor-pointer transition-all duration-300 ease-out btn-hover
+                    ${isSelected 
+                      ? 'bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white shadow-lg' 
+                      : 'bg-white border border-[#E6F0F7] hover:bg-gradient-to-r hover:from-[#F8FCFF] hover:to-[#A5CDE4]/10 hover:border-[#56A2CD]'
+                    }
+                  `}
+                >
+                  <span className="flex-1 font-medium">{m.label}</span>
+                  <div className="flex items-center gap-3">
+                    <span className={`
+                      text-xs rounded-full px-3 py-1 min-w-8 text-center font-semibold transition-colors
+                      ${isSelected 
+                        ? 'bg-white/20 text-white' 
+                        : 'bg-gradient-to-r from-[#A5CDE4] to-[#56A2CD] text-white'
+                      }
+                    `}>
+                      {getModeCount(m.key)}
+                    </span>
+                    {m.hint && (
+                      <span 
+                        className={`ml-1 text-xs transition-colors ${isSelected ? 'text-white/70' : 'text-slate-500'}`} 
+                        title={m.hint}
+                      >
+                        ⓘ
+                      </span>
+                    )}
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggle(setSelModes, m.key)}
+                      className="h-4 w-4 accent-[#56A2CD]"
+                    />
+                  </div>
+                  {isSelected && (
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#2F6F8F]/10 to-[#56A2CD]/10 animate-pulse"></div>
+                  )}
+                </label>
+              );
+            })}
           </div>
         </Card>
 
@@ -181,6 +282,8 @@ export default function CreateTest() {
             list={rotations}
             selected={selRotations}
             onToggle={(optKey) => toggle(setSelRotations, optKey)}
+            counts={counts}
+            section="rotations"
           />
         </Card>
 
@@ -195,6 +298,8 @@ export default function CreateTest() {
             list={resources}
             selected={selResources}
             onToggle={(optKey) => toggle(setSelResources, optKey)}
+            counts={counts}
+            section="resources"
           />
         </Card>
 
@@ -209,6 +314,8 @@ export default function CreateTest() {
             list={disciplines}
             selected={selDisciplines}
             onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
+            counts={counts}
+            section="disciplines"
           />
         </Card>
 
@@ -225,6 +332,8 @@ export default function CreateTest() {
             selected={selSystems}
             onToggle={(optKey) => toggle(setSelSystems, optKey)}
             disabled={!allowSystems}
+            counts={counts}
+            section="systems"
           />
           {!allowSystems && (
             <p className="mt-2 text-sm text-red-600">
@@ -234,33 +343,41 @@ export default function CreateTest() {
         </Card>
 
         {/* Count + Create */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-slate-700">
+        <div className="flex items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] shadow-lg">
+          <div className="flex items-center gap-4">
+            <label className="text-lg font-semibold text-[#2F6F8F]">
               Number of Questions
             </label>
-            <input
-              type="number"
-              min={1}
-              max={40}
-              value={qCount || ""}
-              onChange={(e) => setQCount(Number(e.target.value))}
-              className="w-24 rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
-              placeholder="1-40"
-            />
+            <div className="relative">
+              <input
+                type="number"
+                min={1}
+                max={40}
+                value={qCount || ""}
+                onChange={(e) => setQCount(Number(e.target.value))}
+                className="w-32 rounded-2xl border-2 border-[#E6F0F7] px-4 py-3 text-center text-lg font-bold text-[#2F6F8F] bg-gradient-to-r from-[#F8FCFF] to-white outline-none focus:ring-2 focus:ring-[#56A2CD] focus:border-[#56A2CD] transition-all duration-200"
+                placeholder="1-40"
+              />
+            </div>
           </div>
 
           <button
             disabled={!valid || busy}
             onClick={submit}
             className="
-              rounded-2xl px-6 py-2 font-semibold text-white
-              bg-[#7DB8D9] hover:bg-[#56A2CD]
-              disabled:opacity-60 disabled:cursor-not-allowed
-              shadow transition
+              group relative overflow-hidden rounded-2xl px-8 py-4 font-bold text-white text-lg btn-hover color-smooth
+              bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] hover:from-[#56A2CD] hover:to-[#A5CDE4]
+              disabled:opacity-50 disabled:cursor-not-allowed
+              shadow-lg hover:shadow-xl 
+              transition-all duration-300
             "
           >
-            {busy ? "Creating..." : "Create Test!"}
+            <span className="relative z-10">
+              {busy ? "Creating..." : "Create Test!"}
+            </span>
+            {!busy && (
+              <div className="absolute inset-0 bg-gradient-to-r from-[#56A2CD] to-[#A5CDE4] opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+            )}
           </button>
         </div>
 
@@ -307,48 +424,74 @@ function CheckGrid({
   selected,
   onToggle,
   disabled,
+  counts,
+  section,
 }: {
   list: Option[];
   selected: string[];
   onToggle: (_optKey: string) => void;
   disabled?: boolean;
+  counts?: {
+    rotations: Record<string, number>;
+    resources: Record<string, number>;
+    disciplines: Record<string, number>;
+    systems: Record<string, number>;
+    topics?: Record<string, number>;
+  } | null;
+  section: "rotations" | "resources" | "disciplines" | "systems" | "topics";
 }) {
   return (
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {list.map((o) => (
-        <label
-          key={o.key}
-          className="inline-flex items-center justify-between gap-2 bg-white border border-[#E6F0F7] rounded-xl px-3 py-2"
-        >
-          <span className="flex-1">{o.label}</span>
-          <div className="flex items-center gap-3">
-            <CountPill />
-            <input
-              type="checkbox"
-              checked={selected.includes(o.key)}
-              onChange={() => onToggle(o.key)}
-              disabled={disabled}
-              className="h-4 w-4"
-            />
-          </div>
-        </label>
-      ))}
+      {list.map((o) => {
+        const isSelected = selected.includes(o.key);
+        return (
+          <label
+            key={o.key}
+            className={`
+              group relative inline-flex items-center justify-between gap-2 rounded-xl px-4 py-3 cursor-pointer transition-all duration-300 ease-out btn-hover
+              ${isSelected 
+                ? 'bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white shadow-lg' 
+                : 'bg-white border border-[#E6F0F7] hover:bg-gradient-to-r hover:from-[#F8FCFF] hover:to-[#A5CDE4]/10 hover:border-[#56A2CD]'
+              }
+              ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+            `}
+          >
+            <span className="flex-1 font-medium">{o.label}</span>
+            <div className="flex items-center gap-3">
+              <span className={`
+                text-xs rounded-full px-3 py-1 min-w-8 text-center font-semibold transition-colors
+                ${isSelected 
+                  ? 'bg-white text-[#2F6F8F]' 
+                  : 'bg-gradient-to-r from-[#A5CDE4] to-[#56A2CD] text-white'
+                }
+              `}>
+                {counts?.[section]?.[o.key] ?? 0}
+              </span>
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onToggle(o.key)}
+                disabled={disabled}
+                className="h-4 w-4 accent-[#56A2CD]"
+              />
+            </div>
+            {isSelected && (
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#2F6F8F]/10 to-[#56A2CD]/10 animate-pulse"></div>
+            )}
+          </label>
+        );
+      })}
     </div>
   );
 }
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white border border-[#E6F0F7] p-4 shadow">
+    <div className="rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover-lift">
       {children}
     </div>
   );
 }
 
-function CountPill() {
-  return (
-    <span className="text-xs rounded-full bg-[#F3F9FC] text-[#2F6F8F] px-2 py-0.5">
-      —
-    </span>
-  );
-}
+
+

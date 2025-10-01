@@ -33,18 +33,16 @@ const nextConfig = {
     'tensorflow'
   ],
   
-  // Ultra-aggressive webpack optimizations
+  // Balanced webpack optimizations - only exclude truly unused packages
   webpack: (config, { dev, isServer }) => {
-    // COMPLETELY exclude ALL AI/ML/OCR packages and directories
+    // Only exclude packages NOT used in your application
     config.resolve.alias = {
       ...config.resolve.alias,
-      'framer-motion': false,
+      // Keep pdf-parse - used in API routes
+      // Keep framer-motion - used conditionally in AnimatedBackground.heavy.tsx
       'tesseract.js': false,
-      'pdf-parse': false,
       '@paddlejs-models/ocr': false,
       'opencv.js': false,
-      'canvas': false,
-      'sharp': false,
       'ultralytics': false,
       'torch': false,
       'tensorflow': false,
@@ -63,19 +61,14 @@ const nextConfig = {
         tls: false,
         crypto: false,
         child_process: false,
-        'framer-motion': false,
-        'pdf-parse': false,
         canvas: false,
       };
 
       // Exclude heavy packages from client bundle
       config.externals = config.externals || [];
       config.externals.push(
-        'pdf-parse',
+        // Only exclude truly unused packages from client bundle
         'tesseract.js',
-        'framer-motion',
-        'canvas',
-        'sharp',
         '@paddlejs-models/ocr',
         'opencv.js',
         'ultralytics',

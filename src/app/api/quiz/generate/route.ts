@@ -22,18 +22,24 @@ export async function POST(req: Request) {
     types: string[];
   }>;
 
-  const {
-    rotationKeys = [],
-    resources: _resources = [],
-    disciplines: _disciplines = [],
-    systems: _systems = [],
-    count = 10,
-    mode: _mode = "RANDOM",
-    types = [],
-  } = body;
+  const rotationKeys = Array.isArray(body.rotationKeys)
+    ? body.rotationKeys.filter((value): value is string => typeof value === "string" && value.length > 0)
+    : [];
+  const resourceValues = Array.isArray(body.resources)
+    ? body.resources.filter((value): value is string => typeof value === "string" && value.length > 0)
+    : [];
+  const disciplineValues = Array.isArray(body.disciplines)
+    ? body.disciplines.filter((value): value is string => typeof value === "string" && value.length > 0)
+    : [];
+  const systemValues = Array.isArray(body.systems)
+    ? body.systems.filter((value): value is string => typeof value === "string" && value.length > 0)
+    : [];
+  const types = Array.isArray(body.types)
+    ? body.types.filter((value): value is string => typeof value === "string" && value.length > 0)
+    : [];
 
-  const take = Math.max(1, Math.min(40, Number(count) || 10));
-  if (!Array.isArray(rotationKeys) || rotationKeys.length === 0) {
+  const take = Math.max(1, Math.min(40, Number(body.count) || 10));
+  if (!rotationKeys.length) {
     return NextResponse.json({ error: "Select at least one rotation" }, { status: 400 });
   }
 
@@ -46,6 +52,9 @@ export async function POST(req: Request) {
   const ids = await selectQuestions({
     userId: user.id,
     rotationKeys,
+    resourceValues,
+    disciplineValues,
+    systemValues,
     types,
     take,
   });
@@ -58,8 +67,10 @@ export async function POST(req: Request) {
     data: {
       userId: user.id,
       status: "Active",
+      mode: "RANDOM",
+      count: ids.length,
       items: {
-        create: ids.map((qid, i) => ({ questionId: qid, order: i })),
+        create: ids.map((qid, i) => ({ questionId: qid, orderInQuiz: i })),
       },
     },
     select: { id: true },
@@ -67,3 +78,4 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ id: quiz.id });
 }
+

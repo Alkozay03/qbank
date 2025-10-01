@@ -12,20 +12,36 @@ import { prisma } from "@/server/db";
  * 404 -> user row not found
  */
 export async function GET() {
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await auth();
+    const email = session?.user?.email;
+    if (!email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { email: true, role: true, firstName: true, lastName: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const name = [user.firstName, user.lastName]
+      .filter((part) => typeof part === "string" && part.trim().length > 0)
+      .join(" ")
+      .trim();
+
+    return NextResponse.json({
+      email: user.email,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: name || null,
+    });
+  } catch (error) {
+    console.error('Error in /api/me/role:', error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { email: true, role: true },
-  });
-
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  return NextResponse.json(user);
 }

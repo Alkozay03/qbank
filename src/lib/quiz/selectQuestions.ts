@@ -1,61 +1,192 @@
 // src/lib/quiz/selectQuestions.ts
 import { prisma } from "@/server/db";
-import { TagType } from "@prisma/client";
+import { TagType, Prisma } from "@prisma/client";
+import { expandTagValues } from "@/lib/tags/server";
 
-/**
- * Lightweight selector that works with the current Prisma schema.
- * Filters by ROTATION tags and returns up to `take` question IDs.
- *
- * Notes:
- * - Ignores "types" (no per-user progress table yet).
- * - Does not use DB-level random; we shuffle client-side for portability.
- */
-export async function selectQuestions(opts: {
-  userId: string;         // kept for future personalization
-  rotationKeys: string[]; // e.g. ["im", "gs", "peds", "obgyn"]
-  types?: string[];       // currently unused
-  take: number;           // 1..40
-}): Promise<string[]> {
-  const { rotationKeys, take } = opts;
+function buildTagFilter(type: TagType, rawValues: string[]): Prisma.QuestionWhereInput | null {
+  const variants = expandTagValues(type, rawValues);
+  if (!variants.length) {
+    return null;
+  }
 
-  // Map UI keys -> Tag.value strings used for ROTATION tags in your DB.
-  // Adjust these if your Tag.value strings differ.
-  const rotationMap: Record<string, string> = {
-    im: "Internal Medicine",
-    gs: "General Surgery",
-    peds: "Pediatrics",
-    obgyn: "Obstetrics and Gynaecology",
+  const uniqueValues = Array.from(new Set(variants.map((value) => value.trim()).filter(Boolean)));
+  if (!uniqueValues.length) {
+    return null;
+  }
+
+  const orClauses = uniqueValues.map((value) => ({
+    value: { equals: value, mode: "insensitive" as const },
+  }));
+
+  return {
+    questionTags: {
+      some: {
+        tag: {
+          type,
+          ...(orClauses.length ? { OR: orClauses } : {}),
+        },
+      },
+    },
   };
+}
 
-  const wantedRotations = rotationKeys.map((k) => rotationMap[k]).filter(Boolean);
+export async function selectQuestions(opts: {
+  userId: string;
+  rotationKeys: string[];
+  resourceValues?: string[];
+  disciplineValues?: string[];
+  systemValues?: string[];
+  types?: string[];
+  take: number;
+}): Promise<string[]> {
+  const {
+    rotationKeys,
+    resourceValues = [],
+    disciplineValues = [],
+    systemValues = [],
+    types = [],
+    take,
+    userId,
+  } = opts;
 
-  const where =
-    wantedRotations.length > 0
-      ? {
-          questionTags: {
-            some: {
-              tag: {
-                type: TagType.ROTATION,
-                value: { in: wantedRotations },
-              },
-            },
+  const tagFilters: Prisma.QuestionWhereInput[] = [];
+
+  const rotationFilter = buildTagFilter(TagType.ROTATION, rotationKeys);
+  if (rotationFilter) {
+    tagFilters.push(rotationFilter);
+  }
+
+  const resourceFilter = buildTagFilter(TagType.RESOURCE, resourceValues);
+  if (resourceFilter) {
+    tagFilters.push(resourceFilter);
+  }
+
+  const disciplineFilter = buildTagFilter(TagType.SUBJECT, disciplineValues);
+  if (disciplineFilter) {
+    tagFilters.push(disciplineFilter);
+  }
+
+  const systemFilter = buildTagFilter(TagType.SYSTEM, systemValues);
+  if (systemFilter) {
+    tagFilters.push(systemFilter);
+  }
+
+  const whereClauses: Prisma.QuestionWhereInput[] = [...tagFilters];
+
+  if (types.length > 0) {
+    const answeredQuestions = await prisma.response.findMany({
+      where: { userId },
+      include: {
+        quizItem: {
+          select: {
+            questionId: true,
+            marked: true,
           },
-        }
-      : {};
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  // Pull a pool (oversample for better shuffle), then shuffle and slice.
-  const pool = await prisma.question.findMany({
-    where,
-    select: { id: true },
-    take: Math.max(take * 3, take),
-    orderBy: { createdAt: "desc" },
-  });
+    const userQuizItems = await prisma.quizItem.findMany({
+      where: { quiz: { userId } },
+      select: { questionId: true, marked: true },
+    });
 
-  // Fisher–Yates shuffle
-  for (let i = pool.length - 1; i > 0; i--) {
+    const responsesByQuestion = new Map<string, (typeof answeredQuestions)[number]>();
+    const markedQuestions = new Set<string>();
+    const usedQuestionIds = new Set<string>();
+
+    for (const item of userQuizItems) {
+      usedQuestionIds.add(item.questionId);
+      if (item.marked) {
+        markedQuestions.add(item.questionId);
+      }
+    }
+
+    for (const response of answeredQuestions) {
+      const questionId = response.quizItem.questionId;
+      if (response.quizItem.marked) {
+        markedQuestions.add(questionId);
+      }
+      const existing = responsesByQuestion.get(questionId);
+      if (!existing || response.createdAt > existing.createdAt) {
+        responsesByQuestion.set(questionId, response);
+      }
+    }
+
+    const questionIdsByType: Record<string, Set<string>> = {
+      marked: markedQuestions,
+      unused: new Set<string>(),
+      correct: new Set<string>(),
+      incorrect: new Set<string>(),
+      omitted: new Set<string>(),
+    };
+
+    const allQuestions = await prisma.question.findMany({ select: { id: true } });
+    for (const q of allQuestions) {
+      if (!usedQuestionIds.has(q.id)) {
+        questionIdsByType.unused.add(q.id);
+      }
+    }
+
+    for (const [questionId, response] of responsesByQuestion.entries()) {
+      if (response.choiceId === null || response.choiceId === undefined) {
+        questionIdsByType.omitted.add(questionId);
+      } else if (response.isCorrect === true) {
+        questionIdsByType.correct.add(questionId);
+      } else if (response.isCorrect === false) {
+        questionIdsByType.incorrect.add(questionId);
+      }
+    }
+
+    const includeQuestionIds = new Set<string>();
+    for (const type of types) {
+      const set = questionIdsByType[type];
+      if (!set) continue;
+      for (const id of set) {
+        includeQuestionIds.add(id);
+      }
+    }
+
+    if (includeQuestionIds.size === 0) {
+      return [];
+    }
+
+    whereClauses.push({ id: { in: Array.from(includeQuestionIds) } });
+  }
+
+  const where: Prisma.QuestionWhereInput = whereClauses.length
+    ? { AND: whereClauses }
+    : {};
+
+  let pool: { id: string }[] = [];
+  try {
+    pool = await prisma.question.findMany({
+      where,
+      select: { id: true },
+      take: Math.max(take * 3, take),
+      orderBy: { createdAt: "desc" },
+    });
+  } catch {
+    pool = await prisma.question.findMany({
+      select: { id: true },
+      take: Math.max(take * 3, take),
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  if (pool.length === 0) {
+    pool = await prisma.question.findMany({
+      select: { id: true },
+      take: Math.max(take * 3, take),
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
 
-  return pool.slice(0, take).map((q: { id: string }) => q.id);
+  return pool.slice(0, take).map((q) => q.id);
 }
