@@ -1,0 +1,67 @@
+# Vercel ignore file - exclude heavy files from deployment
+
+# AI/ML model files
+*.json
+*.dump
+*.sql
+*.py
+*.traineddata
+*.mjs
+debug_*
+test_*
+check-*
+fix-*
+promote-*
+restore-*
+remove-*
+search_*
+algorithmic_*
+complete_*
+direct_*
+extracted_*
+final_*
+fixed_*
+force-*
+ingest-*
+ls_*
+minimal_*
+ocr_*
+paddlex_*
+perfect_*
+quick_*
+simple_*
+
+# Backup files
+backup_*
+
+# Development files
+*.bat
+knip.json
+eslint.config.mjs
+next.config.slow.mjs
+next.config.ultra-fast.mjs
+next.config.ts
+
+# Node modules and build artifacts
+node_modules/
+.next/
+out/
+dist/
+
+# Logs and temporary files
+*.log
+.DS_Store
+.env.local
+.env.development
+.env.test
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database files
+*.db
+*.sqlite
+prisma/migrations/
