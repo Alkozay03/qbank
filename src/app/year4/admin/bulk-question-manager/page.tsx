@@ -4,7 +4,6 @@ import { useState, useRef, useCallback, useEffect, KeyboardEvent, ChangeEvent, D
 import { useRouter, useSearchParams } from "next/navigation";
 import RichTextEditor from "@/components/RichTextEditor";
 import TagSelector from "@/components/TagSelector";
-import { enhancedTagDetection, formatTagsForSelector } from "@/utils/aiTagDetection";
 import AdminQuestionComments from "@/components/AdminQuestionComments";
 import Image from "next/image";
 import { getTagLabel, type TagCategory } from "@/lib/tags/catalog";
@@ -993,17 +992,11 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     });
   }, [question]);
 
-  // Generate AI suggestions when component mounts or question content changes
+  // AI tag detection has been removed - manual tag selection only
   useEffect(() => {
-
-    const detectedTags = enhancedTagDetection(
-      editedQuestion.questionText,
-      editedQuestion.explanation,
-      editedQuestion.educationalObjective
-    );
-    const formattedSuggestions = formatTagsForSelector(detectedTags);
-    setAiSuggestions(formattedSuggestions);
-  }, [editedQuestion.questionText, editedQuestion.explanation, editedQuestion.educationalObjective]);
+    // Clear AI suggestions since AI functionality is removed
+    setAiSuggestions([]);
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);

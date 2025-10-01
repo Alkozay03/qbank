@@ -6,8 +6,6 @@ const nextConfig = {
     optimizePackageImports: ['@prisma/client', 'lucide-react', 'clsx', 'tailwind-merge'],
     optimizeServerReact: true,
     webpackBuildWorker: true,
-    // Enable faster dev mode
-    turbo: true,
   },
   
   // Speed up dev mode with Turbopack (Next.js 15 format)
@@ -19,87 +17,15 @@ const nextConfig = {
     }
   },
   
-  // Move serverComponentsExternalPackages to root level
-  serverExternalPackages: [
-    'framer-motion', 
-    'tesseract.js', 
-    'sharp', 
-    'pdf-parse',
-    'canvas',
-    '@paddlejs-models/ocr',
-    'opencv.js',
-    'ultralytics',
-    'torch',
-    'tensorflow'
-  ],
+  // Clean and simple - no AI-related exclusions needed
+  serverExternalPackages: [],
   
-  // Balanced webpack optimizations - only exclude truly unused packages
-  webpack: (config, { dev, isServer }) => {
-    // Only exclude packages NOT used in your application
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      // Keep pdf-parse - used in API routes
-      // Keep framer-motion - used conditionally in AnimatedBackground.heavy.tsx
-      'tesseract.js': false,
-      '@paddlejs-models/ocr': false,
-      'opencv.js': false,
-      'ultralytics': false,
-      'torch': false,
-      'tensorflow': false,
-      'ai-question-extractor': false,
-      // Exclude entire AI directory
-      '../ai-question-extractor': false,
-      '../../ai-question-extractor': false,
-    };
-
-    // Client-side optimizations
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-        child_process: false,
-        canvas: false,
-      };
-
-      // Exclude heavy packages from client bundle
-      config.externals = config.externals || [];
-      config.externals.push(
-        // Only exclude truly unused packages from client bundle
-        'tesseract.js',
-        '@paddlejs-models/ocr',
-        'opencv.js',
-        'ultralytics',
-        'torch',
-        'tensorflow',
-        'numpy',
-        'pandas',
-        'matplotlib',
-        'pillow',
-        'cv2',
-        // Block entire AI directory
-        /ai-question-extractor/,
-        /python/,
-        /\.py$/
-      );
-    }
-
-    // Production bundle size optimizations
+  // Basic optimizations only
+  webpack: (config, { dev }) => {
+    // Basic client-side optimizations
     if (!dev) {
-      // Completely ignore AI directory in webpack
-      config.module = config.module || {};
-      config.module.rules = config.module.rules || [];
-      config.module.rules.push({
-        test: /ai-question-extractor/,
-        use: 'ignore-loader'
-      });
-
       config.optimization.splitChunks = {
         chunks: 'all',
-        minSize: 0,
-        maxSize: 150000, // 150kb max chunks
         cacheGroups: {
           default: {
             minChunks: 2,
@@ -113,27 +39,6 @@ const nextConfig = {
             chunks: 'all',
           },
         },
-      };
-    }
-
-    // Aggressive caching for speed
-    config.cache = {
-      type: 'filesystem',
-      maxMemoryGenerations: 1,
-    };
-
-    // Development mode optimizations
-    if (dev) {
-      // Speed up development builds
-      config.optimization.removeAvailableModules = false;
-      config.optimization.removeEmptyChunks = false;
-      config.optimization.splitChunks = false;
-      
-      // Reduce TypeScript checking in dev
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        // Use faster alternatives in dev
-        '@prisma/client/edge': '@prisma/client',
       };
     }
     
