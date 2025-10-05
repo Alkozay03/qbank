@@ -95,9 +95,27 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
-    console.error("Error in register API:", error);
+    // Detailed error logging for production debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorName = error instanceof Error ? error.constructor.name : typeof error;
+    
+    process.stderr.write(`❌ [REGISTER] Registration failed\n`);
+    process.stderr.write(`❌ [REGISTER] Error type: ${errorName}\n`);
+    process.stderr.write(`❌ [REGISTER] Error message: ${errorMessage}\n`);
+    if (errorStack) {
+      process.stderr.write(`❌ [REGISTER] Stack trace:\n${errorStack}\n`);
+    }
+    
+    // Log the full error object for debugging
+    console.error("❌ [REGISTER] Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    
     return NextResponse.json(
-      { success: false, error: "Failed to register" },
+      { 
+        success: false, 
+        error: "Failed to register",
+        debug: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }
