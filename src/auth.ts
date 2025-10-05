@@ -39,8 +39,13 @@ const emailProvider = Email({
   }),
 });
 
+const adapterInstance = ClerkshipAdapter();
+console.error(`🚀 [PROD AUTH.TS] Adapter created:`, typeof adapterInstance);
+console.error(`🚀 [PROD AUTH.TS] Adapter has createVerificationToken:`, !!adapterInstance.createVerificationToken);
+console.error(`🚀 [PROD AUTH.TS] Adapter has useVerificationToken:`, !!adapterInstance.useVerificationToken);
+
 export const authOptions: NextAuthConfig = {
-  adapter: ClerkshipAdapter(),
+  adapter: adapterInstance,
 
   // 45-day session with JWT
   session: { strategy: "jwt", maxAge: 45 * 24 * 60 * 60 },
