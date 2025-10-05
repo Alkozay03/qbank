@@ -1,3 +1,5 @@
+import CopyPlugin from 'copy-webpack-plugin';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // AGGRESSIVE performance optimizations for ultra-fast loading
@@ -14,14 +16,33 @@ const nextConfig = {
   // Clean and simple - no AI-related exclusions needed
   serverExternalPackages: [],
 
-  // Prisma configuration for Vercel deployment - use default Next.js bundling
-  // The postinstall script will generate the client with correct binaries
+  // Prisma configuration for Vercel deployment
+  // Manually copy Prisma engines to output
+  output: 'standalone',
   
   // Basic optimizations only
   webpack: (config, { dev, isServer }) => {
-    // Default webpack config - let Next.js handle Prisma bundling
     if (isServer) {
-      // No custom externals needed for Prisma in Next.js 15
+      // Copy Prisma query engine to output directory
+      config.plugins = config.plugins || [];
+      
+      // Use CopyWebpackPlugin to copy Prisma engines
+      config.plugins.push(
+        new CopyPlugin({
+          patterns: [
+            {
+              from: 'node_modules/.prisma/client/*.node',
+              to: '../../../.next/server/[name][ext]',
+              noErrorOnMissing: true,
+            },
+            {
+              from: 'node_modules/.prisma/client/*.node',
+              to: '../../../node_modules/.prisma/client/[name][ext]',
+              noErrorOnMissing: true,
+            },
+          ],
+        })
+      );
     }
     
     // Basic client-side optimizations

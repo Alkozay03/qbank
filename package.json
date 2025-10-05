@@ -52,6 +52,7 @@
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "copy-webpack-plugin": "^13.0.1",
     "depcheck": "^1.4.7",
     "dotenv": "^17.2.3",
     "eslint": "^9",
