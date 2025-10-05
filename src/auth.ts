@@ -40,9 +40,13 @@ const emailProvider = Email({
 });
 
 const adapterInstance = ClerkshipAdapter();
-console.error(`🚀 [PROD AUTH.TS] Adapter created:`, typeof adapterInstance);
-console.error(`🚀 [PROD AUTH.TS] Adapter has createVerificationToken:`, !!adapterInstance.createVerificationToken);
-console.error(`🚀 [PROD AUTH.TS] Adapter has useVerificationToken:`, !!adapterInstance.useVerificationToken);
+
+// Force logging to work in production by using process.stderr directly
+if (typeof process !== 'undefined' && process.stderr) {
+  process.stderr.write(`🚀 [PROD AUTH.TS] Adapter created: ${typeof adapterInstance}\n`);
+  process.stderr.write(`🚀 [PROD AUTH.TS] Has createVerificationToken: ${!!adapterInstance.createVerificationToken}\n`);
+  process.stderr.write(`🚀 [PROD AUTH.TS] Has useVerificationToken: ${!!adapterInstance.useVerificationToken}\n`);
+}
 
 export const authOptions: NextAuthConfig = {
   adapter: adapterInstance,

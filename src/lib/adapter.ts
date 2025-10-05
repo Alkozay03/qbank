@@ -21,16 +21,22 @@ function isPromise<T>(v: unknown): v is Promise<T> {
 }
 
 export function ClerkshipAdapter(): Adapter {
-  console.error(`🏗️ [PROD] ClerkshipAdapter initialized`);
+  if (typeof process !== 'undefined' && process.stderr) {
+    process.stderr.write(`🏗️ [PROD] ClerkshipAdapter initialized\n`);
+  }
   const base = PrismaAdapter(prisma);
-  console.error(`🏗️ [PROD] Base PrismaAdapter created`);
+  if (typeof process !== 'undefined' && process.stderr) {
+    process.stderr.write(`🏗️ [PROD] Base PrismaAdapter created\n`);
+  }
 
   const adapter = {
     ...base,
 
     async createVerificationToken(data) {
-      console.error(`🔐🔐🔐 [PROD] CUSTOM createVerificationToken CALLED!`);
-      console.error(`🔐 [PROD] Raw data:`, JSON.stringify(data, null, 2));
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`🔐🔐🔐 [PROD] CUSTOM createVerificationToken CALLED!\n`);
+        process.stderr.write(`🔐 [PROD] Raw data: ${JSON.stringify(data, null, 2)}\n`);
+      }
       // CRITICAL: Normalize identifier to lowercase when creating token
       const normalizedIdentifier = data.identifier.toLowerCase().trim();
       
@@ -51,8 +57,10 @@ export function ClerkshipAdapter(): Adapter {
     },
 
     async useVerificationToken(params) {
-      console.error(`🔍🔍🔍 [PROD] CUSTOM useVerificationToken CALLED!`);
-      console.error(`🔍 [PROD] Raw params:`, JSON.stringify(params, null, 2));
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`🔍🔍🔍 [PROD] CUSTOM useVerificationToken CALLED!\n`);
+        process.stderr.write(`🔍 [PROD] Raw params: ${JSON.stringify(params, null, 2)}\n`);
+      }
       
       try {
         // Normalize the identifier (email) to lowercase
