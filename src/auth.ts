@@ -139,15 +139,27 @@ export const authOptions: NextAuthConfig = {
       // This ensures token is updated if admin changes user's status
       const email = user?.email || token?.email;
       if (email && typeof email === 'string') {
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`🎫 [JWT] Refreshing token for: ${email}\n`);
+        }
+        
         const dbUser = await prisma.user.findUnique({
           where: { email },
           select: { approvalStatus: true, role: true, firstName: true, lastName: true },
         });
+        
         if (dbUser) {
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`🎫 [JWT] DB User found: ${dbUser.approvalStatus}, ${dbUser.role}\n`);
+          }
           (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
           (token as { role?: string }).role = dbUser.role;
           (token as { firstName?: string | null }).firstName = dbUser.firstName;
           (token as { lastName?: string | null }).lastName = dbUser.lastName;
+        } else {
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`🎫 [JWT] WARNING: No DB user found for ${email}\n`);
+          }
         }
       }
       
