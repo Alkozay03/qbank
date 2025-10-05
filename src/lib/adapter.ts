@@ -43,8 +43,10 @@ export function ClerkshipAdapter(): Adapter {
             OR: [
               { expires: { lt: new Date() } }, // Expired tokens
               { 
-                usedAt: { lt: new Date(Date.now() - 60000) }, // Used more than 60s ago
-                usedAt: { not: null }
+                AND: [
+                  { usedAt: { not: null } },
+                  { usedAt: { lt: new Date(Date.now() - 60000) } } // Used more than 60s ago
+                ]
               }
             ]
           }
