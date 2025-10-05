@@ -55,7 +55,10 @@ export const authOptions: NextAuthConfig = {
   session: { strategy: "jwt", maxAge: 45 * 24 * 60 * 60 },
 
   providers: [emailProvider],
-  pages: { signIn: "/login" },
+  pages: { 
+    signIn: "/login",
+    error: "/auth/error", // Custom error page
+  },
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   
   // Trust proxy for Vercel - critical for HTTPS cookie handling
@@ -64,7 +67,8 @@ export const authOptions: NextAuthConfig = {
   // Ensure cookies work in production
   useSecureCookies: process.env.NODE_ENV === "production",
   
-  // Explicit cookie configuration for session persistence
+  // Simplified cookie configuration - let NextAuth handle defaults
+  // The issue was explicitly setting domain which can cause cookie problems
   cookies: {
     sessionToken: {
       name: process.env.NODE_ENV === "production" 
@@ -75,7 +79,7 @@ export const authOptions: NextAuthConfig = {
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
-        domain: process.env.NODE_ENV === "production" ? ".clerkship.me" : undefined,
+        // Don't set domain - let it default to current domain
       },
     },
   },
