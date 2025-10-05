@@ -170,56 +170,27 @@ export const authOptions: NextAuthConfig = {
         process.stderr.write(`🔀 [REDIRECT] url: ${url}, baseUrl: ${baseUrl}\n`);
       }
       
-      // CRITICAL: Strip token and callbackUrl params to prevent reuse after successful login
-      // This fixes the issue where clicking through Google's warning page causes token reuse
-      try {
-        const redirectUrl = new URL(url, baseUrl);
-        
-        // Remove token-related params that would cause verification to run again
-        redirectUrl.searchParams.delete('token');
-        redirectUrl.searchParams.delete('email');
-        
-        // If there's a callbackUrl, use it (but clean it too)
-        const callbackUrl = redirectUrl.searchParams.get('callbackUrl');
-        if (callbackUrl) {
-          try {
-            const cleanCallback = new URL(callbackUrl, baseUrl);
-            cleanCallback.searchParams.delete('token');
-            cleanCallback.searchParams.delete('email');
-            
-            if (typeof process !== 'undefined' && process.stderr) {
-              process.stderr.write(`🔀 [REDIRECT] Using cleaned callbackUrl: ${cleanCallback.toString()}\n`);
-            }
-            
-            // Return the clean callback if it's on same origin
-            if (cleanCallback.origin === baseUrl || callbackUrl.startsWith('/')) {
-              return cleanCallback.toString();
-            }
-          } catch {
-            // Invalid callback URL, ignore it
-          }
-        }
-        
-        const cleanUrl = redirectUrl.toString();
+      // Allow same-origin URLs (including error pages)
+      if (url.startsWith("/")) {
         if (typeof process !== 'undefined' && process.stderr) {
-          process.stderr.write(`🔀 [REDIRECT] Cleaned URL: ${cleanUrl}\n`);
+          process.stderr.write(`🔀 [REDIRECT] Allowing relative URL: ${url}\n`);
         }
-        
-        // If it's on our domain, return the cleaned URL
-        if (redirectUrl.origin === baseUrl || url.startsWith('/')) {
-          return cleanUrl;
-        }
-      } catch (error) {
-        if (typeof process !== 'undefined' && process.stderr) {
-          process.stderr.write(`🔀 [REDIRECT] URL parse error: ${error}\n`);
-        }
+        return `${baseUrl}${url}`;
       }
       
-      // Default: redirect to dashboard for APPROVED users
-      if (typeof process !== 'undefined' && process.stderr) {
-        process.stderr.write(`🔀 [REDIRECT] Defaulting to /year4\n`);
+      // Allow full URLs on same origin
+      if (url.startsWith(baseUrl)) {
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`🔀 [REDIRECT] Allowing same-origin URL: ${url}\n`);
+        }
+        return url;
       }
-      return `${baseUrl}/year4`;
+      
+      // Default: redirect to /years after successful login
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`🔀 [REDIRECT] Defaulting to /years\n`);
+      }
+      return `${baseUrl}/years`;
     },
 
     async session({ session, token }) {
