@@ -15,7 +15,7 @@ export default function LoginSent() {
             Click the link in your email to sign in. The link will expire in 24 hours.
           </p>
           <p className="text-xs text-blue-600 text-center mt-2">
-            💡 Your link will work even if your email scanner pre-checks it (within 60 seconds).
+            💡 Your link will work even if your email scanner pre-checks it (within 2 minutes).
           </p>
         </div>
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
