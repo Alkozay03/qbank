@@ -1,24 +1,13 @@
 // src/lib/adapter.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/server/db";
-import { cookies as nextCookies } from "next/headers";
 import type { Adapter, AdapterUser } from "next-auth/adapters";
 import type { Prisma } from "@prisma/client";
 
 /**
- * Wrap PrismaAdapter to customize session expiration
- * based on a "rememberMe" cookie—without using `any`.
+ * Custom adapter wrapping PrismaAdapter to add email normalization
+ * for verification tokens (case-insensitive email matching).
  */
-
-type CookieJar = { get(_name: string): { value?: string } | undefined };
-
-function isCookieJar(v: unknown): v is CookieJar {
-  return !!v && typeof (v as { get?: unknown }).get === "function";
-}
-
-function isPromise<T>(v: unknown): v is Promise<T> {
-  return !!v && typeof (v as { then?: unknown }).then === "function";
-}
 
 export function ClerkshipAdapter(): Adapter {
   if (typeof process !== 'undefined' && process.stderr) {
@@ -216,32 +205,8 @@ export function ClerkshipAdapter(): Adapter {
       return { id: u.id, name, email: u.email, emailVerified: null, image: u.image ?? null } satisfies AdapterUser;
     },
 
-    async createSession(data: { sessionToken: string; userId: string; expires: Date }) {
-      let remember = false;
-
-      try {
-        const maybe = nextCookies() as unknown;
-
-        const jarResolved = isPromise<unknown>(maybe) ? await maybe : maybe;
-        if (isCookieJar(jarResolved)) {
-          remember = jarResolved.get("rememberMe")?.value === "1";
-        }
-      } catch {
-        // In some contexts (e.g., non-request), cookies() may be unavailable—ignore.
-      }
-
-      const days = remember ? 45 : 1;
-      const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-
-      if (!base.createSession) {
-        throw new Error("Adapter.createSession is not available on PrismaAdapter.");
-      }
-
-      return base.createSession({
-        ...data,
-        expires,
-      });
-    },
+    // NOTE: We removed createSession because we're using JWT strategy, not database sessions.
+    // The rememberMe cookie logic isn't needed with JWT since maxAge is set in auth config.
   };
   
   console.error(`🏗️ [PROD] ClerkshipAdapter returning custom adapter with ${Object.keys(adapter).length} methods`);
