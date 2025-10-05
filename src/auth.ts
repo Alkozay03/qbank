@@ -63,6 +63,22 @@ export const authOptions: NextAuthConfig = {
   
   // Ensure cookies work in production
   useSecureCookies: process.env.NODE_ENV === "production",
+  
+  // Explicit cookie configuration for session persistence
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production" 
+        ? "__Secure-authjs.session-token" 
+        : "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain: process.env.NODE_ENV === "production" ? ".clerkship.me" : undefined,
+      },
+    },
+  },
 
   callbacks: {
     /**
