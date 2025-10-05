@@ -32,7 +32,7 @@ export function ClerkshipAdapter(): Adapter {
   const adapter = {
     ...base,
 
-    async createVerificationToken(data) {
+    async createVerificationToken(data: { identifier: string; token: string; expires: Date }) {
       if (typeof process !== 'undefined' && process.stderr) {
         process.stderr.write(`🔐🔐🔐 [PROD] CUSTOM createVerificationToken CALLED!\n`);
         process.stderr.write(`🔐 [PROD] Original identifier: ${data.identifier}\n`);
@@ -61,7 +61,7 @@ export function ClerkshipAdapter(): Adapter {
       return token;
     },
 
-    async useVerificationToken(params) {
+    async useVerificationToken(params: { identifier: string; token: string }) {
       if (typeof process !== 'undefined' && process.stderr) {
         process.stderr.write(`🔍🔍🔍 [PROD] CUSTOM useVerificationToken CALLED!\n`);
         process.stderr.write(`🔍 [PROD] Original identifier: ${params.identifier}\n`);
@@ -118,7 +118,7 @@ export function ClerkshipAdapter(): Adapter {
       }
     },
 
-    async getUser(id) {
+    async getUser(id: string) {
       const u = await prisma.user.findUnique({
         where: { id },
         select: {
@@ -141,7 +141,7 @@ export function ClerkshipAdapter(): Adapter {
     },
 
     // Override to avoid selecting non-existent columns (e.g., legacy `rotation`).
-    async getUserByEmail(email) {
+    async getUserByEmail(email: string) {
       const u = await prisma.user.findUnique({
         where: { email },
         select: {
@@ -169,7 +169,7 @@ export function ClerkshipAdapter(): Adapter {
       } satisfies AdapterUser;
     },
 
-    async createUser(data) {
+    async createUser(data: { email: string; name?: string | null; image?: string | null; emailVerified?: Date | null }) {
       // Map `name` -> firstName/lastName if provided
       let firstName: string | null = null;
       let lastName: string | null = null;
@@ -193,7 +193,7 @@ export function ClerkshipAdapter(): Adapter {
       return { id: u.id, name, email: u.email, emailVerified: null, image: u.image ?? null } satisfies AdapterUser;
     },
 
-    async updateUser(data) {
+    async updateUser(data: { id: string; email?: string; name?: string; image?: string }) {
       if (!data.id) throw new Error("updateUser: missing id");
       // Ignore fields we don't have in schema (e.g., emailVerified, rotation)
       const toUpdate: Prisma.UserUpdateInput = {};
@@ -216,7 +216,7 @@ export function ClerkshipAdapter(): Adapter {
       return { id: u.id, name, email: u.email, emailVerified: null, image: u.image ?? null } satisfies AdapterUser;
     },
 
-    async createSession(data) {
+    async createSession(data: { sessionToken: string; userId: string; expires: Date }) {
       let remember = false;
 
       try {
