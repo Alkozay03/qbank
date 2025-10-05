@@ -13,7 +13,7 @@ try {
   
   // Set environment variables for proper engine generation
   process.env.PRISMA_GENERATE_SKIP_DOWNLOAD = 'false';
-  process.env.PRISMA_CLI_QUERY_ENGINE_TYPE = 'binary';
+  process.env.PRISMA_CLI_QUERY_ENGINE_TYPE = 'library';
   
   // Generate Prisma client
   execSync('npx prisma generate', {
@@ -22,7 +22,7 @@ try {
     env: {
       ...process.env,
       PRISMA_GENERATE_SKIP_DOWNLOAD: 'false',
-      PRISMA_CLI_QUERY_ENGINE_TYPE: 'binary'
+      PRISMA_CLI_QUERY_ENGINE_TYPE: 'library'
     }
   });
   
