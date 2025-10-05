@@ -14,17 +14,14 @@ const nextConfig = {
   // Clean and simple - no AI-related exclusions needed
   serverExternalPackages: [],
 
-  // Prisma configuration for Vercel deployment
-  // Don't externalize @prisma/client so the query engine gets bundled
-  serverComponentsExternalPackages: [],
+  // Prisma configuration for Vercel deployment - use default Next.js bundling
+  // The postinstall script will generate the client with correct binaries
   
   // Basic optimizations only
   webpack: (config, { dev, isServer }) => {
-    // Don't externalize Prisma - let it bundle the query engine
-    // This ensures the binary is included in the Vercel deployment
+    // Default webpack config - let Next.js handle Prisma bundling
     if (isServer) {
-      // Only externalize bcrypt if needed, but not Prisma
-      // config.externals.push('bcrypt');
+      // No custom externals needed for Prisma in Next.js 15
     }
     
     // Basic client-side optimizations
@@ -49,9 +46,6 @@ const nextConfig = {
     
     return config;
   },
-  
-  // Ensure standalone build includes Prisma binaries
-  output: 'standalone',
   
   // Runtime optimizations
   poweredByHeader: false,
