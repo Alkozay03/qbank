@@ -122,6 +122,11 @@ export const authOptions: NextAuthConfig = {
         // add id without using `any`
         (session.user as { id?: string | null }).id = token?.sub ?? null;
         if (token?.email) session.user.email = token.email as string;
+        
+        // Add additional user data from token
+        if (token?.firstName) {
+          session.user.name = [token.firstName, token.lastName].filter(Boolean).join(' ') || null;
+        }
       }
       return session;
     },
@@ -130,14 +135,19 @@ export const authOptions: NextAuthConfig = {
       if (user?.id) token.sub = user.id;
       if (user?.email) token.email = user.email;
       
-      // Store approval status in the token so we can check it later
-      if (user?.email) {
+      // ALWAYS check approval status from database (not just on first login)
+      // This ensures token is updated if admin changes user's status
+      const email = user?.email || token?.email;
+      if (email && typeof email === 'string') {
         const dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
-          select: { approvalStatus: true },
+          where: { email },
+          select: { approvalStatus: true, role: true, firstName: true, lastName: true },
         });
         if (dbUser) {
           (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
+          (token as { role?: string }).role = dbUser.role;
+          (token as { firstName?: string | null }).firstName = dbUser.firstName;
+          (token as { lastName?: string | null }).lastName = dbUser.lastName;
         }
       }
       
