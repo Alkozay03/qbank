@@ -71,6 +71,7 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+  usedAt     DateTime? // Track when token was first used (for email scanner tolerance)
 
   @@unique([identifier, token])
 }

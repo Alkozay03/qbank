@@ -36,6 +36,29 @@ export function ClerkshipAdapter(): Adapter {
         process.stderr.write(`🔐 [PROD] Expires: ${data.expires}\n`);
       }
       
+      // Clean up expired or used tokens before creating new one
+      try {
+        const deletedCount = await prisma.verificationToken.deleteMany({
+          where: {
+            OR: [
+              { expires: { lt: new Date() } }, // Expired tokens
+              { 
+                usedAt: { lt: new Date(Date.now() - 60000) }, // Used more than 60s ago
+                usedAt: { not: null }
+              }
+            ]
+          }
+        });
+        if (typeof process !== 'undefined' && process.stderr && deletedCount.count > 0) {
+          process.stderr.write(`🧹 [PROD] Cleaned up ${deletedCount.count} expired/used tokens\n`);
+        }
+      } catch (cleanupError) {
+        // Non-critical, just log
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`⚠️ [PROD] Token cleanup failed: ${cleanupError}\n`);
+        }
+      }
+
       const token = await prisma.verificationToken.create({
         data: {
           identifier: normalizedIdentifier,
@@ -50,7 +73,7 @@ export function ClerkshipAdapter(): Adapter {
       if (typeof process !== 'undefined' && process.stderr) {
         process.stderr.write(`✅ [PROD] Token created successfully in database\n`);
         process.stderr.write(`✅ [PROD] Token valid for ${minutesUntilExpiry} minutes (until ${data.expires.toISOString()})\n`);
-        process.stderr.write(`✅ [PROD] ⚠️ IMPORTANT: Token can only be used ONCE. Email scanners may consume it!\n`);
+        process.stderr.write(`✅ [PROD] ⚠️ Token can be reused within 60 seconds (email scanner tolerance)\n`);
       }
       return token;
     },
@@ -71,8 +94,8 @@ export function ClerkshipAdapter(): Adapter {
       }
       
       try {
-        // Try to find and delete the token in one operation
-        const token = await prisma.verificationToken.delete({
+        // First, try to find the token
+        const token = await prisma.verificationToken.findUnique({
           where: {
             identifier_token: {
               identifier: normalizedIdentifier,
@@ -80,10 +103,77 @@ export function ClerkshipAdapter(): Adapter {
             },
           },
         });
-        
-        if (typeof process !== 'undefined' && process.stderr) {
-          process.stderr.write(`✅ [PROD] Token found and deleted successfully!\n`);
+
+        if (!token) {
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`❌ [PROD] Token not found in database\n`);
+          }
+          return null;
         }
+
+        // Check if token is expired
+        if (token.expires < new Date()) {
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`❌ [PROD] Token expired, deleting\n`);
+          }
+          await prisma.verificationToken.delete({
+            where: {
+              identifier_token: {
+                identifier: normalizedIdentifier,
+                token: params.token,
+              },
+            },
+          });
+          return null;
+        }
+
+        const now = new Date();
+        const sixtySecondsAgo = new Date(now.getTime() - 60000);
+
+        // If usedAt exists and was within last 60 seconds, allow reuse (email scanner tolerance)
+        if (token.usedAt && token.usedAt > sixtySecondsAgo) {
+          if (typeof process !== 'undefined' && process.stderr) {
+            const secondsAgo = Math.round((now.getTime() - token.usedAt.getTime()) / 1000);
+            process.stderr.write(`🔄 [PROD] Token reused within 60s window (${secondsAgo}s ago) - Email scanner tolerance\n`);
+          }
+          return token; // Don't delete, allow multiple uses within window
+        }
+
+        // If usedAt exists but is outside 60s window, token expired for reuse
+        if (token.usedAt && token.usedAt <= sixtySecondsAgo) {
+          if (typeof process !== 'undefined' && process.stderr) {
+            const secondsAgo = Math.round((now.getTime() - token.usedAt.getTime()) / 1000);
+            process.stderr.write(`❌ [PROD] Token reuse window expired (first used ${secondsAgo}s ago, limit is 60s)\n`);
+          }
+          await prisma.verificationToken.delete({
+            where: {
+              identifier_token: {
+                identifier: normalizedIdentifier,
+                token: params.token,
+              },
+            },
+          });
+          return null;
+        }
+
+        // First use - mark usedAt timestamp
+        if (!token.usedAt) {
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`✅ [PROD] Token first use - marking timestamp (60s reuse window starts)\n`);
+          }
+          await prisma.verificationToken.update({
+            where: {
+              identifier_token: {
+                identifier: normalizedIdentifier,
+                token: params.token,
+              },
+            },
+            data: { usedAt: now },
+          });
+          return token;
+        }
+
+        // Shouldn't reach here, but return token as fallback
         return token;
       } catch (error) {
         if (typeof process !== 'undefined' && process.stderr) {

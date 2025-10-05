@@ -9,18 +9,19 @@ export default function LoginSent() {
         </p>
         <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
           <p className="text-sm text-blue-800 text-center font-medium mb-2">
-            🎉 Quick Tip: You might already be logged in!
+            📧 Check your inbox
           </p>
           <p className="text-xs text-blue-700 text-center">
-            Your email server may have already activated the login link. 
-            Try visiting <a href="/years" className="underline font-medium">clerkship.me/years</a> directly - 
-            you may already be signed in without clicking the email link!
+            Click the link in your email to sign in. The link will expire in 24 hours.
+          </p>
+          <p className="text-xs text-blue-600 text-center mt-2">
+            💡 Your link will work even if your email scanner pre-checks it (within 60 seconds).
           </p>
         </div>
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p className="text-xs text-amber-800 text-center">
-            <strong>⚠️ If that doesn&apos;t work:</strong> Click the login link in your email only once. 
-            If your browser shows a security warning, click &quot;Proceed&quot; but do not refresh or go back.
+            <strong>⚠️ Important:</strong> Click the login link only once. 
+            If it doesn&apos;t work immediately, wait a few seconds and try again.
           </p>
         </div>
       </div>
