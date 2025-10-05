@@ -30,7 +30,9 @@ export function ClerkshipAdapter(): Adapter {
       // CRITICAL: Normalize identifier to lowercase when creating token
       const normalizedIdentifier = data.identifier.toLowerCase().trim();
       
-      console.warn(`🔐 Creating verification token for: ${normalizedIdentifier}`);
+      console.error(`🔐 [PROD] Creating token for: ${data.identifier} -> normalized: ${normalizedIdentifier}`);
+      console.error(`🔐 [PROD] Token: ${data.token.substring(0, 10)}...`);
+      console.error(`🔐 [PROD] Expires: ${data.expires}`);
       
       const token = await prisma.verificationToken.create({
         data: {
@@ -40,6 +42,7 @@ export function ClerkshipAdapter(): Adapter {
         },
       });
       
+      console.error(`✅ [PROD] Token created successfully in database`);
       return token;
     },
 
@@ -48,7 +51,8 @@ export function ClerkshipAdapter(): Adapter {
         // Normalize the identifier (email) to lowercase
         const normalizedIdentifier = params.identifier.toLowerCase().trim();
         
-        console.warn(`🔍 Looking for token with identifier: ${normalizedIdentifier}`);
+        console.error(`🔍 [PROD] Looking for token with identifier: ${params.identifier} -> normalized: ${normalizedIdentifier}`);
+        console.error(`🔍 [PROD] Token to find: ${params.token.substring(0, 10)}...`);
         
         // Try to find and delete the token
         const token = await prisma.verificationToken.delete({
@@ -60,16 +64,17 @@ export function ClerkshipAdapter(): Adapter {
           },
         });
         
-        console.warn(`✅ Token found and deleted for: ${normalizedIdentifier}`);
+        console.error(`✅ [PROD] Token found and deleted for: ${normalizedIdentifier}`);
         return token;
-      } catch {
-        console.error(`❌ Token not found for identifier: ${params.identifier}, token: ${params.token}`);
+      } catch (error) {
+        console.error(`❌ [PROD] Token not found for identifier: ${params.identifier}, token: ${params.token.substring(0, 10)}...`);
+        console.error(`❌ [PROD] Error:`, error);
         
         // Check what tokens exist for this identifier
         const existingTokens = await prisma.verificationToken.findMany({
           where: { identifier: { contains: params.identifier, mode: 'insensitive' } },
         });
-        console.error(`Found ${existingTokens.length} token(s) for similar identifier:`, existingTokens);
+        console.error(`❌ [PROD] Found ${existingTokens.length} token(s) for similar identifier:`, existingTokens);
         
         return null;
       }
