@@ -26,56 +26,51 @@ export function ClerkshipAdapter(): Adapter {
   return {
     ...base,
 
+    async createVerificationToken(data) {
+      // CRITICAL: Normalize identifier to lowercase when creating token
+      const normalizedIdentifier = data.identifier.toLowerCase().trim();
+      
+      console.warn(`🔐 Creating verification token for: ${normalizedIdentifier}`);
+      
+      const token = await prisma.verificationToken.create({
+        data: {
+          identifier: normalizedIdentifier,
+          token: data.token,
+          expires: data.expires,
+        },
+      });
+      
+      return token;
+    },
+
     async useVerificationToken(params) {
       try {
-        console.warn(`🔍 Looking for token with identifier: ${params.identifier}`);
+        // Normalize the identifier (email) to lowercase
+        const normalizedIdentifier = params.identifier.toLowerCase().trim();
         
-        // First try exact match with original identifier
-        let token = await prisma.verificationToken.delete({
+        console.warn(`🔍 Looking for token with identifier: ${normalizedIdentifier}`);
+        
+        // Try to find and delete the token
+        const token = await prisma.verificationToken.delete({
           where: {
             identifier_token: {
-              identifier: params.identifier,
+              identifier: normalizedIdentifier,
               token: params.token,
             },
           },
-        }).catch(() => null);
+        });
         
-        // If that fails, try with normalized (lowercase) identifier
-        if (!token) {
-          const normalizedIdentifier = params.identifier.toLowerCase().trim();
-          console.warn(`🔍 Trying normalized identifier: ${normalizedIdentifier}`);
-          
-          token = await prisma.verificationToken.delete({
-            where: {
-              identifier_token: {
-                identifier: normalizedIdentifier,
-                token: params.token,
-              },
-            },
-          }).catch(() => null);
-        }
-        
-        if (token) {
-          console.warn(`✅ Token found and deleted for: ${params.identifier}`);
-          return token;
-        }
-        
+        console.warn(`✅ Token found and deleted for: ${normalizedIdentifier}`);
+        return token;
+      } catch {
         console.error(`❌ Token not found for identifier: ${params.identifier}, token: ${params.token}`);
         
         // Check what tokens exist for this identifier
         const existingTokens = await prisma.verificationToken.findMany({
-          where: { 
-            OR: [
-              { identifier: params.identifier },
-              { identifier: { contains: params.identifier, mode: 'insensitive' } }
-            ]
-          },
+          where: { identifier: { contains: params.identifier, mode: 'insensitive' } },
         });
-        console.error(`Found ${existingTokens.length} token(s) for identifier:`, existingTokens);
+        console.error(`Found ${existingTokens.length} token(s) for similar identifier:`, existingTokens);
         
-        return null;
-      } catch (error) {
-        console.error(`❌ Error in useVerificationToken:`, error);
         return null;
       }
     },
