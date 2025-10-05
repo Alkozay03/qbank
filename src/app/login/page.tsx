@@ -32,7 +32,16 @@ function LoginInner() {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (error) setMsg("Login failed. Make sure you used your university email.");
+    if (error) {
+      // Provide more specific error messages
+      if (error === "Verification") {
+        setMsg("This login link has already been used or has expired. Please request a new one.");
+      } else if (error === "Configuration") {
+        setMsg("Login configuration error. Please contact support.");
+      } else {
+        setMsg("Login failed. Make sure you used your university email and click the link only once.");
+      }
+    }
   }, [error]);
 
   function isAllowedEmail(e: string) {
