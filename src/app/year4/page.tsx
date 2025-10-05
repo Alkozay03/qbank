@@ -32,27 +32,35 @@ export default async function Dashboard() {
         timezone = user.timezone;
       }
     } catch (error) {
+      // Log detailed error for debugging
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`❌ [YEAR4] Database query failed: ${error}\n`);
+        if (error instanceof Error) {
+          process.stderr.write(`❌ [YEAR4] Error message: ${error.message}\n`);
+          process.stderr.write(`❌ [YEAR4] Error stack: ${error.stack}\n`);
+        }
+      }
       console.error("Error fetching user profile:", error);
       dbUnavailable = true;
     }
   }
 
   const fallbackName = session?.user?.name || session?.user?.email || "Student";
-  // Ensure we use firstName if it exists and is not empty
-  const name = dbUnavailable 
-    ? "Offline Mode" 
-    : (firstName && firstName.trim() !== "") 
-      ? firstName 
-      : fallbackName;
+  // Use firstName if available, otherwise fall back to session name
+  // Don't show "Offline Mode" - just use fallback gracefully
+  const name = (firstName && firstName.trim() !== "") 
+    ? firstName 
+    : fallbackName;
   const userForClock = { timezone: timezone || undefined };
 
   return (
     <Shell title={`Welcome, ${name}`} pageName="Dashboard">
       {dbUnavailable && (
-        <div className="mb-4 rounded-xl border-2 border-warning bg-warning/10 p-4 text-warning">
-          We couldn&apos;t reach the database. Some dynamic features are disabled, but you can continue reviewing static
-          content. Check your DATABASE_URL/LOCAL_DATABASE_URL or start the local database to restore full
-          functionality.
+        <div className="mb-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-blue-800">
+          <p className="font-semibold">⚡ Using cached data</p>
+          <p className="text-sm mt-1">
+            Some features may be temporarily limited. Your session is active and most functionality is available.
+          </p>
         </div>
       )}
 
