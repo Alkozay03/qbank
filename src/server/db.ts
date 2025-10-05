@@ -1,42 +1,22 @@
 // src/server/db.ts
 import { PrismaClient } from '@prisma/client';
+import { withAccelerate } from '@prisma/extension-accelerate';
 
 declare global {
-  var prisma: PrismaClient | undefined;
+  // eslint-disable-next-line no-var
+  var prisma: ReturnType<typeof createPrismaClient> | undefined;
 }
 
-const primaryDatabaseUrl = process.env.DATABASE_URL?.trim();
-const fallbackDatabaseUrl = process.env.LOCAL_DATABASE_URL?.trim();
-const preferLocalEnv = process.env.PREFER_LOCAL_DB?.trim()?.toLowerCase();
-const isVercelRuntime = Boolean(process.env.VERCEL);
-
-const shouldPreferLocal = Boolean(
-  fallbackDatabaseUrl &&
-    !isVercelRuntime &&
-    (
-      preferLocalEnv === 'true' ||
-      (!primaryDatabaseUrl ||
-        (!preferLocalEnv && /supabase\.com|amazonaws\.com/i.test(primaryDatabaseUrl)))
-    )
-);
-
-const resolvedDatabaseUrl = shouldPreferLocal
-  ? fallbackDatabaseUrl
-  : primaryDatabaseUrl?.length
-  ? primaryDatabaseUrl
-  : fallbackDatabaseUrl;
-
-if (!resolvedDatabaseUrl) {
-  throw new Error(
-    "Database URL not configured. Set DATABASE_URL or LOCAL_DATABASE_URL in your environment."
-  );
+function createPrismaClient() {
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error'] : ['error'],
+  }).$extends(withAccelerate());
 }
 
-if (shouldPreferLocal && primaryDatabaseUrl && primaryDatabaseUrl !== resolvedDatabaseUrl) {
-  console.warn('[prisma] Falling back to LOCAL_DATABASE_URL for Prisma client');
+// Prisma Accelerate will handle database connections
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL not configured in environment.");
 }
-
-process.env.DATABASE_URL = resolvedDatabaseUrl;
 
 // Add retry wrapper for pgbouncer prepared statement issues
 const withRetry = async <T>(operation: () => Promise<T>, retries = 3): Promise<T> => {
@@ -61,18 +41,7 @@ const withRetry = async <T>(operation: () => Promise<T>, retries = 3): Promise<T
   throw new Error('Max retries exceeded');
 };
 
-export const prisma =
-  global.prisma ??
-  new PrismaClient({
-    // Remove excessive query logging that's slowing down development
-    log: process.env.NODE_ENV === 'development' ? ['error'] : ['error'],
-    // Add connection optimizations for Supabase
-    datasources: {
-      db: {
-        url: resolvedDatabaseUrl,
-      },
-    },
-  });
+export const prisma = global.prisma ?? createPrismaClient();
 
 export { withRetry };
 
