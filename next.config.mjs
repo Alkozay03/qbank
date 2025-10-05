@@ -1,5 +1,3 @@
-import CopyPlugin from 'copy-webpack-plugin';
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // AGGRESSIVE performance optimizations for ultra-fast loading
@@ -13,36 +11,23 @@ const nextConfig = {
   // Speed up dev mode with Turbopack (Next.js 15 format)
   // Removed custom rules to fix TypeScript loader issues
   
-  // Clean and simple - no AI-related exclusions needed
+  // Tell Next.js NOT to externalize Prisma - bundle it completely
   serverExternalPackages: [],
 
-  // Prisma configuration for Vercel deployment
-  // Manually copy Prisma engines to output
-  output: 'standalone',
-  
   // Basic optimizations only
-  webpack: (config, { dev, isServer }) => {
+  webpack: (config, { isServer }) => {
     if (isServer) {
-      // Copy Prisma query engine to output directory
-      config.plugins = config.plugins || [];
-      
-      // Use CopyWebpackPlugin to copy Prisma engines
-      config.plugins.push(
-        new CopyPlugin({
-          patterns: [
-            {
-              from: 'node_modules/.prisma/client/*.node',
-              to: '../../../.next/server/[name][ext]',
-              noErrorOnMissing: true,
-            },
-            {
-              from: 'node_modules/.prisma/client/*.node',
-              to: '../../../node_modules/.prisma/client/[name][ext]',
-              noErrorOnMissing: true,
-            },
-          ],
-        })
-      );
+      // Force Prisma to be bundled, not externalized
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        // Remove any Prisma externalization
+        config.externals = config.externals.filter((external) => {
+          if (typeof external === 'string') {
+            return !external.includes('@prisma') && !external.includes('.prisma');
+          }
+          return true;
+        });
+      }
     }
     
     // Basic client-side optimizations
