@@ -19,6 +19,7 @@ const secure = port === 465;
 
 const emailProvider = Email({
   from: process.env.EMAIL_FROM, // e.g. "Clerkship QBank <you@gmail.com>"
+  maxAge: 24 * 60 * 60, // Token valid for 24 hours (in seconds)
   server: useDevNoSmtp
     ? { jsonTransport: true } // DEV: don't send; log JSON to console
     : {
@@ -218,37 +219,56 @@ export const authOptions: NextAuthConfig = {
       return session;
     },
 
-    async jwt({ token, user }) {
-      if (user?.id) token.sub = user.id;
-      if (user?.email) token.email = user.email;
-      
-      // ALWAYS check approval status from database (not just on first login)
-      // This ensures token is updated if admin changes user's status
-      const email = user?.email || token?.email;
-      if (email && typeof email === 'string') {
+    async jwt({ token, user, trigger }) {
+      // Only fetch from database on initial sign-in or when explicitly triggered
+      // This prevents unnecessary DB hits on every request
+      if (user) {
+        // Fresh sign-in: populate token with user ID and email
+        if (user.id) token.sub = user.id;
+        if (user.email) token.email = user.email;
+        
         if (typeof process !== 'undefined' && process.stderr) {
-          process.stderr.write(`🎫 [JWT] Refreshing token for: ${email}\n`);
+          process.stderr.write(`🎫 [JWT] Initial login for: ${user.email}\n`);
         }
         
+        // Fetch additional user data from database
         const dbUser = await prisma.user.findUnique({
-          where: { email },
+          where: { email: user.email! },
           select: { approvalStatus: true, role: true, firstName: true, lastName: true },
         });
         
         if (dbUser) {
           if (typeof process !== 'undefined' && process.stderr) {
-            process.stderr.write(`🎫 [JWT] DB User found: ${dbUser.approvalStatus}, ${dbUser.role}\n`);
+            process.stderr.write(`🎫 [JWT] User data: ${dbUser.approvalStatus}, ${dbUser.role}, ${dbUser.firstName} ${dbUser.lastName}\n`);
           }
           (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
           (token as { role?: string }).role = dbUser.role;
           (token as { firstName?: string | null }).firstName = dbUser.firstName;
           (token as { lastName?: string | null }).lastName = dbUser.lastName;
-        } else {
+        }
+      } else if (trigger === 'update') {
+        // Token update requested (e.g., after profile change)
+        // Re-fetch user data from database
+        const email = token?.email as string | undefined;
+        if (email) {
           if (typeof process !== 'undefined' && process.stderr) {
-            process.stderr.write(`🎫 [JWT] WARNING: No DB user found for ${email}\n`);
+            process.stderr.write(`🎫 [JWT] Refreshing token data for: ${email}\n`);
+          }
+          
+          const dbUser = await prisma.user.findUnique({
+            where: { email },
+            select: { approvalStatus: true, role: true, firstName: true, lastName: true },
+          });
+          
+          if (dbUser) {
+            (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
+            (token as { role?: string }).role = dbUser.role;
+            (token as { firstName?: string | null }).firstName = dbUser.firstName;
+            (token as { lastName?: string | null }).lastName = dbUser.lastName;
           }
         }
       }
+      // Otherwise: just return existing token (no DB hit)
       
       return token;
     },

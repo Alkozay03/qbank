@@ -44,8 +44,13 @@ export function ClerkshipAdapter(): Adapter {
         },
       });
       
+      const now = new Date();
+      const minutesUntilExpiry = Math.round((data.expires.getTime() - now.getTime()) / 1000 / 60);
+      
       if (typeof process !== 'undefined' && process.stderr) {
         process.stderr.write(`✅ [PROD] Token created successfully in database\n`);
+        process.stderr.write(`✅ [PROD] Token valid for ${minutesUntilExpiry} minutes (until ${data.expires.toISOString()})\n`);
+        process.stderr.write(`✅ [PROD] ⚠️ IMPORTANT: Token can only be used ONCE. Email scanners may consume it!\n`);
       }
       return token;
     },
