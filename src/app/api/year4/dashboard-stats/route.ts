@@ -15,22 +15,35 @@ export async function GET() {
   }
 
   try {
-    const [totalQuestions, correctResponses, totalResponses, testsCompleted] = await Promise.all([
+    const [totalQuestions, correctResponses, totalResponses, testsCompleted, uniqueQuestionsSolved] = await Promise.all([
       prisma.question.count(),
       prisma.response.count({
         where: {
-          quizItem: { quiz: { userId } },
+          quizItem: { quiz: { userId, status: "Ended" } },
           isCorrect: true,
         },
       }),
       prisma.response.count({
-        where: { quizItem: { quiz: { userId } } },
+        where: { quizItem: { quiz: { userId, status: "Ended" } } },
       }),
-      prisma.quiz.count({ where: { userId } }),
+      prisma.quiz.count({ where: { userId, status: "Ended" } }),
+      // Count unique QUESTIONS the user has answered (not quiz items)
+      prisma.response.findMany({
+        where: { quizItem: { quiz: { userId, status: "Ended" } } },
+        select: {
+          quizItem: {
+            select: { questionId: true }
+          }
+        },
+        distinct: ['quizItemId']
+      }),
     ]);
 
+    // Get unique question IDs from the responses
+    const uniqueQuestionIds = new Set(uniqueQuestionsSolved.map(r => r.quizItem.questionId));
+    const uniqueQuestionsCount = uniqueQuestionIds.size;
     const avgPercent = totalResponses > 0 ? Math.round((correctResponses / totalResponses) * 100) : 0;
-    const usedPercent = totalQuestions > 0 ? Math.round((totalResponses / totalQuestions) * 100) : 0;
+    const usedPercent = totalQuestions > 0 ? Math.round((uniqueQuestionsCount / totalQuestions) * 100) : 0;
 
     return NextResponse.json({
       avgPercent,
@@ -39,13 +52,21 @@ export async function GET() {
       totalQuestions,
       totalResponses,
       correctResponses,
+      uniqueQuestionsCount, // Add this for the "X/Y Questions Attempted" display
     });
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
+      // Return default values when database is unavailable so UI still works
       return NextResponse.json({
-        status: "offline",
-        message: "Database unavailable",
-      }, { status: 503 });
+        avgPercent: 0,
+        usedPercent: 0,
+        testsCompleted: 0,
+        totalQuestions: 0,
+        totalResponses: 0,
+        correctResponses: 0,
+        uniqueQuestionsCount: 0,
+        isOffline: true
+      });
     }
     throw error;
   }

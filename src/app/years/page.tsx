@@ -2,10 +2,12 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, User } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
+import ForceBlueTheme from "@/components/ForceBlueTheme";
+import { getGradientTextClasses } from "@/utils/gradients";
+import { Icon } from "@/components/Icons";
 
 export default function Years() {
   const router = useRouter();
@@ -28,92 +30,85 @@ export default function Years() {
   }
 
   return (
-    <>
+    <ForceBlueTheme>
       <BackgroundWrapper />
       <main className="min-h-screen flex flex-col items-center justify-center relative z-20">
-      {/* Top-right icons (match portal style + tooltip) */}
-      <div className="absolute right-8 top-6 flex items-center gap-6">
-        {/* Profile */}
-        <button
-          onClick={goProfile}
-          aria-label="Profile"
-          className="gradient-btn-icon group relative btn-hover color-smooth"
-        >
-          <User size={28} />
-          <Tooltip>Profile Settings</Tooltip>
-        </button>
+        {/* Top-right icons - custom styling for years page */}
+        <div className="absolute top-0 right-6 z-[400] h-14 flex items-center gap-2">
+          {/* Profile */}
+          <div className="group relative">
+            <button
+              onClick={goProfile}
+              aria-label="Profile"
+              className="p-2 rounded-full transition active:scale-95 text-white hover:bg-white hover:text-sky-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <Icon.User />
+            </button>
+            {/* Custom tooltip - white background, blue text */}
+            <span className="pointer-events-none absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-medium bg-white text-sky-500 shadow-lg opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 border border-sky-200">
+              Profile
+            </span>
+          </div>
 
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          aria-label="Log out"
-          className="gradient-btn-icon group relative btn-hover color-smooth"
-        >
-          <LogOut size={28} />
-          <Tooltip>Log Out</Tooltip>
-        </button>
-      </div>
-
-      <div className="bg-white/90 backdrop-blur-sm rounded-xl px-6 py-4 shadow-md mb-12">
-        <h1 className="brand-title-main mb-0">
-          Clerkship
-        </h1>
-      </div>
-
-      <div className="mt-4 flex items-center gap-8">
-        <Link
-          href="/year4"
-          className="year-btn text-xl px-10 py-5 w-48 text-center transition-all duration-300"
-          title="Enter Year 4 content"
-        >
-          Year 4
-        </Link>
-
-        <div
-          className="year-btn text-xl px-10 py-5 w-48 text-center cursor-not-allowed relative opacity-60"
-          onMouseMove={(e) => {
-            const tip = document.getElementById("coming-soon-tip");
-            if (!tip) return;
-            tip.style.left = `${e.clientX + 12}px`;
-            tip.style.top = `${e.clientY + 12}px`;
-            tip.style.opacity = "1";
-          }}
-          onMouseLeave={() => {
-            const tip = document.getElementById("coming-soon-tip");
-            if (!tip) return;
-            tip.style.opacity = "0";
-          }}
-        >
-          Year 5
+          {/* Logout */}
+          <div className="group relative">
+            <button
+              onClick={handleLogout}
+              aria-label="Log out"
+              className="p-2 rounded-full transition active:scale-95 text-white hover:bg-white hover:text-sky-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <Icon.Logout />
+            </button>
+            {/* Custom tooltip - white background, blue text */}
+            <span className="pointer-events-none absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-medium bg-white text-sky-500 shadow-lg opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 border border-sky-200">
+              Sign out
+            </span>
+          </div>
         </div>
 
-        {/* Floating tooltip for "Coming Soon" (unchanged) */}
-        <div
-          id="coming-soon-tip"
-          className="pointer-events-none fixed z-50 rounded-md bg-[#21526E] px-2 py-1 text-sm text-white font-medium opacity-0 transition-opacity shadow-md"
-        >
-          Coming Soon!
+        {/* Brand title - bigger and centered */}
+        <div className="bg-white rounded-2xl px-8 py-4 shadow-lg mb-12">
+          <h1 className={`brand-title text-5xl font-extrabold tracking-tight ${getGradientTextClasses()}`}>
+            Clerkship
+          </h1>
         </div>
-      </div>
-    </main>
-    </>
-  );
-}
 
-/** Match portal tooltip style */
-function Tooltip({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      className="
-        pointer-events-none absolute -bottom-9 left-1/2 -translate-x-1/2
-        whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-medium
-        bg-white text-[#21526E] shadow-md
-        opacity-0 translate-y-1 transition-all duration-200
-        group-hover:opacity-100 group-hover:translate-y-0
-        border border-[#A5CDE4]/30
-      "
-    >
-      {children}
-    </span>
+        {/* Year buttons */}
+        <div className="mt-4 flex items-center gap-8">
+          {/* Year 4 button - white background, sky blue text, pill-shaped */}
+          <Link
+            href="/year4"
+            className="bg-white text-sky-500 font-semibold text-2xl px-12 py-5 w-56 text-center rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out"
+            style={{ transform: 'scale(1)', transition: 'all 0.3s ease-in-out' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'scale(0.95)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            title="Enter Year 4 content"
+          >
+            Year 4
+          </Link>
+
+          {/* Year 5 button - unclickable with tooltip */}
+          <div className="relative group">
+            <div className="bg-white text-sky-500 font-semibold text-2xl px-12 py-5 w-56 text-center rounded-full shadow-lg opacity-60 cursor-not-allowed">
+              Year 5
+            </div>
+            {/* Tooltip - same style as Year 4 tooltips, bigger */}
+            <span className="pointer-events-none absolute -bottom-12 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium bg-white text-sky-500 shadow-lg opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 border border-sky-200">
+              Coming Soon!
+            </span>
+          </div>
+        </div>
+      </main>
+    </ForceBlueTheme>
   );
 }

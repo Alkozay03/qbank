@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import FormattedText from "@/components/FormattedText";
 
 type HelpItem = {
   id: string;
@@ -23,6 +24,7 @@ export default function HelpEditor() {
     title: "",
     description: "",
   });
+  const [showPreview, setShowPreview] = useState(false);
 
   // Fetch help items
   const fetchHelpItems = async () => {
@@ -131,6 +133,51 @@ export default function HelpEditor() {
     setEditingItem(null);
     setIsCreating(false);
     setFormData({ title: "", description: "" });
+    setShowPreview(false);
+  };
+
+  // Formatting helper functions
+  const insertFormatting = (format: string) => {
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = formData.description.substring(start, end);
+    
+    let newText = "";
+    let cursorOffset = 0;
+    
+    switch (format) {
+      case 'bold':
+        newText = selectedText ? `**${selectedText}**` : '**bold text**';
+        cursorOffset = selectedText ? 2 : 2;
+        break;
+      case 'bullet':
+        newText = selectedText ? `• ${selectedText}` : '• ';
+        cursorOffset = 2;
+        break;
+      case 'paragraph':
+        newText = '\n\n';
+        cursorOffset = 2;
+        break;
+    }
+    
+    const before = formData.description.substring(0, start);
+    const after = formData.description.substring(end);
+    const updatedDescription = before + newText + after;
+    
+    setFormData(prev => ({ ...prev, description: updatedDescription }));
+    
+    // Set cursor position after formatting
+    setTimeout(() => {
+      textarea.focus();
+      if (selectedText) {
+        textarea.setSelectionRange(start + cursorOffset, start + cursorOffset + (selectedText ? selectedText.length : newText.length - (format === 'bold' ? 4 : 0)));
+      } else {
+        textarea.setSelectionRange(start + cursorOffset, start + newText.length);
+      }
+    }, 0);
   };
 
   if (loading) {
@@ -145,19 +192,19 @@ export default function HelpEditor() {
     <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#2F6F8F]">Help Page Editor</h1>
+          <h1 className="text-2xl font-bold text-primary">Help Page Editor</h1>
           <p className="mt-2 text-slate-600">Manage help content for users</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => router.back()}
-            className="px-4 py-2 border border-[#E6F0F7] rounded-lg text-[#2F6F8F] hover:bg-[#F7FBFF] transition-colors"
+            className="px-4 py-2 border border-border rounded-lg text-primary hover:bg-accent transition-colors"
           >
             ← Back
           </button>
           <button
             onClick={handleCreateNew}
-            className="px-4 py-2 bg-[#7DB8D9] text-white rounded-lg hover:bg-[#56A2CD] transition-colors"
+            className="px-4 py-2 bg-primary text-inverse rounded-lg hover:bg-primary/90 transition-colors"
           >
             + Add Help Item
           </button>
@@ -166,36 +213,90 @@ export default function HelpEditor() {
 
       {/* Editor Form */}
       {(isCreating || editingItem) && (
-        <div className="bg-white rounded-lg border border-[#E6F0F7] shadow-sm mb-6 p-6">
-          <h2 className="text-lg font-semibold text-[#2F6F8F] mb-4">
+        <div className="bg-card rounded-lg border border-border shadow-sm mb-6 p-6">
+          <h2 className="text-lg font-semibold text-primary mb-4">
             {editingItem ? "Edit Help Item" : "Create New Help Item"}
           </h2>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-[#2F6F8F] mb-2">
+              <label className="block text-sm font-medium text-primary mb-2">
                 Title
               </label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                className="w-full px-3 py-2 border border-[#E6F0F7] rounded-lg focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 placeholder="Enter help item title..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#2F6F8F] mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                rows={6}
-                className="w-full px-3 py-2 border border-[#E6F0F7] rounded-lg focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none resize-vertical"
-                placeholder="Enter detailed description or instructions..."
-              />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-[#2F6F8F]">
+                  Description
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPreview(!showPreview)}
+                    className="px-3 py-1 text-xs bg-[#E6F0F7] text-[#2F6F8F] rounded hover:bg-[#7DB8D9] hover:text-white transition-colors"
+                  >
+                    {showPreview ? 'Edit' : 'Preview'}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Formatting Toolbar */}
+              <div className="mb-2 flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('bold')}
+                  className="px-2 py-1 text-xs bg-[#F7FBFF] border border-[#E6F0F7] rounded hover:bg-[#E6F0F7] transition-colors"
+                  title="Make text bold"
+                >
+                  <strong>B</strong>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('bullet')}
+                  className="px-2 py-1 text-xs bg-[#F7FBFF] border border-[#E6F0F7] rounded hover:bg-[#E6F0F7] transition-colors"
+                  title="Add bullet point"
+                >
+                  •
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('paragraph')}
+                  className="px-2 py-1 text-xs bg-[#F7FBFF] border border-[#E6F0F7] rounded hover:bg-[#E6F0F7] transition-colors"
+                  title="Add paragraph break"
+                >
+                  ¶
+                </button>
+                <div className="text-xs text-slate-500 px-2 py-1">
+                  Tip: Use **text** for bold, • for bullets
+                </div>
+              </div>
+
+              {showPreview ? (
+                <div className="w-full min-h-[150px] p-3 border border-[#E6F0F7] rounded-lg bg-[#F7FBFF]">
+                  <div className="text-sm text-slate-600 mb-2">Preview:</div>
+                  <FormattedText text={formData.description} />
+                </div>
+              ) : (
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-[#E6F0F7] rounded-lg focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none resize-vertical"
+                  placeholder="Enter detailed description or instructions...
+
+Use **bold text** for emphasis
+Use • for bullet points  
+Use double line breaks for new paragraphs"
+                />
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">

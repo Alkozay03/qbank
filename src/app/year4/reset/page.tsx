@@ -48,7 +48,7 @@ export default function Reset() {
 
   return (
     <Shell title="Reset Your Data" pageName="Reset">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6 pb-8">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <h2 className="text-lg font-semibold text-yellow-800 mb-3">
             ⚠️ Important Information
@@ -89,7 +89,7 @@ export default function Reset() {
           </button>
         </div>
 
-        <div className="text-sm text-slate-500 text-center">
+        <div className="text-sm text-muted-foreground text-center">
           This action cannot be undone. Please make sure you really want to reset all your progress.
         </div>
       </div>
@@ -98,16 +98,16 @@ export default function Reset() {
       {showConfirmDialog && (
         <div className="fixed inset-0 backdrop-blur-sm bg-white/10 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               Confirm Reset
             </h3>
-            <p className="text-gray-700 mb-6">
+            <p className="text-secondary mb-6">
               Are you sure you want to reset our data? You will not be able to retrieve it.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowConfirmDialog(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                className="px-4 py-2 text-secondary hover:text-foreground hover:bg-accent rounded-lg transition-colors duration-200"
               >
                 Cancel
               </button>

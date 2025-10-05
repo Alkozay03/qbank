@@ -35,6 +35,9 @@ export default function NotificationsTable() {
         } else {
           console.error("Failed to fetch notifications");
         }
+        
+        // Small delay to ensure smooth transition
+        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
         console.error("Error fetching notifications:", error);
       } finally {
@@ -128,46 +131,44 @@ export default function NotificationsTable() {
     notification.body.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="animate-pulse h-8 w-48 bg-slate-200 rounded"></div>
-          <div className="animate-pulse h-10 w-32 bg-slate-200 rounded"></div>
-        </div>
-        
-        <div className="space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="h-6 w-full bg-slate-200 rounded mb-2"></div>
-              <div className="h-4 w-3/4 bg-slate-200 rounded"></div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6">
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="text-primary">Loading notifications...</div>
+        </div>
+      ) : (
+        <>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div className="w-full md:w-64">
           <input
             type="text"
             placeholder="Search notifications..."
-            className="w-full px-3 py-2 border border-[#E6F0F7] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+            className="w-full px-3 py-2 bg-white border-2 border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-primary"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="flex items-center gap-4">
-          <label className="flex items-center text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={showUnreadOnly}
-              onChange={(e) => setShowUnreadOnly(e.target.checked)}
-              className="mr-2 h-4 w-4 rounded border-[#E6F0F7] text-[#2F6F8F] focus:ring-[#A5CDE4]"
-            />
+          <label className="flex items-center text-sm text-primary">
+            <div className="relative inline-flex items-center justify-center w-4 h-4 mr-2">
+              <input
+                type="checkbox"
+                checked={showUnreadOnly}
+                onChange={(e) => setShowUnreadOnly(e.target.checked)}
+                className="w-4 h-4 cursor-pointer appearance-none rounded border bg-white"
+                style={{
+                  borderColor: 'var(--color-primary)',
+                  borderWidth: '1.5px',
+                  backgroundColor: showUnreadOnly ? 'var(--color-primary)' : 'white',
+                }}
+              />
+              {showUnreadOnly && (
+                <svg className="absolute w-2.5 h-2.5 pointer-events-none text-white" viewBox="0 0 12 12" fill="none">
+                  <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
             Unread only
           </label>
           <button
@@ -175,8 +176,8 @@ export default function NotificationsTable() {
             disabled={!notifications.some((n) => !n.isRead)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
               notifications.some((n) => !n.isRead)
-                ? "bg-[#2F6F8F] text-white hover:bg-[#1D4D66]"
-                : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                ? "theme-gradient text-white hover:opacity-90"
+                : "bg-gray-200 text-gray-500 cursor-not-allowed"
             }`}
           >
             Mark all as read
@@ -185,26 +186,26 @@ export default function NotificationsTable() {
       </div>
 
       {filteredNotifications.length === 0 ? (
-        <div className="text-center py-8 text-slate-500">No notifications found</div>
+        <div className="text-center py-8 text-gray-500">No notifications found</div>
       ) : (
         <div className="space-y-4">
           {filteredNotifications.map((notification) => (
             <div
               key={notification.id}
-              className={`p-4 rounded-lg border ${
-                notification.isRead ? "border-[#E6F0F7]" : "border-[#A5CDE4] bg-[#F7FBFD]"
+              className={`p-4 rounded-lg border-2 bg-white ${
+                notification.isRead ? "border-border" : "border-primary"
               }`}
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-medium text-slate-800 flex items-center">
+                  <h3 className="font-medium text-primary flex items-center">
                     {notification.title}
                     {!notification.isRead && (
-                      <span className="ml-2 w-2 h-2 inline-block bg-blue-500 rounded-full"></span>
+                      <span className="ml-2 w-2 h-2 inline-block bg-primary rounded-full"></span>
                     )}
                   </h3>
-                  <p className="mt-1 text-sm text-slate-600 whitespace-pre-wrap">{notification.body}</p>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-1 text-sm text-primary whitespace-pre-wrap">{notification.body}</p>
+                  <p className="mt-2 text-xs text-gray-500">
                     {formatDateTime(notification.createdAt)}
                     {notification.readAt && (
                       <span className="ml-2">
@@ -216,7 +217,7 @@ export default function NotificationsTable() {
                 {!notification.isRead && (
                   <button
                     onClick={() => markAsRead(notification.id)}
-                    className="text-slate-400 hover:text-[#2F6F8F] p-1"
+                    className="text-gray-400 hover:text-primary p-1 transition-colors"
                     title="Mark as read"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -228,6 +229,8 @@ export default function NotificationsTable() {
             </div>
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
   );

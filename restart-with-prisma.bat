@@ -1,0 +1,6 @@
+@echo off
+echo Regenerating Prisma Client...
+call npx prisma generate
+echo.
+echo Starting dev server...
+call npm run dev

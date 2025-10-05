@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import ThemePicker from "@/components/ThemePicker";
 
 type Me = {
   firstName: string | null;
@@ -12,10 +13,12 @@ type Me = {
   role?: string;
   timezone?: string;
   rotation?: string;
+  theme?: string;
 };
 
 export default function Profile() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<Me | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -44,9 +47,13 @@ export default function Profile() {
   useEffect(() => {
     (async () => {
       const r = await fetch("/api/profile", { cache: "no-store" });
-      if (!r.ok) return; // unauthorized etc.
+      if (!r.ok) {
+        setLoading(false);
+        return; // unauthorized etc.
+      }
       const data = (await r.json()) as Me;
       setMe(data);
+      setTimeout(() => setLoading(false), 100);
     })();
   }, []);
 
@@ -57,59 +64,80 @@ export default function Profile() {
     const form = e.target as HTMLFormElement;
     const body = new FormData(form);
 
-    const r = await fetch("/api/profile", { method: "POST", body });
-    setSaving(false);
-
-    if (r.ok) {
-      const to =
-        sessionStorage.getItem("profileBackTo") || backTo.current || "/year4";
-      router.push(to);
+    try {
+      const r = await fetch("/api/profile", { 
+        method: "POST", 
+        body,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (r.ok) {
+        // Refetch the profile data to update local state
+        const updatedData = await r.json();
+        setMe(updatedData);
+        
+        // Small delay to ensure state updates
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Navigate back to previous page after saving
+        const to = sessionStorage.getItem("profileBackTo") || backTo.current || "/year4";
+        sessionStorage.removeItem("profileBackTo");
+        
+        // Use router.replace for cleaner navigation
+        router.replace(to);
+      }
+    } catch (error) {
+      console.error("Error saving profile:", error);
+    } finally {
+      setSaving(false);
     }
   }
 
-  if (!me) return null;
+  if (loading || !me) return null;
 
   return (
-    <main className="min-h-screen bg-[#F7FBFF]">
+    <main className="min-h-screen bg-background theme-transition">
       {/* Top brand + (icons handled elsewhere if needed) */}
-      <div className="py-6 px-6 flex items-center justify-between">
-        <span className="font-black text-4xl text-[#56A2CD]">Clerkship</span>
+      <div className="py-6 px-6 flex items-center justify-between bg-primary">
+        <span className="font-black text-4xl text-inverse">Clerkship</span>
       </div>
 
       {/* Center container vertically and horizontally */}
-      <div className="min-h-[calc(100vh-96px)] flex items-center justify-center px-4">
+      <div className="min-h-[calc(100vh-96px)] flex items-center justify-center px-4 pt-8">
         <div className="w-full max-w-3xl">
-          <h1 className="text-2xl font-bold text-[#2F6F8F] mb-4 text-center">
-            Profile
+          <h1 className="text-3xl font-bold mb-6 mt-8 text-center text-primary">
+            Profile Settings
           </h1>
 
           <form
             onSubmit={onSave}
-            className="rounded-2xl border border-[#E6F0F7] bg-white/90 shadow p-6 space-y-4"
+            className="rounded-2xl border border-theme bg-theme-background shadow-theme p-6 space-y-4 theme-transition"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold mb-2">
+                <label className="block text-sm font-semibold mb-2 text-readable">
                   First Name
                 </label>
                 <input
                   name="firstName"
                   defaultValue={me.firstName ?? ""}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+                  className="w-full rounded-xl border border-theme px-3 py-2 outline-none focus-theme theme-transition text-readable bg-theme-background"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">
+                <label className="block text-sm font-semibold mb-2 text-readable">
                   Last Name
                 </label>
                 <input
                   name="lastName"
                   defaultValue={me.lastName ?? ""}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+                  className="w-full rounded-xl border border-theme px-3 py-2 outline-none focus-theme theme-transition text-readable bg-theme-background"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">
+                <label className="block text-sm font-semibold mb-2 text-readable">
                   Expected Year of Graduation
                 </label>
                 <input
@@ -118,33 +146,33 @@ export default function Profile() {
                   min={2024}
                   max={2100}
                   defaultValue={me.gradYear ?? ""}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+                  className="w-full rounded-xl border border-theme px-3 py-2 outline-none focus-theme theme-transition text-readable bg-theme-background"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">Email</label>
+                <label className="block text-sm font-semibold mb-2 text-readable">Email</label>
                 <input
                   value={me.email}
                   readOnly
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900"
+                  className="w-full rounded-xl border border-theme bg-theme-tertiary px-3 py-2 text-muted"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">Role</label>
+                <label className="block text-sm font-semibold mb-2 text-readable">Role</label>
                 <input
                   value={me.role ?? "Member"}
                   readOnly
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900"
+                  className="w-full rounded-xl border border-theme bg-theme-tertiary px-3 py-2 text-muted"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">
+                <label className="block text-sm font-semibold mb-2 text-readable">
                   Current Rotation
                 </label>
                 <select
                   name="rotation"
                   defaultValue={me.rotation ?? ""}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+                  className="w-full rounded-xl border border-theme px-3 py-2 outline-none focus-theme theme-transition text-readable bg-theme-background"
                 >
                   <option value="">Select Rotation</option>
                   <option value="Pediatrics">Pediatrics</option>
@@ -154,13 +182,13 @@ export default function Profile() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-2">
+                <label className="block text-sm font-semibold mb-2 text-readable">
                   Preferred Timezone (Optional)
                 </label>
                 <select
                   name="timezone"
                   defaultValue={me.timezone ?? ""}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+                  className="w-full rounded-xl border border-theme px-3 py-2 outline-none focus-theme theme-transition text-readable bg-theme-background"
                 >
                   <option value="">Use Local Time Only</option>
                   <optgroup label="Americas">
@@ -212,13 +240,18 @@ export default function Profile() {
               </div>
             </div>
 
+            {/* Theme Picker Section */}
+            <div className="mt-8 mb-6 rounded-2xl border border-theme bg-theme-background shadow-theme p-6 theme-transition">
+              <ThemePicker />
+            </div>
+
             <div className="pt-2 text-center">
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-2xl bg-[#7DB8D9] px-6 py-3 font-bold text-white shadow hover:bg-[#56A2CD] disabled:opacity-60"
+                className="rounded-2xl bg-primary px-8 py-3 font-bold text-inverse shadow-theme hover:opacity-90 disabled:opacity-60 theme-transition"
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? "Saving…" : "Save & Return"}
               </button>
             </div>
           </form>

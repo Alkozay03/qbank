@@ -29,12 +29,12 @@
 
 .ProseMirror strong {
   font-weight: 600;
-  color: #2F6F8F;
+  color: var(--color-primary-hover);
 }
 
 .ProseMirror em {
   font-style: italic;
-  color: #4A5568;
+  color: var(--color-text-secondary);
 }
 
 .ProseMirror img {
@@ -42,7 +42,7 @@
   height: auto;
   border-radius: 8px;
   margin: 8px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--color-shadow);
 }
 
 .ProseMirror table {
@@ -51,14 +51,14 @@
   width: 100%;
   overflow: hidden;
   margin: 16px 0;
-  border: 1px solid #E6F0F7;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
 }
 
 .ProseMirror table td,
 .ProseMirror table th {
   min-width: 1em;
-  border: 1px solid #E6F0F7;
+  border: 1px solid var(--color-border);
   padding: 8px 12px;
   vertical-align: top;
   box-sizing: border-box;
@@ -68,8 +68,8 @@
 .ProseMirror table th {
   font-weight: 600;
   text-align: left;
-  background-color: #F3F9FC;
-  color: #2F6F8F;
+  background-color: var(--color-background-secondary);
+  color: var(--color-primary-hover);
 }
 
 .ProseMirror table .selectedCell:after {
@@ -80,7 +80,7 @@
   right: 0;
   top: 0;
   bottom: 0;
-  background: rgba(47, 111, 143, 0.1);
+  background: var(--color-shadow-light);
   pointer-events: none;
 }
 
@@ -91,7 +91,7 @@
   bottom: 0;
   width: 4px;
   z-index: 20;
-  background-color: #56A2CD;
+  background-color: var(--color-primary);
   pointer-events: none;
 }
 
@@ -107,7 +107,7 @@
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #adb5bd;
+  color: var(--color-text-muted);
   pointer-events: none;
   height: 0;
 }

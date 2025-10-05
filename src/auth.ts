@@ -3,6 +3,7 @@ import NextAuth, { type NextAuthConfig } from "next-auth";
 import { ClerkshipAdapter } from "@/lib/adapter";
 import Email from "next-auth/providers/email";
 import { setDevMagic } from "@/lib/dev-magic";
+import { prisma } from "@/server/db";
 
 // allow only u########@sharjah.ac.ae
 function isAllowedEmail(email?: string | null) {
@@ -52,16 +53,59 @@ export const authOptions: NextAuthConfig = {
     /**
      * IMPORTANT:
      * - When requesting a magic link (account.provider === "email" and no user yet), ALLOW.
-     * - When consuming the link (user exists), enforce allowed domain.
+     * - When consuming the link (user exists), enforce allowed domain AND approval status.
      */
     async signIn({ user, account }) {
       // 1) Requesting the token (no user yet) -> allow so the token can be created/sent/logged
-      if (account?.provider === "email" && !user) return true;
+      if (account?.provider === "email" && !user) {
+        console.warn(`📧 Magic link requested for email provider`);
+        return true;
+      }
 
       // 2) Consuming the token (user resolved) -> enforce allowlist
       const addr = user?.email;
       const allowAny = process.env.AUTH_ALLOW_ANY_EMAIL === "true";
-      return allowAny || isAllowedEmail(addr);
+      const emailAllowed = allowAny || isAllowedEmail(addr);
+      if (!emailAllowed) {
+        console.warn(`❌ Email not allowed: ${addr}`);
+        return false;
+      }
+
+      // 3) Check approval status
+      if (user?.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: user.email },
+          select: { approvalStatus: true },
+        });
+        
+        console.warn(`🔐 User ${user.email} signing in with status: ${dbUser?.approvalStatus}`);
+        
+        // BLOCKED users cannot sign in at all
+        if (dbUser?.approvalStatus === "BLOCKED") {
+          console.warn(`❌ BLOCKED user cannot sign in: ${user.email}`);
+          return false;
+        }
+
+        // PENDING and APPROVED users can sign in
+        // (middleware will redirect PENDING users to /pending-approval)
+      }
+
+      return true;
+    },
+
+    async redirect({ url, baseUrl }) {
+      // If user just logged in, check their approval status
+      // and redirect PENDING users to pending-approval page
+      if (url.startsWith(baseUrl)) {
+        // Extract the email from the session if we can
+        // This is tricky because we don't have session here yet
+        // We'll need to handle this differently
+        return url;
+      }
+      // Allows callback URLs on the same origin
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
     },
 
     async session({ session, token }) {
@@ -76,6 +120,18 @@ export const authOptions: NextAuthConfig = {
     async jwt({ token, user }) {
       if (user?.id) token.sub = user.id;
       if (user?.email) token.email = user.email;
+      
+      // Store approval status in the token so we can check it later
+      if (user?.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: user.email },
+          select: { approvalStatus: true },
+        });
+        if (dbUser) {
+          (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
+        }
+      }
+      
       return token;
     },
   },

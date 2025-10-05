@@ -1,14 +1,34 @@
 // src/app/year4/previous-tests/page.tsx
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import Shell from "@/components/Shell";
 import { auth } from "@/auth";
 import db from "@/lib/db";
 import Link from "next/link";
+type QuizWithItems = {
+  id: string;
+  status: string | null;
+  createdAt: Date;
+  items: {
+    id: string;
+    question: {
+      questionTags: {
+        tag: { type: string; value: string };
+      }[];
+    } | null;
+    responses: {
+      createdAt: Date;
+      choiceId: string | null;
+      isCorrect: boolean | null;
+    }[];
+  }[];
+};
 
 type ScoreRow = {
   id: string;
   shortId: string;
+  status: string | null;
   createdAt: Date;
   questionCount: number;
   rotationLabel: string;
@@ -73,34 +93,45 @@ export default async function PreviousTests() {
     );
   }
 
-  const quizzes = await db.quiz.findMany({
-    where: { userId },
-    select: {
-      id: true,
-      createdAt: true,
-      items: {
-        select: {
-          id: true,
-          question: {
-            select: {
-              questionTags: {
-                select: {
-                  tag: { select: { type: true, value: true } },
+  let quizzes: QuizWithItems[] = [];
+  try {
+    quizzes = await db.quiz.findMany({
+      where: { 
+        userId,
+        status: { in: ["Suspended", "Ended"] } // Only show suspended and ended tests
+      },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        items: {
+          select: {
+            id: true,
+            question: {
+              select: {
+                questionTags: {
+                  select: {
+                    tag: { select: { type: true, value: true } },
+                  },
                 },
               },
             },
-          },
-          responses: {
-            orderBy: { createdAt: "asc" },
-            select: { createdAt: true, choiceId: true, isCorrect: true },
-            take: 1,
+            responses: {
+              orderBy: { createdAt: "asc" },
+              select: { createdAt: true, choiceId: true, isCorrect: true },
+              take: 1,
+            },
           },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+  } catch (error) {
+    console.error("Database error in previous tests:", error);
+    // Return empty array when database is unavailable
+    quizzes = [];
+  }
 
   const rows: ScoreRow[] = quizzes.map((quiz) => {
     let answered = 0;
@@ -130,6 +161,7 @@ export default async function PreviousTests() {
     return {
       id: quiz.id,
       shortId,
+      status: quiz.status,
       createdAt: quiz.createdAt,
       questionCount: quiz.items.length,
       rotationLabel,
@@ -140,12 +172,12 @@ export default async function PreviousTests() {
 
   return (
     <Shell title="Your Previous Tests" pageName="Previous Tests">
-      <div className="rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white">
+      <div className="overflow-x-auto bg-white rounded-xl border-2 border-primary">
+        <table className="min-w-full">
+          <thead className="theme-gradient text-white">
               <tr>
                 <th className="py-4 px-6 text-left font-semibold">Score</th>
+                <th className="py-4 px-6 text-left font-semibold">Status</th>
                 <th className="py-4 px-6 text-left font-semibold">Created</th>
                 <th className="py-4 px-6 text-left font-semibold">Test ID</th>
                 <th className="py-4 px-6 text-left font-semibold">Test Name</th>
@@ -153,11 +185,11 @@ export default async function PreviousTests() {
                 <th className="py-4 px-6 text-left font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody className="text-[#2F6F8F]">
+            <tbody>
               {rows.map((row, index) => (
                 <tr
                   key={row.id}
-                  className={`transition-colors duration-200 hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10 ${index % 2 === 0 ? "bg-white/50" : "bg-[#F8FCFF]/50"}`}
+                  className={`transition-colors duration-200 ${index % 2 === 0 ? "bg-gray-50" : "bg-white"}`}
                 >
                   <td className="py-4 px-6">
                     <span
@@ -167,62 +199,86 @@ export default async function PreviousTests() {
                       {row.scorePercent}%
                     </span>
                   </td>
-                  <td className="py-4 px-6 text-slate-700">{new Date(row.createdAt).toLocaleString()}</td>
                   <td className="py-4 px-6">
-                    <span className="font-mono text-xs bg-[#F8FCFF] px-2 py-1 rounded border border-[#E6F0F7]">
+                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                      row.status === "Ended" 
+                        ? "bg-green-100 text-green-700" 
+                        : row.status === "Suspended"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-gray-100 text-gray-700"
+                    }`}>
+                      {row.status || "Unknown"}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 text-primary">{new Date(row.createdAt).toLocaleString()}</td>
+                  <td className="py-4 px-6">
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-border text-primary">
                       {row.shortId}
                     </span>
                   </td>
                   <td className="py-4 px-6">
-                    <span className="font-medium">{`Test ${row.rotationLabel}`}</span>
+                    <span className="font-medium text-primary">{`Test ${row.rotationLabel}`}</span>
                   </td>
                   <td className="py-4 px-6">
-                    <span className="font-bold text-[#2F6F8F]">{row.questionCount}</span>
+                    <span className="font-bold text-primary">{row.questionCount}</span>
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex flex-wrap gap-2">
-                      <Link
-                        href={`/quiz/${row.id}`}
-                        className="px-3 py-1 rounded-full bg-gradient-to-r from-[#3B82A0] to-[#2F6F8F] text-white text-sm font-medium hover:from-[#2F6F8F] hover:to-[#56A2CD] transition-all duration-200"
-                        title="Open / Review"
-                      >
-                        View
-                      </Link>
-                      <Link
-                        href={`/quiz/${row.id}/results`}
-                        className="px-3 py-1 rounded-full bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white text-sm font-medium hover:from-[#56A2CD] hover:to-[#A5CDE4] transition-all duration-200"
-                        title="Results"
-                      >
-                        Results
-                      </Link>
-                      <Link
-                        href={`/quiz/${row.id}/analysis`}
-                        className="px-3 py-1 rounded-full bg-gradient-to-r from-[#56A2CD] to-[#A5CDE4] text-white text-sm font-medium hover:from-[#A5CDE4] hover:to-[#7DB8D9] transition-all duration-200"
-                        title="Analysis"
-                      >
-                        Analysis
-                      </Link>
+                      {row.status === "Suspended" ? (
+                        <Link
+                          href={`/year4/quiz/${row.id}`}
+                          className="px-3 py-1 rounded-full theme-gradient text-white text-sm font-medium hover:opacity-90 transition-all duration-200"
+                          title="Resume Test"
+                        >
+                          Resume
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/year4/quiz/${row.id}`}
+                          className="px-3 py-1 rounded-full theme-gradient text-white text-sm font-medium hover:opacity-90 transition-all duration-200"
+                          title="Review Test"
+                        >
+                          View
+                        </Link>
+                      )}
+                      {row.status === "Ended" && (
+                        <>
+                          <Link
+                            href={`/year4/quiz/${row.id}/results`}
+                            className="px-3 py-1 rounded-full theme-gradient text-white text-sm font-medium hover:opacity-90 transition-all duration-200"
+                            title="Results"
+                          >
+                            Results
+                          </Link>
+                          <Link
+                            href={`/year4/quiz/${row.id}/analysis`}
+                            className="px-3 py-1 rounded-full theme-gradient text-white text-sm font-medium hover:opacity-90 transition-all duration-200"
+                            title="Analysis"
+                          >
+                            Analysis
+                          </Link>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="py-12 text-center text-slate-500 text-lg" colSpan={6}>
+                  <td className="py-12 text-center text-gray-500 text-lg" colSpan={7}>
                     <div className="flex flex-col items-center gap-4">
-                      <div className="w-24 h-24 rounded-full bg-gradient-to-r from-[#A5CDE4] to-[#56A2CD] flex items-center justify-center text-white text-sm font-semibold">
+                      <div className="w-24 h-24 rounded-full theme-gradient flex items-center justify-center text-white text-sm font-semibold">
                         <div className="text-center leading-tight">
                           No<br />tests<br />yet
                         </div>
                       </div>
-                      <div className="text-sm text-slate-400">Create your first test to get started!</div>
+                      <div className="text-sm text-gray-500">Create your first test to get started!</div>
                     </div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
       </div>
     </Shell>
   );

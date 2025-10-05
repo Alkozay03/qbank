@@ -18,7 +18,7 @@ interface QuestionEditorProps {
   initialObjective?: string;
   initialAnswers?: Answer[];
   initialTags?: Tag[];
-  onSave: (data: {
+  onSave: (_data: {
     question: string;
     explanation: string;
     objective: string;
@@ -191,7 +191,7 @@ export default function QuestionEditor({
                   type="checkbox"
                   checked={answer.isCorrect}
                   onChange={(e) => updateAnswer(index, 'isCorrect', e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                 />
                 <input
                   type="text"
@@ -227,12 +227,12 @@ export default function QuestionEditor({
               {tags.map((tag, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-theme-secondary text-primary"
                 >
                   {tag.type}: {tag.value}
                   <button
                     onClick={() => removeTag(index)}
-                    className="ml-1 text-blue-600 hover:text-blue-800"
+                    className="ml-1 text-primary hover:text-primary-hover"
                   >
                     ×
                   </button>
@@ -328,7 +328,7 @@ export default function QuestionEditor({
         </button>
         <button
           onClick={handleSave}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="px-4 py-2 bg-primary text-inverse rounded-md hover:bg-primary-hover"
         >
           Save Question
         </button>

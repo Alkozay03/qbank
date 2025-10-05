@@ -100,7 +100,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       <button
         onClick={onClick}
         title={title}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-[#2F6F8F] hover:bg-white/70 transition"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-primary hover:bg-accent transition"
       >
         {children}
       </button>
@@ -109,21 +109,21 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   return (
     <div
-      className="fixed inset-0 bg-[#F3F9FC] text-neutral-900"
+      className="fixed inset-0 bg-background text-foreground"
       style={{ "--sbw": sidebarWidth } as React.CSSProperties}
     >
       {/* SIDEBAR (narrow) */}
       <aside
         className={[
           "fixed left-0 top-0 bottom-0 z-40",
-          "bg-white border-r border-[#E6F0F7] overflow-hidden",
+          "bg-card border-r border-border overflow-hidden",
           "transition-[width] duration-300 ease-in-out",
         ].join(" ")}
         style={{ width: sidebarWidth }}
       >
         <div className="h-full flex flex-col">
-          <div className="px-3 py-4 border-b border-[#E6F0F7]">
-            <div className="text-sm font-bold text-[#2F6F8F]">Questions</div>
+          <div className="px-3 py-4 border-b border-border">
+            <div className="text-sm font-bold text-primary">Questions</div>
           </div>
           <div className="flex-1 p-2 space-y-1 overflow-auto">
             {items.map((item, idx) => {
@@ -174,8 +174,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* TOP BAR */}
       <header
         className={[
-          "fixed left-0 right-0 top-0 z-30 border-b bg-[#E6F0F7] backdrop-blur",
-          "border-[#E6F0F7] h-14",
+          "fixed left-0 right-0 top-0 z-30 border-b bg-accent backdrop-blur",
+          "border-border h-14",
           "transition-[padding-left] duration-300 ease-in-out"
         ].join(" ")}
         style={{ paddingLeft: `var(--sbw)` }}
@@ -199,13 +199,13 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               </div>
             </div>
 
-            <label className="ml-2 inline-flex items-center gap-2 rounded-xl bg-white px-2 py-1 border border-[#A5CDE4]">
+            <label className="ml-2 inline-flex items-center gap-2 rounded-xl bg-card px-2 py-1 border border-border">
               <input 
                 type="checkbox" 
                 checked={Boolean(currentItem?.marked)} 
                 onChange={(e) => markQuestion(e.target.checked)} 
               />
-              <span className="inline-flex items-center gap-1 text-sm text-[#2F6F8F]">
+              <span className="inline-flex items-center gap-1 text-sm text-primary">
                 <svg width="20" height="20" viewBox="0 0 24 24">
                   <path fill="#e11d48" d="M6 2v20H4V2h2Zm2 2h9.5l-2.2 3 2.2 3H8V4Z"/>
                 </svg>
@@ -239,7 +239,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             </BarIconBtn>
             
             {showHighlighter && (
-              <div className="absolute right-0 top-12 z-40 rounded-2xl border border-[#E6F0F7] bg-white p-2 shadow">
+              <div className="absolute right-0 top-12 z-40 rounded-2xl border border-border bg-card p-2 shadow">
                 <div className="flex items-center gap-2">
                   {[
                     { c: "red" as HLColor, n: "red", hex: "#e11d48" },
@@ -250,7 +250,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     <button
                       key={k.n}
                       onClick={() => setHighlightColor(k.c)}
-                      className="h-6 w-6 rounded-full border border-[#E6F0F7]"
+                      className="h-6 w-6 rounded-full border border-border"
                       style={{ 
                         backgroundColor: k.hex, 
                         outline: highlightColor === k.c ? "2px solid #A5CDE4" : "none" 
@@ -259,7 +259,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     />
                   ))}
                 </div>
-                <div className="mt-2 text-[11px] text-slate-500">
+                <div className="mt-2 text-[11px] text-muted-foreground">
                   Select text in the question / explanation / objective. Release to apply.
                   <br/>Alt+Click a highlight to remove it.
                 </div>
@@ -267,7 +267,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             )}
 
             {/* Text size controls */}
-            <div className="ml-1 inline-flex items-center gap-1 rounded-xl border border-[#A5CDE4] bg-white p-1">
+            <div className="ml-1 inline-flex items-center gap-1 rounded-xl border border-border bg-card p-1">
               <button 
                 onClick={decFont} 
                 className="rounded-lg px-2 py-1 text-[#2F6F8F] hover:bg-[#F3F9FC]" 
@@ -303,7 +303,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         style={{ top: `${TOP_H}px`, bottom: `${BOTTOM_H}px`, paddingLeft: `var(--sbw)` }}
       >
         <div className="mx-auto max-w-4xl px-4 py-6">
-          <div className="quiz-question rounded-2xl border border-[#E6F0F7] bg-white p-5">
+          <div className="quiz-question rounded-2xl border border-border bg-card p-5">
             <div
               ref={stemRef}
               data-section="stem"
@@ -327,8 +327,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                       ? "border-green-400 bg-green-50 text-green-800"
                       : currentItem.responses[0]?.choiceId === choice.id
                       ? "border-red-400 bg-red-50 text-red-800"
-                      : "border-slate-200 bg-slate-50 text-slate-600"
-                    : "border-[#E6F0F7] bg-white text-neutral-900 hover:border-[#A5CDE4] hover:bg-[#F3F9FC]",
+                      : "border-muted bg-muted text-muted-foreground"
+                    : "border-border bg-card text-foreground hover:border-primary hover:bg-accent",
                 ].join(" ")}
                 disabled={isAnswered}
               >
@@ -349,7 +349,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
           {isAnswered && (
             <>
               <div className="quiz-explanation mt-6 rounded-2xl border border-[#E6F0F7] bg-white p-5">
-                <div className="text-lg font-bold text-[#2F6F8F]">Explanation:</div>
+                <div className="text-lg font-bold text-primary">Explanation:</div>
                 <div
                   ref={explRef}
                   data-section="explanation"
@@ -357,7 +357,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   style={{ fontSize: `${fontScale}rem` }}
                   dangerouslySetInnerHTML={{
                     __html: currentItem?.question.explanation ?? 
-                            "<div class='text-sm text-slate-500'>No explanation provided.</div>"
+                            "<div class='text-sm text-muted-foreground'>No explanation provided.</div>"
                   }}
                 />
               </div>

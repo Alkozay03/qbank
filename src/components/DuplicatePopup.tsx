@@ -35,7 +35,7 @@ export default function DuplicatePopup({
           
           <button
             onClick={onClose}
-            className="rounded-xl bg-[#2F6F8F] px-6 py-2 font-semibold text-white hover:opacity-90 btn-hover color-smooth"
+            className="rounded-xl bg-primary px-6 py-2 font-semibold text-inverse hover:opacity-90 btn-hover color-smooth"
           >
             Got it
           </button>

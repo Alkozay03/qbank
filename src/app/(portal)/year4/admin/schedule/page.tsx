@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Shell from '@/components/Shell';
-import { Calendar, Clock, MapPin, Users, ExternalLink, Plus } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ExternalLink, Plus, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import ForceBlueTheme from '@/components/ForceBlueTheme';
 
 interface ScheduleItem {
   id: string;
@@ -51,9 +51,11 @@ export default function ScheduleManagerPage() {
       const response = await fetch('/api/admin/schedule');
       if (response.ok) {
         const data = await response.json();
-        setSchedules(data);
-        if (data.length > 0) {
-          setSelectedWeek(data[0].id);
+        // Handle both array and object with schedules property
+        const schedulesArray = Array.isArray(data) ? data : (data.schedules || []);
+        setSchedules(schedulesArray);
+        if (schedulesArray.length > 0) {
+          setSelectedWeek(schedulesArray[0].id);
         }
       }
     } catch (error) {
@@ -91,25 +93,39 @@ export default function ScheduleManagerPage() {
 
   if (loading) {
     return (
-      <Shell title="Schedule Manager">
-        <div className="container px-4 py-6 mx-auto max-w-7xl">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 w-64 bg-slate-200 rounded"></div>
-            <div className="h-32 w-full bg-slate-200 rounded"></div>
+      <ForceBlueTheme>
+        <div className="min-h-screen bg-gradient-background">
+          <div className="container px-4 py-6 mx-auto max-w-7xl">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 w-64 bg-slate-200 rounded"></div>
+              <div className="h-32 w-full bg-slate-200 rounded"></div>
+            </div>
           </div>
         </div>
-      </Shell>
+      </ForceBlueTheme>
     );
   }
 
   return (
-    <Shell title="Schedule Manager">
-      <div className="container px-4 py-6 mx-auto max-w-7xl">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800">Schedule Manager</h1>
-            <p className="text-slate-600 mt-1">Manage weekly schedules for Year 4 students</p>
+    <ForceBlueTheme>
+      <div className="min-h-screen bg-gradient-background">
+        <div className="container px-4 py-6 mx-auto max-w-7xl">
+          {/* Back Button */}
+          <div className="mb-6">
+            <Link 
+              href="/year4/admin" 
+              className="inline-flex items-center gap-2 text-primary hover:text-primary-hover transition-colors font-medium"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Year 4 Admin Portal
+            </Link>
           </div>
+
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-primary">Schedule Manager</h1>
+              <p className="text-secondary mt-1">Manage weekly schedules for Year 4 students</p>
+            </div>
           <div className="flex gap-3">
             <Link href="/year4/admin/schedule-editor">
               <button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all">
@@ -247,7 +263,8 @@ export default function ScheduleManagerPage() {
             )}
           </div>
         )}
+        </div>
       </div>
-    </Shell>
+    </ForceBlueTheme>
   );
 }

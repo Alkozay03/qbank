@@ -4,7 +4,7 @@ import { prisma } from "@/server/db";
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -21,7 +21,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const tagId = params.id;
+    const { id: tagId } = await params;
 
     // Check if tag exists
     const tag = await prisma.tag.findUnique({

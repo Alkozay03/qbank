@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import RichTextEditor from "@/components/RichTextEditor";
 import TagSelector from "@/components/TagSelector";
 import AdminQuestionComments from "@/components/AdminQuestionComments";
+import ForceBlueTheme from "@/components/ForceBlueTheme";
 import Image from "next/image";
 import { getTagLabel, type TagCategory } from "@/lib/tags/catalog";
 
@@ -231,7 +232,7 @@ function MultipleReferencesEditor({ references, onChange }: MultipleReferencesEd
             type="text"
             value={ref}
             onChange={(e) => updateReference(index, e.target.value)}
-            className="flex-1 px-3 py-2 border border-[#E6F0F7] rounded-lg focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+            className="flex-1 px-3 py-2 border border-theme rounded-lg focus-theme outline-none theme-transition text-readable bg-theme-background"
             placeholder={`Reference ${index + 1}`}
           />
           {referenceList.length > 1 && (
@@ -251,7 +252,7 @@ function MultipleReferencesEditor({ references, onChange }: MultipleReferencesEd
       <button
         type="button"
         onClick={addReference}
-        className="flex items-center gap-2 px-3 py-2 text-[#56A2CD] hover:text-[#2F6F8F] hover:bg-[#F7FBFF] rounded-lg transition-colors duration-200 text-sm"
+        className="flex items-center gap-2 px-3 py-2 text-primary hover:text-primary-hover hover:bg-hover rounded-lg transition-colors duration-200 text-sm"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -732,20 +733,20 @@ ${formattedList}`);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F3F9FC] to-[#A5CDE4]/30">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-6">
         
         {/* Header with Back Button */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-[#2F6F8F] mb-2">Bulk Question Manager</h1>
+            <h1 className="text-3xl font-bold mb-2 text-primary">Bulk Question Manager</h1>
             <p className="text-slate-600">
               Upload PDF files containing 90-100 questions to extract and manage them with references and tags.
             </p>
           </div>
           <button
             onClick={handleGoBack}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white rounded-xl font-medium hover:from-[#56A2CD] hover:to-[#A5CDE4] transition-all duration-300 btn-hover shadow-lg"
+            className="flex items-center gap-2 px-6 py-3 bg-primary text-inverse rounded-xl font-medium hover:opacity-90 transition-all duration-300 btn-hover shadow-lg"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -755,11 +756,11 @@ ${formattedList}`);
         </div>
 
         {/* Upload Section */}
-        <div className="bg-white rounded-xl border border-[#E6F0F7] p-6 mb-8 shadow-lg">
-          <h2 className="text-xl font-semibold text-[#2F6F8F] mb-4">Upload PDF</h2>
+        <div className="bg-theme-background rounded-xl border border-theme p-6 mb-8 shadow-theme">
+          <h2 className="text-xl font-semibold text-primary mb-4">Upload PDF</h2>
           
           <div className="space-y-4">
-            <div className="border-2 border-dashed border-[#E6F0F7] rounded-lg p-8 text-center">
+            <div className="border-2 border-dashed border-theme rounded-lg p-8 text-center">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -773,8 +774,8 @@ ${formattedList}`);
                 htmlFor="pdf-upload"
                 className={`cursor-pointer inline-flex items-center gap-3 px-6 py-3 rounded-xl font-medium transition-all duration-300 btn-hover ${
                   state.status === 'uploading' || state.status === 'extracting'
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white hover:from-[#56A2CD] hover:to-[#A5CDE4]'
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                    : 'bg-primary text-inverse hover:opacity-90'
                 }`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -788,12 +789,12 @@ ${formattedList}`);
             {state.progress > 0 && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">{state.message}</span>
-                  <span className="text-[#2F6F8F] font-medium">{state.progress}%</span>
+                  <span className="text-secondary">{state.message}</span>
+                  <span className="text-primary font-medium">{state.progress}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div 
-                    className="bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] h-2 rounded-full transition-all duration-300"
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
                     style={{ width: `${state.progress}%` }}
                   ></div>
                 </div>
@@ -803,7 +804,7 @@ ${formattedList}`);
           <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-end">
             <button
               onClick={handleAddManualQuestion}
-              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-[#56A2CD] to-[#2F6F8F] text-white rounded-xl font-medium shadow-lg hover:from-[#2F6F8F] hover:to-[#56A2CD] transition-all duration-300 btn-hover"
+              className="inline-flex items-center justify-center px-6 py-3 bg-primary text-inverse rounded-xl font-medium shadow-lg hover:opacity-90 transition-all duration-300 btn-hover"
             >
               Add Individual Question
             </button>
@@ -818,12 +819,12 @@ ${formattedList}`);
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={handleSearchInputKeyDown}
                   placeholder="Enter question ID"
-                  className="flex-1 px-3 py-2 border border-[#E6F0F7] rounded-lg focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+                  className="flex-1 px-3 py-2 border border-theme rounded-lg focus-theme outline-none theme-transition text-readable bg-theme-background"
                 />
                 <button
                   onClick={handleSearchExistingQuestion}
                   disabled={searchStatus === 'loading' || !searchInput.trim()}
-                  className="w-full sm:w-auto px-6 py-2 bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white rounded-lg font-medium hover:from-[#56A2CD] hover:to-[#A5CDE4] transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-6 py-2 bg-primary text-inverse rounded-lg font-medium hover:opacity-90 transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {searchStatus === 'loading' ? 'Searching...' : 'Search'}
                 </button>
@@ -835,7 +836,7 @@ ${formattedList}`);
                       ? 'text-red-600'
                       : searchStatus === 'success'
                       ? 'text-emerald-600'
-                      : 'text-slate-600'
+                      : 'text-secondary'
                   }`}
                 >
                   {searchMessage}
@@ -846,15 +847,15 @@ ${formattedList}`);
         </div>
         {/* Questions Table */}
         {state.questions.length > 0 && (
-          <div className="bg-white rounded-xl border border-[#E6F0F7] shadow-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#E6F0F7] flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-[#2F6F8F]">
+          <div className="bg-theme-background rounded-xl border border-theme shadow-theme overflow-hidden">
+            <div className="px-6 py-4 border-b border-theme flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-primary">
                 Extracted Questions ({state.questions.length})
               </h2>
               <button
                 onClick={handleSaveAllQuestions}
                 disabled={state.status === 'saving'}
-                className="px-6 py-2 bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white rounded-lg font-medium hover:from-[#56A2CD] hover:to-[#A5CDE4] transition-all duration-300 btn-hover disabled:opacity-50"
+                className="px-6 py-2 bg-primary text-inverse rounded-lg font-medium hover:opacity-90 transition-all duration-300 btn-hover disabled:opacity-50"
               >
                 {state.status === 'saving' ? 'Saving...' : 'Save All Questions'}
               </button>
@@ -862,26 +863,26 @@ ${formattedList}`);
 
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-[#F3F9FC] to-[#E6F0F7]">
+                <thead className="bg-theme-secondary">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-[#2F6F8F]">#</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-[#2F6F8F]">Question Preview</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-[#2F6F8F]">Correct Answer</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-[#2F6F8F]">References</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-[#2F6F8F]">Tags</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-[#2F6F8F]">Actions</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">#</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">Question Preview</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">Correct Answer</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">References</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">Tags</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {state.questions.map((question, index) => (
-                    <tr key={question.id} className="border-b border-[#E6F0F7] hover:bg-[#F8FCFF] transition-colors duration-200">
-                      <td className="px-4 py-3 text-sm font-medium text-[#2F6F8F]">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 max-w-xs">
+                    <tr key={question.id} className="border-b border-theme hover:bg-hover transition-colors duration-200">
+                      <td className="px-4 py-3 text-sm font-medium text-primary">{index + 1}</td>
+                      <td className="px-4 py-3 text-sm text-foreground max-w-xs">
                         <div className="truncate" title={question.questionText}>
                           {question.questionText.substring(0, 100)}...
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-[#2F6F8F]">{question.correctAnswer}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-primary">{question.correctAnswer}</td>
                       <td className="px-4 py-3 text-sm">
                         <input
                           type="text"
@@ -892,7 +893,7 @@ ${formattedList}`);
                             setState(prev => ({ ...prev, questions: newQuestions }));
                           }}
                           placeholder="Enter references"
-                          className="w-full px-2 py-1 text-xs border border-[#E6F0F7] rounded focus:border-[#56A2CD] focus:ring-1 focus:ring-[#56A2CD] outline-none"
+                          className="w-full px-2 py-1 text-xs border border-theme rounded focus-theme outline-none theme-transition text-readable bg-theme-background"
                         />
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -902,7 +903,7 @@ ${formattedList}`);
                               .map((tag) => tagLabelFromPair(tag))
                               .filter((label): label is string => Boolean(label));
                             if (!displayTags.length) {
-                              return <span className="text-gray-400 text-xs">No tags</span>;
+                              return <span className="text-muted-foreground text-xs">No tags</span>;
                             }
                             const shown = displayTags.slice(0, 2);
                             return (
@@ -910,13 +911,13 @@ ${formattedList}`);
                                 {shown.map((label) => (
                                   <span
                                     key={label}
-                                    className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
+                                    className="inline-block px-2 py-1 bg-theme-secondary text-primary rounded-full text-xs"
                                   >
                                     {label}
                                   </span>
                                 ))}
                                 {displayTags.length > shown.length ? (
-                                  <span className="text-gray-500 text-xs">+{displayTags.length - shown.length} more</span>
+                                  <span className="text-muted-foreground text-xs">+{displayTags.length - shown.length} more</span>
                                 ) : null}
                               </>
                             );
@@ -926,7 +927,7 @@ ${formattedList}`);
                       <td className="px-4 py-3 text-sm">
                         <button
                           onClick={() => handleEditQuestion(index)}
-                          className="px-3 py-1 text-xs bg-gradient-to-r from-[#A5CDE4] to-[#56A2CD] text-white rounded hover:from-[#56A2CD] hover:to-[#2F6F8F] transition-all duration-200 btn-hover"
+                          className="px-3 py-1 text-xs bg-gradient-secondary text-white rounded hover:opacity-90 transition-all duration-200 btn-hover"
                         >
                           Edit
                         </button>
@@ -1250,11 +1251,11 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white px-6 py-4 border-b border-[#E6F0F7] flex justify-between items-center z-20">
-          <h2 className="text-xl font-semibold text-[#2F6F8F]">Edit Question</h2>
+        <div className="sticky top-0 bg-theme-background px-6 py-4 border-b border-theme flex justify-between items-center z-20">
+          <h2 className="text-xl font-semibold text-primary">Edit Question</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 icon-hover"
+            className="text-muted-foreground hover:text-foreground icon-hover"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1265,7 +1266,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         <div className="p-6 space-y-6" style={{ paddingTop: '1.5rem' }}>{/* Added padding to prevent text clipping */}
           {/* Question Text with Rich Text Editor */}
           <div>
-            <label className="block text-sm font-medium text-[#2F6F8F] mb-2">Question Text</label>
+            <label className="block text-sm font-medium text-primary mb-2">Question Text</label>
             <RichTextEditor
               content={editedQuestion.questionText}
               onChange={(content) => setEditedQuestion(prev => ({ ...prev, questionText: content }))}
@@ -1277,10 +1278,10 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           </div>
 
           {/* Question Image Upload */}
-          <div className="rounded-2xl border border-[#E6F0F7] bg-[#F9FCFF] p-4">
+          <div className="rounded-2xl border border-border bg-card p-4">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-[#2F6F8F] uppercase tracking-wide">Question Image</label>
-              <p className="text-xs text-slate-500">
+              <label className="text-sm font-semibold text-primary uppercase tracking-wide">Question Image</label>
+              <p className="text-xs text-muted-foreground">
                 Upload an image to display below the question stem. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
               </p>
             </div>
@@ -1297,12 +1298,12 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 event.dataTransfer.dropEffect = 'copy';
               }}
               onDrop={handleQuestionImageDrop}
-              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#C7D9E6] bg-white px-4 py-6 text-center transition hover:border-[#56A2CD] hover:bg-[#F8FCFF]"
+              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-4 py-6 text-center transition hover:border-primary hover:bg-accent"
             >
               <button
                 type="button"
                 onClick={() => questionImageInputRef.current?.click()}
-                className="rounded-lg border border-[#2F6F8F] px-4 py-1.5 text-sm font-semibold text-[#2F6F8F] transition hover:bg-[#2F6F8F]/10"
+                className="rounded-lg border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-accent"
               >
                 {questionImageUploading ? 'Uploading…' : 'Select image'}
               </button>
@@ -1313,10 +1314,10 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             </div>
 
             {editedQuestion.questionImageUrl ? (
-              <div className="mt-4 rounded-xl border border-[#E6F0F7] bg-white p-3">
+              <div className="mt-4 rounded-xl border border-border bg-card p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#2F6F8F]">Current question image</p>
+                    <p className="text-sm font-semibold text-primary">Current question image</p>
                     <a
                       href={editedQuestion.questionImageUrl}
                       target="_blank"
@@ -1352,7 +1353,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {['A', 'B', 'C', 'D', 'E'].map((option) => (
               <div key={option}>
-                <label className="block text-sm font-medium text-[#2F6F8F] mb-2">Option {option}</label>
+                <label className="block text-sm font-medium text-primary mb-2">Option {option}</label>
                 <textarea
                   value={editedQuestion[`option${option}` as keyof ExtractedQuestion] as string || ''}
                   onChange={(e) => setEditedQuestion(prev => ({ 
@@ -1360,7 +1361,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                     [`option${option}`]: e.target.value 
                   }))}
                   placeholder={`Enter option ${option}...`}
-                  className="w-full min-h-[80px] px-3 py-2 border border-[#E6F0F7] rounded-lg focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none resize-vertical"
+                  className="w-full min-h-[80px] px-3 py-2 border border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-vertical"
                   rows={3}
                 />
               </div>
@@ -1369,11 +1370,11 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
           {/* Correct Answer */}
           <div>
-            <label className="block text-sm font-medium text-[#2F6F8F] mb-2">Correct Answer</label>
+            <label className="block text-sm font-medium text-primary mb-2">Correct Answer</label>
             <select
               value={editedQuestion.correctAnswer}
               onChange={(e) => setEditedQuestion(prev => ({ ...prev, correctAnswer: e.target.value }))}
-              className="w-full px-3 py-2 border border-[#E6F0F7] rounded-lg focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
             >
               <option value="">Select correct answer</option>
               <option value="A">A</option>
@@ -1386,7 +1387,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
           {/* Explanation with Rich Text Editor */}
           <div>
-            <label className="block text-sm font-medium text-[#2F6F8F] mb-2">Explanation</label>
+            <label className="block text-sm font-medium text-primary mb-2">Explanation</label>
             <RichTextEditor
               content={editedQuestion.explanation}
               onChange={(content) => setEditedQuestion(prev => ({ ...prev, explanation: content }))}
@@ -1398,10 +1399,10 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           </div>
 
           {/* Explanation Image Upload */}
-          <div className="rounded-2xl border border-[#E6F0F7] bg-[#F9FCFF] p-4">
+          <div className="rounded-2xl border border-border bg-card p-4">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-[#2F6F8F] uppercase tracking-wide">Explanation Image</label>
-              <p className="text-xs text-slate-500">
+              <label className="text-sm font-semibold text-primary uppercase tracking-wide">Explanation Image</label>
+              <p className="text-xs text-muted-foreground">
                 Upload an image to display above the explanation text. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
               </p>
             </div>
@@ -1418,12 +1419,12 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 event.dataTransfer.dropEffect = 'copy';
               }}
               onDrop={handleExplanationImageDrop}
-              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#C7D9E6] bg-white px-4 py-6 text-center transition hover:border-[#56A2CD] hover:bg-[#F8FCFF]"
+              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-4 py-6 text-center transition hover:border-primary hover:bg-accent"
             >
               <button
                 type="button"
                 onClick={() => explanationImageInputRef.current?.click()}
-                className="rounded-lg border border-[#2F6F8F] px-4 py-1.5 text-sm font-semibold text-[#2F6F8F] transition hover:bg-[#2F6F8F]/10"
+                className="rounded-lg border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-accent"
               >
                 {explanationImageUploading ? 'Uploading…' : 'Select image'}
               </button>
@@ -1670,9 +1671,11 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 }
 export default function BulkQuestionManager() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-[#2F6F8F]">Loading...</div>}>
-      <BulkQuestionManagerContent />
-    </Suspense>
+    <ForceBlueTheme>
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-[#2F6F8F]">Loading...</div>}>
+        <BulkQuestionManagerContent />
+      </Suspense>
+    </ForceBlueTheme>
   );
 }
 

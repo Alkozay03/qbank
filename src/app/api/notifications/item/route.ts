@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     await requireRole(["ADMIN", "MASTER_ADMIN"]);
     
     const body = await req.json();
-    const { title, body: content, shortId } = body;
+    const { title, body: content, shortId, targetRotation } = body;
     
     // Validate input
     if (!title || !content) {
@@ -75,6 +75,7 @@ export async function POST(req: Request) {
         shortId: numericId,
         title,
         body: content,
+        targetRotation: targetRotation || null,
       },
     });
     
@@ -110,10 +111,10 @@ export async function PATCH(req: Request) {
     }
     
     const body = await req.json();
-    const { title, body: content, shortId } = body;
+    const { title, body: content, shortId, targetRotation } = body;
     
     // Validate input
-    if (!title && !content && !shortId) {
+    if (!title && !content && !shortId && targetRotation === undefined) {
       return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
     
@@ -122,10 +123,12 @@ export async function PATCH(req: Request) {
       title?: string;
       body?: string;
       shortId?: number;
+      targetRotation?: string | null;
     } = {};
     if (title) updateData.title = title;
     if (content) updateData.body = content;
     if (shortId) updateData.shortId = shortId;
+    if (targetRotation !== undefined) updateData.targetRotation = targetRotation || null;
     
     // Update notification
     const notification = await prisma.notification.update({

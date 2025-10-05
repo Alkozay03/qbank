@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import { TagType } from "@prisma/client";
-import { canonicalizeQuestionMode, setQuestionMode } from "@/lib/quiz/questionMode";
 
 type Answer = {
   text: string;
@@ -77,13 +76,13 @@ export async function POST(request: NextRequest) {
     });
 
     // Upsert tags and link outside of a transaction to avoid interactive transaction timeouts
-    let providedMode: string | null = null;
+    // Process tags (but skip MODE tags - they are user-specific, not global)
     if (tags && Array.isArray(tags) && tags.length > 0) {
       const tagIds: string[] = [];
       for (const tag of tags) {
         if (!tag?.type || !tag?.value) continue;
+        // Skip MODE tags - they should not be stored as global tags
         if (tag.type === TagType.MODE) {
-          providedMode = tag.value;
           continue;
         }
         try {
@@ -109,8 +108,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const normalizedMode = canonicalizeQuestionMode(providedMode) ?? "unused";
-    await setQuestionMode(question.id, normalizedMode);
+    // Note: MODE tags are no longer stored globally - they are derived per-user from quiz history
 
     return NextResponse.json({ success: true, questionId: question.id, message: "Question created successfully" });
 

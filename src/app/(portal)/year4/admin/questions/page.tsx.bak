@@ -1,1200 +1,0 @@
-﻿"use client";
-
-export const dynamic = "force-dynamic";
-
-import { useRef, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-
-type Answer = { text: string; isCorrect: boolean };
-type Tag = { type: "SUBJECT"|"SYSTEM"|"TOPIC"|"ROTATION"|"RESOURCE"|"MODE"; value: string };
-
-const rotations = ["Internal Medicine","General Surgery","Pediatrics","Obstetrics and Gynaecology"] as const;
-const resources = [
-  "UWorld - Step 1",
-  "UWorld - Step 2",
-  "Amboss",
-  "Boards & beyond",
-  "Previouses",
-] as const;
-const disciplines = [
-  "Anatomy","Behavioral science","Biochemistry","Biostatistics","Embryology","Genetics","Histology","Immunology","Microbiology","Pathology","Pathophysiology","Pharmacology","Physiology",
-] as const;
-const systems = [
-  "Biochemistry (General Principles)","Genetics (General Principles)","Microbiology (General Principles)","Pathology (General Principles)","Pharmacology (General Principles)","Biostatistics & Epidemiology","Poisoning & Environmental Exposure","Psychiatric/Behavioral & Substance Use Disorder","Social Sciences (Ethics/Legal/Professional)","Miscellaneous (Multisystem)","Allergy & Immunology","Cardiovascular System","Dermatology","Ear, Nose & Throat (ENT)","Endocrine, Diabetes & Metabolism","Female Reproductive System & Breast","Gastrointestinal & Nutrition","Hematology & Oncology","Infectious Diseases","Male Reproductive System","Nervous System","Ophthalmology","Pregnancy, Childbirth & Puerperium","Pulmonary & Critical Care","Renal, Urinary Systems & Electrolytes","Rheumatology/Orthopedics & Sports",
-] as const;
-
-// Modes are defined elsewhere; not needed directly here.
-
-export default function QuestionBuilderPage() {
-  const router = useRouter();
-  const [tab, setTab] = useState<"add"|"edit">("add");
-  const [searchId, setSearchId] = useState("");
-  const [text, setText] = useState("");
-  const [explanation, setExplanation] = useState("");
-  const [objective, setObjective] = useState("");
-  const [answers, setAnswers] = useState<Answer[]>([{ text: "", isCorrect: false }]);
-  const [refs, setRefs] = useState<string[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  // Images
-  const [qImages, setQImages] = useState<string[]>([]); // shown after question text
-  const [expImage, setExpImage] = useState<string>(""); // shown above explanation
-  // Rich editing refs
-  const explRef = useRef<HTMLDivElement | null>(null);
-  const objRef = useRef<HTMLDivElement | null>(null);
-  const [explFocused, setExplFocused] = useState(false);
-  const [objFocused, setObjFocused] = useState(false);
-  const explSelRef = useRef<Range | null>(null);
-  const objSelRef = useRef<Range | null>(null);
-  // removed old objRef (moved above)
-  // removed OCR file input
-  const aiFileRef = useRef<HTMLInputElement | null>(null);
-  const uploadQRef = useRef<HTMLInputElement | null>(null);
-  const uploadExpRef = useRef<HTMLInputElement | null>(null);
-  const pdfFileRef = useRef<HTMLInputElement | null>(null);
-  const detectFileRef = useRef<HTMLInputElement | null>(null);
-  // removed OCR state
-  const [aiBusy, setAiBusy] = useState(false);
-  const [aiMsg, setAiMsg] = useState<string>("");
-  const [trainMode, setTrainMode] = useState(false);
-  const [trainImgUrl, setTrainImgUrl] = useState<string | null>(null);
-  const trainImgRef = useRef<HTMLImageElement | null>(null);
-  const [trainResource, setTrainResource] = useState<string>(resources[0]);
-  const [trainCounts, setTrainCounts] = useState<Record<string, number>>({});
-  const [pendingAbsBoxes, setPendingAbsBoxes] = useState<Array<{ x:number;y:number;w:number;h:number;cls:number }> | null>(null);
-  type Box = { id: string; x:number; y:number; w:number; h:number; cls:number };
-  const [boxes, setBoxes] = useState<Box[]>([]);
-  const [inProg, setInProg] = useState<{x:number;y:number;w:number;h:number}|null>(null);
-  const [anchor, setAnchor] = useState<{x:number;y:number}|null>(null);
-  const CLASSES = [
-    { id: 0, name: 'Question', color: '#56A2CD' },
-    { id: 1, name: 'Answers', color: '#e11d48' },
-    { id: 2, name: 'Explanation', color: '#16a34a' },
-    { id: 3, name: 'Educational Objective', color: '#f59e0b' },
-    { id: 4, name: 'Correct Tick', color: '#10b981' },
-    { id: 5, name: 'Question Image', color: '#7c3aed' },
-    { id: 6, name: 'Explanation Image', color: '#0ea5e9' },
-    { id: 7, name: 'Question Table', color: '#64748b' },
-    { id: 8, name: 'Explanation Table', color: '#ef4444' },
-    { id: 9, name: 'Tags', color: '#3b82f6' },
-  ];
-  const [curClass, setCurClass] = useState<number>(0);
-
-  // Lightweight HTML converter (match QuizRunner rendering)
-  function toHTML(s: string) {
-    let html = String(s ?? "");
-    // Normalize spacing
-    html = html.replace(/[\t\f\v]+/g, " ").replace(/ {2,}/g, " ");
-    // Convert basic Markdown tables to HTML
-    html = html.replace(/\n{2,}/g, "\n\n");
-    const lines = html.split(/\n/);
-    const out: string[] = [];
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      const next = lines[i + 1] || "";
-      const isHeaderSep = /^\s*\|?\s*(:?-{3,}:?\s*\|\s*)+(:?-{3,}:?)?\s*$/.test(next);
-      const looksRow = /\|/.test(l) && /\|/.test(next);
-      if (looksRow && isHeaderSep) {
-        // Parse table block
-        const rows: string[][] = [];
-        const header = l.trim();
-        const cols = header.split("|").map((c)=>c.trim()).filter((c,idx,arr)=> !(idx===0 && c==="") && !(idx===arr.length-1 && c===""));
-        rows.push(cols);
-        i += 1; // skip separator
-        let j = i + 1;
-        while (j < lines.length && /\|/.test(lines[j])) {
-          const cells = lines[j].split("|").map((c)=>c.trim()).filter((c,idx,arr)=> !(idx===0 && c==="") && !(idx===arr.length-1 && c===""));
-          rows.push(cells);
-          j++;
-        }
-        i = j - 1;
-        // Build HTML table
-        out.push('<div style="overflow:auto"><table class="min-w-full border border-slate-200">');
-        out.push('<thead><tr>');
-        for (const h of rows[0]) out.push(`<th class="border border-slate-200 px-2 py-1 text-left">${h}</th>`);
-        out.push('</tr></thead>');
-        if (rows.length > 1) {
-          out.push('<tbody>');
-          for (let r = 1; r < rows.length; r++) {
-            out.push('<tr>');
-            for (const c of rows[r]) out.push(`<td class="border border-slate-200 px-2 py-1 align-top">${c}</td>`);
-            out.push('</tr>');
-          }
-          out.push('</tbody>');
-        }
-        out.push('</table></div>');
-        continue;
-      }
-      // Unordered list
-      const mBullet = l.match(/^\s*([\-\*ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¦])\s+(.*)$/u);
-      if (mBullet) {
-        const items: string[] = [];
-        let j = i;
-        while (j < lines.length) {
-          const lm = lines[j].match(/^\s*([\-\*ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¦])\s+(.*)$/u);
-          if (!lm) break;
-          items.push(lm[2]);
-          j++;
-        }
-        i = j - 1;
-        out.push('<ul style="margin:6px 0 10px 18px; list-style: disc">');
-        for (const it of items) out.push(`<li>${it}</li>`);
-        out.push('</ul>');
-        continue;
-      }
-      // Ordered list
-      if (/^\s*\d+[\.)]\s+/.test(l)) {
-        const items: string[] = [];
-        let j = i;
-        while (j < lines.length) {
-          const lm = lines[j].match(/^\s*\d+[\.)]\s+(.*)$/);
-          if (!lm) break;
-          items.push(lm[1]);
-          j++;
-        }
-        i = j - 1;
-        out.push('<ol style="margin:6px 0 10px 18px;">');
-        for (const it of items) out.push(`<li>${it}</li>`);
-        out.push('</ol>');
-        continue;
-      }
-      out.push(l);
-    }
-    html = out.join("\n");
-    // Images
-    html = html.replace(/!\[(.*?)\]\((.*?)\)/g, (_m, alt: string, url: string) => {
-      const a = (alt ?? "").replace(/"/g, "&quot;");
-      const u = (url ?? "").replace(/"/g, "&quot;");
-      return `<div style="text-align:center;margin:8px 0"><img src="${u}" alt="${a}" style="max-width:100%;height:auto;"/></div>`;
-    });
-    // Inline emphasis
-    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/_(.+?)_/g, "<em>$1</em>");
-    html = html.replace(/(^|[^*])\*(?!\*)([^*]+)\*/g, "$1<em>$2</em>");
-    // Newlines
-    html = html.replace(/\n/g, "<br/>");
-    return html;
-  }
-
-  // Reference helpers to satisfy TS when not wired yet
-  if (false) {
-    // @ts-ignore
-    // eslint-disable-next-line no-console
-    console.debug(typeof normalizeOCRText === 'function' && typeof bulletsToHtmlLists === 'function');
-  }
-
-  // Editing helpers for formatting
-  function focusAnd(ref: React.RefObject<HTMLElement | null>) { const el = ref.current as HTMLElement | null; if (!el) return false; el.focus(); return true; }
-  function restoreSelection(selRef: React.RefObject<Range | null>) {
-    try {
-      const range = selRef.current;
-      if (!range) return;
-      const sel = window.getSelection();
-      if (!sel) return;
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } catch {}
-  }
-  function saveSelection(selRef: React.RefObject<Range | null>) {
-    try {
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) return;
-      const r = sel.getRangeAt(0);
-      selRef.current = r.cloneRange();
-    } catch {}
-  }
-  function applyInline(ref: React.RefObject<HTMLElement | null>, selRef: React.RefObject<Range | null>, cmd: 'bold'|'italic'|'underline') {
-    if (!focusAnd(ref)) return;
-    restoreSelection(selRef);
-    document.execCommand(cmd, false);
-  }
-  function applyList(ref: React.RefObject<HTMLElement | null>, selRef: React.RefObject<Range | null>, kind: 'ul-disc'|'ul-circle'|'ul-square'|'ol') {
-    if (!focusAnd(ref)) return;
-    restoreSelection(selRef);
-    if (kind === 'ol') document.execCommand('insertOrderedList'); else document.execCommand('insertUnorderedList');
-    try {
-      const sel = window.getSelection(); if (!sel || sel.rangeCount === 0) return;
-      let node: Node | null = sel.anchorNode;
-      while (node && (node as HTMLElement).nodeType === 3) node = (node as Node).parentNode;
-      while (node && (node as HTMLElement).nodeName.toLowerCase() !== 'ul' && (node as HTMLElement).nodeName.toLowerCase() !== 'ol') node = (node as Node).parentNode;
-      if (node && (node as HTMLElement).nodeName.toLowerCase() === 'ul') {
-        const ul = node as HTMLElement;
-        ul.style.listStyleType = kind === 'ul-circle' ? 'circle' : kind === 'ul-square' ? 'square' : 'disc';
-        ul.style.listStylePosition = 'inside';
-        ul.style.paddingLeft = '1rem';
-        ul.style.margin = '6px 0 10px 0';
-      }
-    } catch {}
-  }
-
-  // Keep contentEditable in sync when not focused
-  useEffect(() => { const el = explRef.current; if (el && !explFocused) el.innerHTML = explanation || ''; }, [explanation, explFocused]);
-  useEffect(() => { const el = objRef.current; if (el && !objFocused) el.innerHTML = objective || ''; }, [objective, objFocused]);
-
-  // Cleaner OCR normalization: dehyphenation and paragraph joins
-  function normalizeOCRText(s: string) {
-    let t = String(s ?? '');
-    t = t.replace(/\r\n/g, '\n');
-    // Dehyphenate line breaks: word-\nnext -> wordnext
-    t = t.replace(/([A-Za-z])\-\n([A-Za-z])/g, '$1$2');
-    // Join lines not starting a new bullet/number and not after terminal punctuation
-    t = t.replace(/([^.!?:\)])\n(?!\s*([\-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¦]|\d+\.))/g, '$1 ');
-    // Normalize bullets
-    t = t.replace(/[ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚ÂªÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹]/g, 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢');
-    // Collapse extra spaces
-    t = t.replace(/[\t\f\v]+/g, ' ').replace(/ {2,}/g, ' ');
-    return t.trim();
-  }
-
-  // Convert plain bullet lines to HTML list
-  function bulletsToHtmlLists(s: string) {
-    const lines = String(s ?? '').split(/\n/);
-    const out: string[] = [];
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      // Unordered bullets
-      if (/^\s*([\-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¦])\s+/.test(l)) {
-        const items: string[] = [];
-        let j = i;
-        while (j < lines.length && /^\s*([\-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¦])\s+/.test(lines[j])) {
-          items.push(lines[j].replace(/^\s*([\-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¦])\s+/, '').trim());
-          j++;
-        }
-        i = j - 1;
-        out.push('<ul style="list-style-position:inside;padding-left:1rem;margin:6px 0 10px 0;">');
-        for (const it of items) out.push(`<li>${it}</li>`);
-        out.push('</ul>');
-        continue;
-      }
-      // Ordered numbers
-      if (/^\s*\d+[\.)]\s+/.test(l)) {
-        const items: string[] = [];
-        let j = i;
-        while (j < lines.length && /^\s*\d+[\.)]\s+/.test(lines[j])) {
-          items.push(lines[j].replace(/^\s*\d+[\.)]\s+/, '').trim());
-          j++;
-        }
-        i = j - 1;
-        out.push('<ol style="list-style-position:inside;padding-left:1rem;margin:6px 0 10px 0;">');
-        for (const it of items) out.push(`<li>${it}</li>`);
-        out.push('</ol>');
-        continue;
-      }
-      out.push(l);
-    }
-    return out.join('\n');
-  }
-
-  // OCR removed
-
-  function onPickAi() { aiFileRef.current?.click(); }
-  function splitQuestion(raw: string) {
-    const cleaned = raw
-      .replace(/\r\n/g, "\n")
-      .replace(/[\t\f\v]+/g, " ")
-      .replace(/\u00A0/g, " ")
-      .replace(/\s+\n/g, "\n")
-      .replace(/\n\s+/g, "\n")
-      .replace(/[ \t]{2,}/g, " ")
-      .trim();
-
-    function stripTrailingSelectionPercent(s: string) {
-      let out = s;
-      // Common UWorld selection rates at end: "(12%)" or "- 12%" or "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â 12%"
-      out = out.replace(/\s*[\(\[\{]\s*\d{1,3}\s*%\s*[\)\]\}]\s*$/u, "");
-      out = out.replace(/\s*[\-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â]\s*\d{1,3}\s*%\s*$/u, "");
-      return out.trim();
-    }
-
-    const tickRe = /[ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦]/u;
-    const lines = cleaned.split(/\n+/);
-    const blocks: Array<{ key: string | null; text: string; isCorrect: boolean }> = [];
-    let current: { key: string; text: string; isCorrect: boolean } | null = null;
-    for (const line of lines) {
-      const hasTick = tickRe.test(line);
-      const m = line.match(/^\s*(?:[OoÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢\(]?\s*)?([A-F])[\)\.:\-\s]+(.*)$/u);
-      if (m) {
-        if (current) blocks.push(current);
-        const rawText = (m[2] ?? '').trim();
-        const txt = stripTrailingSelectionPercent(rawText).replace(tickRe, '').trim();
-        current = { key: m[1], text: txt, isCorrect: hasTick };
-      } else if (current) {
-        // Continuation of the previous choice line
-        const cont = stripTrailingSelectionPercent(line).replace(tickRe, '').trim();
-        current.text += (current.text ? ' ' : '') + cont;
-        if (hasTick) current.isCorrect = true;
-      }
-    }
-    if (current) blocks.push(current);
-
-    // Fallback: if we couldn't detect lettered choices, treat each non-empty line as a choice
-    if (blocks.length === 0) {
-      for (const line of lines) {
-        const s = stripTrailingSelectionPercent(line).replace(tickRe, '').trim();
-        if (!s) continue;
-        const isCorrect = tickRe.test(line);
-        blocks.push({ key: null, text: s, isCorrect });
-      }
-    }
-    let stem = cleaned;
-    if (blocks.length) {
-      const firstKey = blocks[0].key;
-      const re = new RegExp(`\n\s*${firstKey}[\)\.:\-\s]`, 'u');
-      const idxPos = cleaned.search(re);
-      if (idxPos >= 0) stem = cleaned.slice(0, idxPos).trim();
-    }
-    return { stem, choices: blocks };
-  }
-
-  function normalizeBullets(s: string) {
-    let t = String(s ?? "");
-    // Replace common OCR artifacts and unify bullets/dashes
-    t = t.replace(/[ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â£ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚ÂªÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹]/g, "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢"); // unify bullet glyphs
-    t = t.replace(/[ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢]/g, "-"); // en/em/minus to hyphen
-    // Remove isolated control characters
-    t = t.replace(/[\u200B\u200C\u200D\uFEFF]/g, "");
-    // Collapse spaces
-    t = t.replace(/[ \t]{2,}/g, " ");
-    return t;
-  }
-
-  async function onAiFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]; if (!f) return;
-    try {
-      setAiBusy(true); setAiMsg("OCR...");
-      type OcrLog = { progress?: number };
-      const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('eng', 1, { logger: (m: OcrLog) => { if (m?.progress != null) setAiMsg(`AI ${(m.progress * 100).toFixed(0)}%`); } });
-      const ret = (await worker.recognize(f)) as unknown as { data?: { text?: string } };
-      await worker.terminate();
-      const raw = String(ret && ret.data && ret.data.text ? ret.data.text : '');
-      const { stem, choices } = splitQuestion(raw);
-      if (stem) setText((prev)=> (prev?.trim()? prev+"\n\n"+stem : stem));
-      if (choices.length) setAnswers(choices.map((c)=>({ text: c.text, isCorrect: Boolean(c.isCorrect) })));
-      setAiMsg('Done');
-      const url = URL.createObjectURL(f); setTrainImgUrl(url); setInProg(null); setBoxes([]);
-    } catch {
-      setAiMsg('AI failed'); alert('AI extraction failed.');
-    } finally {
-      setAiBusy(false); if (aiFileRef.current) aiFileRef.current.value='';
-    }
-  }
-
-  function onTrainToggle() { setTrainMode((v)=>!v); }
-  function onPickPdf() { pdfFileRef.current?.click(); }
-  async function onPdfFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]; if (!f) return;
-    try {
-      setAiBusy(true); setAiMsg('PDF...');
-      const fd = new FormData(); fd.append('file', f);
-      const r = await fetch('/api/ai/pdf/extract', { method: 'POST', body: fd });
-      if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j?.error || 'pdf failed'); }
-      const j = await r.json() as { text?: string; explanation?: string; objective?: string; answers?: Array<{ text:string; isCorrect:boolean }>; refs?: Array<{ url:string }>; tags?: Array<{ type: Tag['type']; value:string }> };
-      if (typeof j.text === 'string') { const t = j.text; setText((prev)=> (prev.trim()? prev+"\n\n"+t : t)); }
-      if (typeof j.explanation === 'string') { const t = j.explanation; setExplanation((prev)=> (prev.trim()? prev+"\n\n"+t : t)); }
-      if (typeof j.objective === 'string') { const t = j.objective; setObjective((prev)=> (prev.trim()? prev+"\n\n"+t : t)); }
-      if (Array.isArray(j.answers) && j.answers.length) setAnswers(j.answers.map(a=>({ text: String(a.text||''), isCorrect: Boolean(a.isCorrect) })));
-      if (Array.isArray(j.refs)) setRefs(j.refs.map(x=> String(x.url||'')));
-      if (Array.isArray(j.tags)) { const tags = j.tags; setTags(prev=>[...prev, ...tags.map(t=>({ type: t.type, value: String(t.value||'') }))]); }
-      setAiMsg('Done');
-    } catch {
-      alert('PDF extraction failed. Ensure the PDF has headings like Question/Answers/Explanation/Objective.');
-    } finally {
-      setAiBusy(false); if (pdfFileRef.current) pdfFileRef.current.value='';
-    }
-  }
-  function onPickDetect() { detectFileRef.current?.click(); }
-  async function onDetectFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]; if (!f) return;
-    try {
-      setAiBusy(true); setAiMsg('Detect...');
-      const fd = new FormData(); fd.append('file', f); fd.append('resource', trainResource);
-      const r = await fetch('/api/ai/detect', { method: 'POST', body: fd });
-      if (!r.ok) { const j = await r.json().catch(()=>({})); throw new Error(j?.error || 'detect failed'); }
-      const j = await r.json() as { boxes?: Array<{ x:number;y:number;w:number;h:number;cls:number }> };
-      const url = URL.createObjectURL(f);
-      setTrainMode(true);
-      setTrainImgUrl(url);
-      setAnchor(null); setInProg(null);
-      setPendingAbsBoxes(j.boxes ?? []);
-      // Place boxes after image loads
-      setTimeout(placePendingBoxes, 0);
-    } catch {
-      alert('Auto-detect failed');
-    } finally {
-      setAiBusy(false); if (detectFileRef.current) detectFileRef.current.value='';
-    }
-  }
-  function placePendingBoxes() {
-    if (!trainImgRef.current || !pendingAbsBoxes) return;
-    const img = trainImgRef.current;
-    if (!(img as HTMLImageElement).complete || (img.naturalWidth||0) === 0) {
-      requestAnimationFrame(placePendingBoxes);
-      return;
-    }
-    const scaleX = img.width / (img.naturalWidth || img.width);
-    const scaleY = img.height / (img.naturalHeight || img.height);
-    const disp = pendingAbsBoxes.map(b=>({
-      id: Math.random().toString(36).slice(2,9),
-      x: Math.round(b.x * scaleX),
-      y: Math.round(b.y * scaleY),
-      w: Math.round(b.w * scaleX),
-      h: Math.round(b.h * scaleY),
-      cls: b.cls,
-    }));
-    setBoxes(disp);
-    setPendingAbsBoxes(null);
-  }
-
-  // Load training stats
-  async function refreshTrainCounts() {
-    try {
-      const r = await fetch('/api/ai/training/stats');
-      if (!r.ok) return; const j = await r.json() as { byResource?: Record<string, number> };
-      setTrainCounts(j.byResource || {});
-    } catch {}
-  }
-  // Fetch on mount and when opening training mode
-  useEffect(()=>{ if (trainMode) refreshTrainCounts(); }, [trainMode]);
-  // Also refresh when resource changes (for quick feedback)
-  useEffect(()=>{ if (trainMode) refreshTrainCounts(); }, [trainResource, trainMode]);
-
-  function onPickUploadQ() { uploadQRef.current?.click(); }
-  function onPickUploadExp() { uploadExpRef.current?.click(); }
-  async function onUploadQChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    try {
-      const urls: string[] = [];
-      for (const f of files) {
-        const fd = new FormData(); fd.append('file', f); fd.append('kind', 'question');
-        const r = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-        if (!r.ok) throw new Error('upload failed');
-        const j = await r.json(); urls.push(String(j.url));
-      }
-      setQImages((prev)=>[...prev, ...urls]);
-    } catch {
-      alert('Upload failed');
-    } finally {
-      if (uploadQRef.current) uploadQRef.current.value = '';
-    }
-  }
-  async function onUploadExpChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]; if (!f) return;
-    try {
-      const fd = new FormData(); fd.append('file', f); fd.append('kind', 'explanation');
-      const r = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-      if (!r.ok) throw new Error('upload failed');
-      const j = await r.json(); setExpImage(String(j.url));
-    } catch {
-      alert('Upload failed');
-    } finally {
-      if (uploadExpRef.current) uploadExpRef.current.value = '';
-    }
-  }
-  function onCanvasMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (!trainMode || !trainImgRef.current) return;
-    const rect = (e.currentTarget).getBoundingClientRect();
-    const x = e.clientX - rect.left; const y = e.clientY - rect.top;
-    if (anchor) {
-      const nx = Math.min(anchor.x, x); const ny = Math.min(anchor.y, y);
-      const w = Math.abs(x - anchor.x); const h = Math.abs(y - anchor.y);
-      setInProg({ x: nx, y: ny, w, h });
-    }
-  }
-  function onCanvasClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (!trainMode || !trainImgRef.current) return;
-    const rect = (e.currentTarget).getBoundingClientRect();
-    const x = e.clientX - rect.left; const y = e.clientY - rect.top;
-    if (!anchor) {
-      setAnchor({ x, y }); setInProg({ x, y, w: 0, h: 0 });
-      return;
-    }
-    // finalize
-    const nx = Math.min(anchor.x, x); const ny = Math.min(anchor.y, y);
-    const w = Math.abs(x - anchor.x); const h = Math.abs(y - anchor.y);
-    if (w > 4 && h > 4) setBoxes((b)=>[...b, { id: Math.random().toString(36).slice(2,9), x: nx, y: ny, w, h, cls: curClass }]);
-    setAnchor(null); setInProg(null);
-  }
-  async function onSaveTrainingSample() {
-    if (!trainImgUrl || boxes.length === 0 || !trainImgRef.current) { alert('Upload image and draw boxes first'); return; }
-    const img = trainImgRef.current;
-    const iw = (img.naturalWidth || img.width);
-    const ih = (img.naturalHeight || img.height);
-    const scaleX = iw / img.width;
-    const scaleY = ih / img.height;
-    const payload = boxes.map((b)=>({ x: Math.round(b.x*scaleX), y: Math.round(b.y*scaleY), w: Math.round(b.w*scaleX), h: Math.round(b.h*scaleY), cls: b.cls, iw, ih }));
-    const res = await fetch(trainImgUrl);
-    const blob = await res.blob();
-    const fd = new FormData(); fd.append('file', blob, 'sample.png');
-    fd.append('bboxes', JSON.stringify(payload));
-    fd.append('resource', trainResource);
-    const r = await fetch('/api/ai/training/sample', { method:'POST', body: fd });
-    if (!r.ok) { alert('Failed to save sample'); return; }
-    const j = await r.json();
-    alert('Saved training sample: ' + j.id);
-  }
-  function clearBoxes() { setBoxes([]); setInProg(null); }
-
-  async function extractFromBoxes() {
-    if (!trainImgUrl || !trainImgRef.current) { alert('AI image not loaded'); return; }
-    const img = trainImgRef.current;
-    const scaleX = (img.naturalWidth || img.width) / img.width;
-    const scaleY = (img.naturalHeight || img.height) / img.height;
-
-    function pickLargest(clsId: number) {
-      const arr = boxes.filter(b=>b.cls===clsId);
-      if (!arr.length) return null;
-      return arr.reduce((a,b)=> (a.w*a.h >= b.w*b.h ? a : b));
-    }
-
-    async function cropToBlob(b: Box): Promise<Blob> {
-      const sx0 = Math.round(b.x * scaleX);
-      const sy0 = Math.round(b.y * scaleY);
-      const sw = Math.round(b.w * scaleX);
-      const sh = Math.round(b.h * scaleY);
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, sw); canvas.height = Math.max(1, sh);
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas failed');
-      ctx.drawImage(img, sx0, sy0, sw, sh, 0, 0, sw, sh);
-      return new Promise((res)=> canvas.toBlob((blob)=> res(blob as Blob), 'image/png'));
-    }
-
-    try {
-      setAiBusy(true); setAiMsg('OCR...');
-      type OcrLog = { progress?: number };
-      const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('eng', 1, { logger: (m: OcrLog)=>{ if (m?.progress != null) setAiMsg(`AI ${(m.progress*100).toFixed(0)}%`); } });
-
-      type Word = { text?: string; symbol?: string; bbox?: { x0:number;y0:number;x1:number;y1:number } };
-      function tableFromWords(words: Array<Word>) {
-        try {
-          const ws = (words || []).map((w: Word)=>({
-            t: String(w.text||w.symbol||""),
-            x: Number(w.bbox?.x0 ?? 0),
-            y: Number(w.bbox?.y0 ?? 0),
-            w: Math.max(1, Number((w.bbox?.x1 ?? 0) - (w.bbox?.x0 ?? 0))),
-            h: Math.max(1, Number((w.bbox?.y1 ?? 0) - (w.bbox?.y0 ?? 0))),
-          })).filter(v=>v.t && Number.isFinite(v.x) && Number.isFinite(v.y));
-          if (!ws.length) return null;
-          ws.sort((a,b)=> a.y - b.y || a.x - b.x);
-          const avgH = ws.reduce((s,v)=>s+v.h,0)/ws.length;
-          const rowGap = avgH * 0.7;
-          // Group into rows by y proximity
-          const rows: Array<{ y:number; items: typeof ws }> = [];
-          for (const w of ws) {
-            const ymid = w.y + w.h/2;
-            const last = rows[rows.length-1];
-            if (!last || Math.abs(ymid - last.y) > rowGap) rows.push({ y: ymid, items: [w] });
-            else { last.items.push(w); last.y = (last.y*last.items.length + ymid)/(last.items.length+1); }
-          }
-          // For each row, split into cells by large x gaps
-          const mdRows: string[][] = [];
-          for (const r of rows) {
-            const it = r.items.sort((a,b)=> a.x - b.x);
-            const gaps = it.slice(1).map((_v,i)=> it[i+1].x - (it[i].x + it[i].w));
-            const medGap = gaps.length ? gaps.slice().sort((a,b)=>a-b)[Math.floor(gaps.length/2)] : 16;
-            const cut = Math.max(16, medGap * 1.5);
-            const cells: string[] = [];
-            let cur = it[0]?.t || "";
-            for (let i=0;i<gaps.length;i++) {
-              if (gaps[i] > cut) { cells.push(cur.trim()); cur = it[i+1].t; }
-              else { cur += " " + it[i+1].t; }
-            }
-            if (it.length) cells.push(cur.trim());
-            mdRows.push(cells);
-          }
-          return mdRows;
-        } catch { return null; }
-      }
-
-      function toMarkdownTable(rows: string[][]) {
-        if (!rows?.length) return "";
-        const ncol = Math.max(...rows.map(r=>r.length));
-        const norm = rows.map(r=> Array.from({length:ncol}, (_,i)=> (r[i]||"").replace(/\|/g, "/").trim()));
-        const header = norm[0];
-        const sep = Array.from({length:ncol}, ()=> "---");
-        const lines = [ `| ${header.join(" | ")} |`, `| ${sep.join(" | ")} |` ];
-        for (let i=1;i<norm.length;i++) lines.push(`| ${norm[i].join(" | ")} |`);
-        return lines.join("\n");
-      }
-
-      let extractedChoices: Array<{ text: string; isCorrect: boolean }> = [];
-      // Question
-      const qb = pickLargest(0);
-      if (qb) {
-        const qBlob = await cropToBlob(qb);
-        const retQ = (await worker.recognize(qBlob)) as unknown as { data?: { text?: string } };
-        const raw = String(retQ && retQ.data && retQ.data.text ? retQ.data.text : '');
-        const { stem, choices } = splitQuestion(raw);
-        if (stem) setText((prev)=> (prev?.trim()? prev+"\n\n"+stem : stem));
-        if (choices?.length) extractedChoices = choices.map((c)=>({ text: c.text , isCorrect: Boolean(c.isCorrect) }));
-      }
-
-      // Answers
-      const ab = pickLargest(1);
-      if (ab) {
-        const aBlob = await cropToBlob(ab);
-        const retA = (await worker.recognize(aBlob)) as unknown as { data?: { text?: string } };
-        const raw = String(retA && retA.data && retA.data.text ? retA.data.text : '');
-        const { choices } = splitQuestion(raw);
-        if (choices?.length) extractedChoices = choices.map((c)=>({ text: c.text, isCorrect: Boolean(c.isCorrect) }));
-
-        // Map a labeled 'Correct Tick' box to a choice index if present and not already marked
-        const tick = pickLargest(4);
-        if (tick && extractedChoices.length) {
-          const cy = tick.y + tick.h / 2;
-          const rel = Math.max(0, Math.min(0.9999, (cy - ab.y) / Math.max(1, ab.h)));
-          const idx = Math.max(0, Math.min(extractedChoices.length - 1, Math.floor(rel * extractedChoices.length)));
-          extractedChoices = extractedChoices.map((c, i) => ({ ...c, isCorrect: i === idx }));
-        }
-      }
-
-      // Upload helper
-      async function uploadBlob(kind: string, blob: Blob): Promise<string | null> {
-        try {
-          const fd = new FormData(); fd.append('file', blob, 'clip.png'); fd.append('kind', kind);
-          const r = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-          if (!r.ok) return null; const j = await r.json(); return String(j.url || '') || null;
-        } catch { return null; }
-      }
-
-      // Explanation
-      const eb = pickLargest(2);
-      if (eb) {
-        const eBlob = await cropToBlob(eb);
-        const retE = (await worker.recognize(eBlob)) as unknown as { data?: { text?: string } };
-        const raw = String(retE && retE.data && retE.data.text ? retE.data.text : '').trim();
-        const norm = normalizeBullets(raw);
-        if (norm) setExplanation((prev)=> (prev?.trim()? prev+"\n\n"+norm : norm));
-        // If there is a specific Explanation Image box, handle below
-      }
-
-      // Educational Objective
-      const ob = pickLargest(3);
-      if (ob) {
-        const oBlob = await cropToBlob(ob);
-        const retO = (await worker.recognize(oBlob)) as unknown as { data?: { text?: string } };
-        const raw = String(retO && retO.data && retO.data.text ? retO.data.text : '').trim();
-        const norm = normalizeBullets(raw);
-        if (norm) setObjective((prev)=> (prev?.trim()? prev+"\n\n"+norm : norm));
-      }
-
-      // Question Images (may be multiple) -> upload and attach
-      const qImgs = boxes.filter(b=>b.cls===5 || b.cls===7);
-      if (qImgs.length) {
-        const urls: string[] = [];
-        for (const b of qImgs) {
-          const bl = await cropToBlob(b);
-          const url = await uploadBlob('question', bl);
-          if (url) urls.push(url);
-        }
-        if (urls.length) setQImages(prev=>[...prev, ...urls]);
-      }
-
-      // Explanation Image (single) -> upload and set
-      const eImg = pickLargest(6);
-      if (eImg) {
-        const bl = await cropToBlob(eImg);
-        const url = await uploadBlob('explanation', bl);
-        if (url) setExpImage(url);
-      }
-
-      // Explanation Table(s) -> append image markdown to explanation text
-      const eTables = boxes.filter(b=>b.cls===8);
-      if (eTables.length) {
-        // Try OCR to Markdown table, else fallback to image embed
-        const mdBlocks: string[] = [];
-        for (const b of eTables) {
-          const bl = await cropToBlob(b);
-          try {
-            type TesseractData = { words?: Array<Word> };
-            const retT = (await worker.recognize(bl)) as unknown as { data?: TesseractData };
-            const rows = tableFromWords(retT?.data?.words || []);
-            if (rows && rows.length >= 2 && rows[0].length >= 2) {
-              const md = toMarkdownTable(rows);
-              mdBlocks.push(md);
-              continue;
-            }
-          } catch {}
-          const url = await uploadBlob('explanation', bl);
-          if (url) mdBlocks.push(`![](${url})`);
-        }
-        if (mdBlocks.length) setExplanation(prev => {
-          const add = mdBlocks.join("\n\n");
-          return prev?.trim() ? `${add}\n\n${prev}` : add;
-        });
-      }
-
-      // Tags region -> parse simple tokens and add as TOPIC tags (heuristic)
-      const tBoxes = boxes.filter(b=>b.cls===9);
-      if (tBoxes.length) {
-        const seen = new Set<string>();
-        const parsed: Array<{ type: Tag["type"]; value: string }> = [];
-        for (const b of tBoxes) {
-          const bl = await cropToBlob(b);
-          const retT = (await worker.recognize(bl)) as unknown as { data?: { text?: string } };
-          const raw = String(retT && retT.data && retT.data.text ? retT.data.text : '');
-          const chunk = normalizeBullets(raw)
-            .split(/[\n;,]+/)
-            .map(s=> s.replace(/^[-ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢\u2022\u25E6\u2219\s]+/, '').trim())
-            .filter(Boolean);
-          for (const item of chunk) {
-            const v = item.replace(/\s{2,}/g,' ').trim();
-            if (!v) continue;
-            const key = v.toLowerCase();
-            if (seen.has(key)) continue;
-            seen.add(key);
-            parsed.push({ type: 'TOPIC', value: v });
-          }
-        }
-        if (parsed.length) setTags(prev => {
-          const exist = new Set(prev.map(t=> `${t.type}:${t.value.toLowerCase()}`));
-          const merged = [...prev];
-          for (const p of parsed) {
-            const k = `${p.type}:${p.value.toLowerCase()}`;
-            if (!exist.has(k)) merged.push(p);
-          }
-          return merged;
-        });
-      }
-
-      // If we accumulated choices, apply to state now
-      if (extractedChoices.length) setAnswers(extractedChoices);
-
-      await worker.terminate();
-      setAiMsg('Done');
-    } catch {
-      setAiMsg('AI failed'); alert('Extraction failed');
-    } finally { setAiBusy(false); }
-  }
-  function onBoxClick(b: Box, e: React.MouseEvent<HTMLDivElement>) {
-    e.stopPropagation();
-    // Delete only if click within center area (30%-70% both axes)
-    const rect = (e.currentTarget).getBoundingClientRect();
-    const x = e.clientX - rect.left; const y = e.clientY - rect.top;
-    const x0 = b.w * 0.3, x1 = b.w * 0.7, y0 = b.h * 0.3, y1 = b.h * 0.7;
-    if (x >= x0 && x <= x1 && y >= y0 && y <= y1) {
-      setBoxes((arr)=>arr.filter((bb)=>bb.id !== b.id));
-    }
-  }
-
-  function addAnswer() { setAnswers((x) => [...x, { text: "", isCorrect: false }]); }
-  function updateAnswer(idx: number, patch: Partial<Answer>) {
-    setAnswers((x) => x.map((a,i) => i===idx ? { ...a, ...patch } : a));
-  }
-  function removeAnswer(idx: number) { setAnswers((x) => x.filter((_,i)=>i!==idx)); }
-
-  function addRef() { setRefs((x) => [...x, ""]); }
-  function updateRef(idx: number, v: string) { setRefs((x) => x.map((r,i)=>i===idx?v:r)); }
-  function removeRef(idx: number) { setRefs((x)=>x.filter((_,i)=>i!==idx)); }
-
-  function addTagRow() { setTags((x)=>[...x, { type: "SUBJECT", value: "" }]); }
-  function updateTag(idx: number, t: Partial<Tag>) { setTags((x)=>x.map((g,i)=>i===idx?{...g, ...t}:g)); }
-  function removeTag(idx: number) { setTags((x)=>x.filter((_,i)=>i!==idx)); }
-
-  function buildWithImages() {
-    const trimmed = (s: string) => s.replace(/\s+$/g, "");
-    const qImgLines = qImages.map((u) => u.trim()).filter(Boolean).map((u) => `![](${u})`);
-    const textWithImgs = [trimmed(text), ...qImgLines].filter(Boolean).join("\n");
-    const expPrefix = expImage.trim() ? `![](${expImage.trim()})\n` : "";
-    const explanationWithImg = `${expPrefix}${explanation}`;
-    return { textWithImgs, explanationWithImg };
-  }
-
-  async function onAddQuestion() {
-    if (!text.trim()) { alert("Enter a question."); return; }
-    if (answers.length === 0 || answers.every(a => !a.text.trim())) { alert("Add at least one answer."); return; }
-    const { textWithImgs, explanationWithImg } = buildWithImages();
-    const payload = { text: textWithImgs, explanation: explanationWithImg, objective, answers, refs, tags };
-    const r = await fetch("/api/admin/questions", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
-    if (r.ok) { alert("Question added!"); reset(); }
-    else { const j = await r.json().catch(()=>({})); alert(j?.error || "Failed to add question."); }
-  }
-
-  async function onLoadForEdit() {
-    const idNum = Number(searchId);
-    if (!Number.isFinite(idNum)) { alert("Enter numeric custom ID"); return; }
-    const r = await fetch(`/api/admin/questions?customId=${idNum}`);
-    if (!r.ok) { const j = await r.json().catch(()=>({})); alert(j?.error || "Not found"); return; }
-    const q = (await r.json()) as {
-      text?: string;
-      explanation?: string | null;
-      objective?: string | null;
-      answers?: Array<{ text: string; isCorrect: boolean }>;
-      refs?: Array<{ url: string }> | string[];
-      tags?: Array<{ type: Tag["type"]; value: string }>;
-    };
-    // Extract images embedded via ![](url) from text & explanation for easier editing
-    const rawText = q.text ?? "";
-    const rawExp = q.explanation ?? "";
-    const imgRe = /!\[[^\]]*\]\(([^)]+)\)/g;
-    const qUrls: string[] = [];
-    const textNoImgs = rawText.replace(imgRe, (_m, url) => { qUrls.push(String(url)); return ""; }).trim();
-    let expImgUrl = "";
-    // Only take the first leading image for explanation (above text)
-    const leadingImgRe = /^\s*!\[[^\]]*\]\(([^)]+)\)\s*\n?/;
-    const expNoLeadingImg = rawExp.replace(leadingImgRe, (_m, url) => { expImgUrl = String(url); return ""; });
-
-    setText(textNoImgs);
-    setExplanation(expNoLeadingImg);
-    setExpImage(expImgUrl);
-    setQImages(qUrls);
-    setObjective(q.objective ?? "");
-    setAnswers(Array.isArray(q.answers) && q.answers.length ? q.answers.map((a)=>({ text:String(a.text ?? ""), isCorrect:Boolean(a.isCorrect) })) : [{ text:"", isCorrect:false }]);
-    setRefs(Array.isArray(q.refs) ? q.refs.map((r)=> (typeof r === 'string' ? r : String(r.url ?? ""))) : []);
-    setTags(Array.isArray(q.tags) ? q.tags.map((t)=>({ type: t.type, value: String(t.value ?? "") })) : []);
-  }
-
-  async function onSaveEdit() {
-    const idNum = Number(searchId);
-    if (!Number.isFinite(idNum)) { alert("Enter numeric custom ID"); return; }
-    const { textWithImgs, explanationWithImg } = buildWithImages();
-    const payload = { customId: idNum, text: textWithImgs, explanation: explanationWithImg, objective, answers, refs, tags };
-    const r = await fetch(`/api/admin/questions`, { method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
-    if (r.ok) { alert("Saved."); }
-    else { const j = await r.json().catch(()=>({})); alert(j?.error || "Failed to save."); }
-  }
-
-  function reset() {
-    setText(""); setExplanation(""); setObjective(""); setAnswers([{ text:"", isCorrect:false }]); setRefs([]); setTags([]); setQImages([]); setExpImage("");
-  }
-
-  return (
-    <div className="mx-auto max-w-6xl px-3 sm:px-4 py-6 bg-[#F7FAFD] rounded-3xl">
-      <div className="mb-6 flex items-center justify-between bg-[#F3F9FC] border border-[#E6F0F7] rounded-xl px-3 py-2">
-        <h1 className="text-2xl font-bold text-[#2F6F8F]">Question Builder</h1>
-        <button onClick={() => router.push("/year4")} className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-[#F3F9FC]">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â Year 4 Portal</button>
-      </div>
-
-      <div className="mb-4 flex gap-2">
-        <button onClick={()=>setTab("add")} className={`rounded-xl px-3 py-2 border ${tab==='add'?'bg-[#2F6F8F] text-white':'bg-white text-slate-700'} border-[#E6F0F7]`}>Add New Question</button>
-        <button onClick={()=>setTab("edit")} className={`rounded-xl px-3 py-2 border ${tab==='edit'?'bg-[#2F6F8F] text-white':'bg-white text-slate-700'} border-[#E6F0F7]`}>Edit Question</button>
-      </div>
-
-      <div className="rounded-2xl border border-[#E6F0F7] bg-gradient-to-b from-white to-[#FBFEFF] shadow-md p-4">
-        {tab==='edit' && (
-          <div className="mb-6">
-            <label className="text-sm font-medium text-slate-700">Search by Question Custom ID</label>
-            <div className="mt-1 flex gap-2">
-              <input value={searchId} onChange={(e)=>setSearchId(e.target.value)} placeholder="e.g., 123456" className="w-48 rounded-xl border border-[#E6F0F7] px-3 py-2"/>
-              <button onClick={onLoadForEdit} className="rounded-xl border border-[#E6F0F7] px-3 py-2 hover:bg-[#F3F9FC]">Load</button>
-            </div>
-          </div>
-        )}
-        <div className="mt-2">
-          <label className="text-sm font-medium text-slate-700">Question</label>
-          <div className="flex items-center gap-2 mt-1">
-            <button
-              type="button"
-              onClick={onPickAi}
-              disabled={aiBusy}
-              className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm hover:bg-[#F3F9FC] disabled:opacity-60"
-              title="AI Extract (beta)"
-            >
-              {aiBusy ? "AI..." : "AI Extract (beta)"}
-            </button>
-            <button
-              type="button"
-              onClick={onPickPdf}
-              disabled={aiBusy}
-              className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm hover:bg-[#F3F9FC] disabled:opacity-60"
-              title="Extract from PDF (with headings)"
-            >
-              {aiBusy ? "PDF..." : "Extract from PDF"}
-            </button>
-            {aiMsg && <span className="text-xs text-slate-500">{aiMsg}</span>}
-          </div>
-          <textarea value={text} onChange={(e)=>setText(e.target.value)} rows={6} className="mt-1 w-full rounded-xl border border-[#E6F0F7] px-3 py-2"/>
-          <input ref={aiFileRef} type="file" accept="image/*" className="hidden" onChange={onAiFileChange} />
-          <input ref={detectFileRef} type="file" accept="image/*" className="hidden" onChange={onDetectFileChange} />
-          <input ref={uploadQRef} type="file" accept="image/*" multiple className="hidden" onChange={onUploadQChange} />
-          <input ref={uploadExpRef} type="file" accept="image/*" className="hidden" onChange={onUploadExpChange} />
-          <input ref={pdfFileRef} type="file" accept="application/pdf" className="hidden" onChange={onPdfFileChange} />
-        </div>
-
-        {/* Training Aid */}
-        <div className="mt-3 rounded-xl border border-[#E6F0F7] p-3 bg-white">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-[#2F6F8F]">Training Mode (Label Regions: Question, Answers, Explanation, Educational Objective, Correct Tick, Images/Tables)</div>
-            <label className="text-sm inline-flex items-center gap-2">
-              <input type="checkbox" checked={trainMode} onChange={onTrainToggle} /> Enable
-            </label>
-          </div>
-          {trainMode && (
-            <div className="mt-2">
-              <div className="mb-2 flex items-center gap-2">
-                <label className="text-sm text-slate-700">Resource:</label>
-                <select value={trainResource} onChange={(e)=>setTrainResource(e.target.value)} className="rounded-xl border border-[#E6F0F7] px-3 py-1.5 text-sm">
-                  {Array.from(resources).map((r)=>(<option key={r} value={r}>{r}</option>))}
-                </select>
-                <span className="text-xs text-slate-600">Samples: {trainCounts[trainResource] ?? 0} (target 75ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ100)</span>
-                <button onClick={onPickDetect} disabled={aiBusy} className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-1.5 text-sm hover:bg-[#F3F9FC] disabled:opacity-60" title="Auto-detect sections from an image">
-                  {aiBusy ? 'Detecting...' : 'Auto-detect Sections'}
-                </button>
-              </div>
-              {trainImgUrl ? (
-                <div
-                  className="relative inline-block border border-[#E6F0F7] select-none cursor-crosshair"
-                  onMouseMove={onCanvasMove}
-                  onClick={onCanvasClick}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img ref={trainImgRef} src={trainImgUrl} alt="training" className="max-w-full" />
-                  {boxes.map((b)=> (
-                    <div
-                      key={b.id}
-                      className="absolute"
-                      onClick={(e)=>onBoxClick(b, e)}
-                      title={`Click center to delete (${CLASSES.find(c=>c.id===b.cls)?.name})`}
-                      style={{ left: b.x, top: b.y, width: b.w, height: b.h, border: `2px solid ${CLASSES.find(c=>c.id===b.cls)?.color||'#56A2CD'}`, background: `${(CLASSES.find(c=>c.id===b.cls)?.color||'#56A2CD')}22` }}
-                    />
-                  ))}
-                  {inProg && (
-                    <div className="absolute" style={{ left: inProg.x, top: inProg.y, width: inProg.w, height: inProg.h, border: `2px dashed ${CLASSES.find(c=>c.id===curClass)?.color||'#56A2CD'}`, background: `${(CLASSES.find(c=>c.id===curClass)?.color||'#56A2CD')}22` }} />
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">Use AI Extract to load an image, then draw a box around the question.</p>
-              )}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2">
-                  {CLASSES.map((c)=> (
-                    <label key={c.id} className="inline-flex items-center gap-1 text-sm">
-                      <input type="radio" name="cls" checked={curClass===c.id} onChange={()=>setCurClass(c.id)} />
-                      <span className="inline-flex items-center gap-1">
-                        <span className="inline-block w-3 h-3 rounded" style={{ background: c.color }} /> {c.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <button onClick={onSaveTrainingSample} disabled={!trainImgUrl || boxes.length===0} className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm disabled:opacity-60">Save Training Sample</button>
-                <button onClick={clearBoxes} disabled={boxes.length===0} className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm disabled:opacity-60">Clear Boxes</button>
-                <button onClick={extractFromBoxes} disabled={!trainImgUrl || boxes.length===0 || aiBusy} className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm disabled:opacity-60">Extract</button>
-                <span className="text-xs text-slate-500">Boxes: {boxes.length}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Images after Question */}
-        <div className="mt-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-slate-700">Question Images (shown after text)</div>
-            <button onClick={() => setQImages((x) => [...x, ""]) } className="rounded-xl border border-[#E6F0F7] px-3 py-1.5 hover:bg-[#F3F9FC] text-sm">+ Add Image</button>
-          </div>
-          <div className="mt-2 space-y-2">
-            {qImages.map((u, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <input value={u} onChange={(e)=>setQImages((arr)=>arr.map((v,i)=>i===idx?e.target.value:v))} placeholder="https://example.com/image.jpg" className="flex-1 rounded-xl border border-[#E6F0F7] px-3 py-2"/>
-                <button onClick={()=>setQImages((arr)=>arr.filter((_,i)=>i!==idx))} className="rounded-xl border border-[#E6F0F7] px-3 py-2 text-red-600 hover:bg-red-50">Remove</button>
-              </div>
-            ))}
-          </div>
-          {qImages.length > 0 && (
-            <p className="mt-1 text-xs text-slate-500">Images will render after the question text.</p>
-          )}
-        </div>
-
-        {/* (Preview moved to bottom) */}
-
-        <div className="mt-4 grid sm:grid-cols-2 gap-4">
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-700">Explanation</label>
-              <div className="flex items-center gap-1">
-                <button type="button" onClick={()=>applyInline(explRef, explSelRef,'bold')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Bold">B</button>
-                <button type="button" onClick={()=>applyInline(explRef, explSelRef,'italic')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Italic"><span style={{fontStyle:'italic'}}>I</span></button>
-                <button type="button" onClick={()=>applyInline(explRef, explSelRef,'underline')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Underline"><span style={{textDecoration:'underline'}}>U</span></button>
-                <span className="mx-1 h-5 w-px bg-[#E6F0F7] inline-block" />
-                <button type="button" onClick={()=>applyList(explRef, explSelRef,'ul-disc')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Bullets (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢)">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢</button>
-                <button type="button" onClick={()=>applyList(explRef, explSelRef,'ul-circle')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Bullets (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹)">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹</button>
-                <button type="button" onClick={()=>applyList(explRef, explSelRef,'ul-square')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Bullets (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â )">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â </button>
-                <button type="button" onClick={()=>applyList(explRef, explSelRef,'ol')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Numbered (1.)">1.</button>
-              </div>
-            </div>
-            {/* Explanation image above text */}
-            <div className="mt-2 flex items-center gap-2">
-              <input value={expImage} onChange={(e)=>setExpImage(e.target.value)} placeholder="(optional) image URL to show above explanation" className="flex-1 rounded-xl border border-[#E6F0F7] px-3 py-2"/>
-              {expImage && (
-                <button onClick={()=>setExpImage("")} className="rounded-xl border border-[#E6F0F7] px-3 py-2 text-red-600 hover:bg-red-50">Clear</button>
-              )}
-            </div>
-            <div
-              ref={explRef}
-              className="mt-2 w-full rounded-xl border border-[#E6F0F7] px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4] bg-white min-h-72 max-h-[60vh] overflow-auto"
-              contentEditable
-              suppressContentEditableWarning
-              onFocus={()=>setExplFocused(true)}
-              onBlur={(e)=>{ setExplFocused(false); setExplanation((e.currentTarget as HTMLDivElement).innerHTML); }}
-              onInput={(e)=> { setExplanation((e.currentTarget as HTMLDivElement).innerHTML); saveSelection(explSelRef); }}
-              onMouseUp={()=> saveSelection(explSelRef)}
-              onKeyUp={()=> saveSelection(explSelRef)}
-              onKeyDown={(e)=>{ if ((e.ctrlKey||e.metaKey) && ['b','i','u'].includes(e.key.toLowerCase())) { e.preventDefault(); const k = e.key.toLowerCase(); if (k==='b') applyInline(explRef, explSelRef,'bold'); else if (k==='i') applyInline(explRef, explSelRef,'italic'); else if (k==='u') applyInline(explRef, explSelRef,'underline'); } }}
-            />
-            <p className="mt-1 text-xs text-slate-500">Tip: Use B/I/U or Ctrl/Cmd+B/I/U; bullets and numbers use the list buttons.</p>
-          </div>
-
-          {/* (Preview moved to bottom) */}
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-700">Educational Objective</label>
-              <div className="flex items-center gap-1">
-                <button type="button" onClick={()=>applyInline(objRef, objSelRef,'bold')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Bold">B</button>
-                <button type="button" onClick={()=>applyInline(objRef, objSelRef,'italic')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Italic"><span style={{fontStyle:'italic'}}>I</span></button>
-                <button type="button" onClick={()=>applyInline(objRef, objSelRef,'underline')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Underline"><span style={{textDecoration:'underline'}}>U</span></button>
-                <span className="mx-1 h-5 w-px bg-[#E6F0F7] inline-block" />
-                <button type="button" onClick={()=>applyList(objRef, objSelRef,'ul-disc')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Bullets (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢)">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢</button>
-                <button type="button" onClick={()=>applyList(objRef, objSelRef,'ul-circle')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Bullets (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹)">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹</button>
-                <button type="button" onClick={()=>applyList(objRef, objSelRef,'ul-square')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Bullets (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â )">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â </button>
-                <button type="button" onClick={()=>applyList(objRef, objSelRef,'ol')} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-sm active:scale-95 transition" title="Numbered (1.)">1.</button>
-              </div>
-            </div>
-            <div
-              ref={objRef}
-              className="mt-1 w-full rounded-xl border border-[#E6F0F7] px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4] bg-white min-h-48 max-h-[50vh] overflow-auto"
-              contentEditable
-              suppressContentEditableWarning
-              onFocus={()=>setObjFocused(true)}
-              onBlur={(e)=>{ setObjFocused(false); setObjective((e.currentTarget as HTMLDivElement).innerHTML); }}
-              onInput={(e)=> { setObjective((e.currentTarget as HTMLDivElement).innerHTML); saveSelection(objSelRef); }}
-              onMouseUp={()=> saveSelection(objSelRef)}
-              onKeyUp={()=> saveSelection(objSelRef)}
-              onKeyDown={(e)=>{ if ((e.ctrlKey||e.metaKey) && ['b','i','u'].includes(e.key.toLowerCase())) { e.preventDefault(); const k = e.key.toLowerCase(); if (k==='b') applyInline(objRef, objSelRef,'bold'); else if (k==='i') applyInline(objRef, objSelRef,'italic'); else if (k==='u') applyInline(objRef, objSelRef,'underline'); } }}
-            />
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <div className="flex items-center justify-between">
-            <div className="text-lg font-semibold text-[#2F6F8F]">Answers</div>
-            <button onClick={addAnswer} className="rounded-xl border border-[#E6F0F7] px-3 py-2 hover:bg-[#F3F9FC]">+ Add Answer</button>
-          </div>
-          <div className="mt-2 space-y-2">
-            {answers.map((a,idx)=>(
-              <div key={idx} className="flex items-center gap-2">
-                <input value={a.text} onChange={(e)=>updateAnswer(idx,{ text:e.target.value })} placeholder={`Option ${String.fromCharCode(65+idx)}`} className="flex-1 rounded-xl border border-[#E6F0F7] px-3 py-2"/>
-                <label className="text-sm flex items-center gap-1">
-                  <input type="checkbox" checked={a.isCorrect} onChange={(e)=>updateAnswer(idx,{ isCorrect: e.target.checked })}/>
-                  Correct
-                </label>
-                <button onClick={()=>removeAnswer(idx)} className="rounded-xl border border-[#E6F0F7] px-3 py-2 text-red-600 hover:bg-red-50">Remove</button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <div className="flex items-center justify-between">
-            <div className="text-lg font-semibold text-[#2F6F8F]">References</div>
-            <button onClick={addRef} className="rounded-xl border border-[#E6F0F7] px-3 py-2 hover:bg-[#F3F9FC]">+ Add Link</button>
-          </div>
-          <div className="mt-2 space-y-2">
-            {refs.map((r,idx)=>(
-              <div key={idx} className="flex items-center gap-2">
-                <input value={r} onChange={(e)=>updateRef(idx,e.target.value)} placeholder="https://..." className="flex-1 rounded-xl border border-[#E6F0F7] px-3 py-2"/>
-                <button onClick={()=>removeRef(idx)} className="rounded-xl border border-[#E6F0F7] px-3 py-2 text-red-600 hover:bg-red-50">Remove</button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Images Uploads with Drag-and-Drop */}
-        <div className="mt-6">
-          <div className="text-lg font-semibold text-[#2F6F8F]">Images</div>
-          <div className="mt-2 grid sm:grid-cols-2 gap-3">
-            <div
-              className="rounded-xl border border-[#E6F0F7] p-3"
-              onDragOver={(e)=>{ e.preventDefault(); e.stopPropagation(); }}
-              onDrop={async (e)=>{ e.preventDefault(); const files = Array.from(e.dataTransfer.files || []).filter(f=>f.type.startsWith('image/')); if (!files.length) return; const input = { target: { files } } as unknown as React.ChangeEvent<HTMLInputElement>; await onUploadQChange(input); }}
-            >
-              <div className="text-sm font-medium text-slate-700">Question Images</div>
-              <div className="mt-2 flex items-center gap-2">
-                <button type="button" onClick={onPickUploadQ} className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm hover:bg-[#F3F9FC]">Upload Images</button>
-                {qImages.length > 0 && <span className="text-xs text-slate-600">{qImages.length} attached</span>}
-              </div>
-            </div>
-            <div
-              className="rounded-xl border border-[#E6F0F7] p-3"
-              onDragOver={(e)=>{ e.preventDefault(); e.stopPropagation(); }}
-              onDrop={async (e)=>{ e.preventDefault(); const file = Array.from(e.dataTransfer.files || []).find(f=>f.type.startsWith('image/')); if (!file) return; const input = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>; await onUploadExpChange(input); }}
-            >
-              <div className="text-sm font-medium text-slate-700">Explanation Image</div>
-              <div className="mt-2 flex items-center gap-2">
-                <button type="button" onClick={onPickUploadExp} className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm hover:bg-[#F3F9FC]">Upload Image</button>
-                {expImage && <span className="text-xs text-slate-600">attached</span>}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="mt-6">
-          <div className="flex items-center justify-between">
-            <div className="text-lg font-semibold text-[#2F6F8F]">Tags</div>
-            <button onClick={addTagRow} className="rounded-xl border border-[#E6F0F7] px-3 py-2 hover:bg-[#F3F9FC]">+ Add Tag</button>
-          </div>
-          <div className="mt-2 space-y-2">
-            {tags.map((t,idx)=>{
-              const type = t.type;
-              let options: readonly string[] | null = null;
-              if (type === 'ROTATION') options = rotations;
-              else if (type === 'RESOURCE') options = resources;
-              else if (type === 'SUBJECT') options = disciplines;
-              else if (type === 'SYSTEM') options = systems;
-              return (
-                <div key={idx} className="grid sm:grid-cols-3 gap-2">
-                  <select value={t.type} onChange={(e)=>updateTag(idx,{ type: e.target.value as Tag["type"], value: "" })} className="rounded-xl border border-[#E6F0F7] px-3 py-2">
-                    <option value="SUBJECT">Subject/Discipline</option>
-                    <option value="SYSTEM">System</option>
-                    <option value="TOPIC">Topic</option>
-                    <option value="ROTATION">Rotation</option>
-                    <option value="RESOURCE">Resource</option>
-                  </select>
-                  {options ? (
-                    <select value={t.value} onChange={(e)=>updateTag(idx,{ value: e.target.value })} className="rounded-xl border border-[#E6F0F7] px-3 py-2">
-                      <option value="">SelectÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦</option>
-                      {options.map((v)=>(<option key={v} value={v}>{v}</option>))}
-                    </select>
-                  ) : (
-                    <input value={t.value} onChange={(e)=>updateTag(idx,{ value: e.target.value })} placeholder="Enter tag value" className="rounded-xl border border-[#E6F0F7] px-3 py-2"/>
-                  )}
-                  <button onClick={()=>removeTag(idx)} className="rounded-xl border border-[#E6F0F7] px-3 py-2 text-red-600 hover:bg-red-50">Remove</button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Previews */}
-        <div className="mt-6">
-          <div className="text-lg font-semibold text-[#2F6F8F]">Preview</div>
-          <div className="mt-2 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-[#E6F0F7] bg-white p-3">
-              <div className="text-sm font-medium text-slate-700 mb-2">Question Preview</div>
-              <div className="prose max-w-none text-[15px] leading-relaxed" dangerouslySetInnerHTML={{ __html: toHTML(buildWithImages().textWithImgs) }} />
-            </div>
-            <div className="rounded-xl border border-[#E6F0F7] bg-white p-3">
-              <div className="text-sm font-medium text-slate-700 mb-2">Explanation Preview</div>
-              <div className="prose max-w-none text-[15px] leading-relaxed" dangerouslySetInnerHTML={{ __html: toHTML(buildWithImages().explanationWithImg) }} />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-end gap-2">
-          {tab==='add' ? (
-            <button onClick={onAddQuestion} className="rounded-xl bg-[#2F6F8F] px-4 py-2 font-semibold text-white hover:opacity-90">Add Question!</button>
-          ) : (
-            <button onClick={onSaveEdit} className="rounded-xl bg-[#2F6F8F] px-4 py-2 font-semibold text-white hover:opacity-90">Save Changes</button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
-
-
-
-
-

@@ -3,13 +3,21 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { setQuestionMode } from "@/lib/quiz/questionMode";
 import { auth } from "@/auth";
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
-    const userId = session?.user?.id ?? null;
+    
+    // Look up user by email to get correct database ID
+    let userId = null;
+    if (session?.user?.email) {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true },
+      });
+      userId = user?.id ?? null;
+    }
 
     const {
       quizItemId,
@@ -91,20 +99,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       });
     }
 
-    // If the answer is correct, automatically unmark the question
-    if (isCorrect && item.marked) {
-      await prisma.quizItem.update({
-        where: { id: quizItemId },
-        data: { marked: false },
-      });
-    }
-
-    // Update global mode tag to reflect latest outcome
-    try {
-      await setQuestionMode(item.questionId, isCorrect ? "correct" : "incorrect");
-    } catch (modeError) {
-      console.warn("Failed to update mode tag for question", item.questionId, modeError);
-    }
+    // Note: Question modes are updated when the quiz ends, not on individual submissions
+    // Marked questions remain marked until manually unmarked or quiz ends
 
     return NextResponse.json({
       ok: true,

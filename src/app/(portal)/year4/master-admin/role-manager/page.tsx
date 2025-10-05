@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import RoleManagerClient from "./client";
+import ForceBlueTheme from "@/components/ForceBlueTheme";
 
 export default async function RoleManager() {
   // Only allow access to MASTER_ADMIN with specific email
@@ -34,5 +35,9 @@ export default async function RoleManager() {
   //   redirect("/year4");
   // }
 
-  return <RoleManagerClient />;
+  return (
+    <ForceBlueTheme>
+      <RoleManagerClient />
+    </ForceBlueTheme>
+  );
 }

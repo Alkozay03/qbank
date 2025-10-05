@@ -1,0 +1,661 @@
+/* src/styles/themes.css */
+
+/* CSS Custom Properties for Theming */
+:root {
+  /* These will be dynamically set by the ThemeProvider - neutral defaults */
+  --color-primary: #6B7280;
+  --color-primary-hover: #4B5563;
+  --color-primary-light: #9CA3AF;
+  --color-primary-dark: #374151;
+  
+  --color-secondary: #E5E7EB;
+  --color-secondary-hover: #D1D5DB;
+  --color-secondary-light: #F3F4F6;
+  
+  --color-background: #FFFFFF;
+  --color-background-secondary: #F9FAFB;
+  --color-background-tertiary: #F3F4F6;
+  
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #4B5563;
+  --color-text-muted: #6B7280;
+  --color-text-inverse: #FFFFFF;
+  
+  --color-border: #E5E7EB;
+  --color-border-light: #F3F4F6;
+  --color-border-hover: #6B7280;
+  
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #6B7280;
+  
+  --color-hover: #F9FAFB;
+  --color-focus: var(--color-primary);
+  --color-active: var(--color-primary-hover);
+  
+  --color-shadow: rgba(var(--color-primary-rgb, 107, 114, 128), 0.1);
+  --color-shadow-light: rgba(var(--color-primary-rgb, 107, 114, 128), 0.05);
+  
+  /* Gradient variables */
+  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  --gradient-secondary: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-light) 100%);
+  --gradient-background: linear-gradient(135deg, var(--color-background) 0%, var(--color-background-secondary) 100%);
+}
+
+/* Theme-aware utility classes */
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.bg-primary-hover:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.hover\:bg-primary-hover:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.hover\:bg-secondary-hover:hover {
+  background-color: var(--color-secondary-hover);
+}
+
+/* Gradient backgrounds */
+.bg-gradient-primary {
+  background: var(--gradient-primary);
+}
+
+.bg-gradient-secondary {
+  background: var(--gradient-secondary);
+}
+
+.bg-gradient-background {
+  background: var(--gradient-background);
+}
+
+/* Gradient text */
+.bg-clip-text {
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.text-transparent {
+  color: transparent;
+}
+
+/* Enhanced gradient for better theme support */
+.gradient-text-primary {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: bold;
+}
+
+.bg-primary-light {
+  background-color: var(--color-primary-light);
+}
+
+.bg-secondary {
+  background-color: var(--color-secondary);
+}
+
+.bg-secondary-light {
+  background-color: var(--color-secondary-light);
+}
+
+.bg-theme-background {
+  background-color: var(--color-background);
+}
+
+.bg-theme-secondary {
+  background-color: var(--color-background-secondary);
+}
+
+.bg-theme-tertiary {
+  background-color: var(--color-background-tertiary);
+}
+
+.text-primary {
+  color: var(--color-text-primary);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+/* Enhanced text contrast for dark mode */
+.text-readable {
+  color: var(--color-text-primary);
+}
+
+.text-readable-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-inverse {
+  color: var(--color-text-inverse);
+}
+
+.text-theme-primary {
+  color: var(--color-primary);
+}
+
+/* Enhanced theme classes for better component support */
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.bg-primary-hover {
+  background-color: var(--color-primary-hover);
+}
+
+.text-primary-hover {
+  color: var(--color-primary-hover);
+}
+
+.border-theme {
+  border-color: var(--color-border);
+}
+
+.border-primary {
+  border-color: var(--color-primary);
+}
+
+/* Enhanced theme classes */
+.bg-hover {
+  background-color: var(--color-hover);
+}
+
+.focus-theme {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 107, 114, 128), 0.2);
+}
+
+.shadow-theme {
+  box-shadow: 0 4px 6px -1px var(--color-shadow), 0 2px 4px -1px var(--color-shadow-light);
+}
+
+.theme-transition {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Enhanced dark mode support */
+[data-theme-type="dark"] .bg-white {
+  background-color: #000000 !important;
+}
+
+[data-theme-type="dark"] .text-gray-700 {
+  color: var(--color-text-primary);
+}
+
+[data-theme-type="dark"] .hover\:bg-gray-100:hover {
+  background-color: var(--color-hover);
+}
+
+[data-theme-type="dark"] .border-gray-300 {
+  border-color: var(--color-border);
+}
+
+.border-theme-light {
+  border-color: var(--color-border-light);
+}
+
+.border-theme-hover:hover {
+  border-color: var(--color-border-hover);
+}
+
+.focus-theme:focus {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 2px var(--color-focus);
+}
+
+.shadow-theme {
+  box-shadow: 0 4px 6px -1px var(--color-shadow), 0 2px 4px -1px var(--color-shadow-light);
+}
+
+.shadow-theme-lg {
+  box-shadow: 0 10px 15px -3px var(--color-shadow), 0 4px 6px -2px var(--color-shadow-light);
+}
+
+/* Interactive states */
+.hover-theme:hover {
+  background-color: var(--color-hover);
+}
+
+.active-theme:active {
+  background-color: var(--color-active);
+  color: var(--color-text-inverse);
+}
+
+/* Status colors */
+.text-success {
+  color: var(--color-success);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+
+.text-error {
+  color: var(--color-error);
+}
+
+.text-info {
+  color: var(--color-info);
+}
+
+.bg-success {
+  background-color: var(--color-success);
+}
+
+.bg-warning {
+  background-color: var(--color-warning);
+}
+
+.bg-error {
+  background-color: var(--color-error);
+}
+
+.bg-info {
+  background-color: var(--color-info);
+}
+
+/* Theme transition effects */
+.theme-transition {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Dark mode specific adjustments */
+[data-theme-type="dark"] {
+  color-scheme: dark;
+  /* Override gradients in dark mode - make them solid */
+  --gradient-primary: var(--color-primary);
+  --gradient-secondary: var(--color-secondary);
+  --gradient-background: var(--color-background);
+}
+
+/* CRITICAL FIX: Force black backgrounds for QuizRunner header/footer in dark mode */
+/* This overrides inline styles to ensure consistent dark appearance across all browsers */
+[data-theme-type="dark"] .year4-quiz-runner > header,
+[data-theme-type="dark"] .year4-quiz-runner > footer {
+  background-color: #000000 !important;
+  /* Allow gradient overlay - don't override background-image */
+}
+
+/* CRITICAL FIX: Force solid black background for sidebar in dark mode */
+[data-theme-type="dark"] .year4-quiz-runner > aside {
+  background-color: #000000 !important;
+  opacity: 1 !important;
+}
+
+/* CRITICAL FIX: Dark mode for messages panels - chat boxes and input containers */
+/* Main chat container backgrounds */
+[data-theme-type="dark"] .bg-white.rounded-2xl.shadow-xl.border-2 {
+  background-color: #1a1a1a !important;
+  border-color: #333333 !important;
+}
+
+/* Input area parent container - MATCHES daughter container color - DARKER */
+[data-theme-type="dark"] .border-t-2.border-primary.p-4.bg-white {
+  background-color: #0a0a0a !important;
+  border-color: #333333 !important;
+}
+
+/* Input daughter container - the bg-gray-50 box - MATCHES parent - DARKER */
+[data-theme-type="dark"] .bg-gray-50 {
+  background-color: #0a0a0a !important;
+}
+
+/* When dragging over (bg-primary/5 state) */
+[data-theme-type="dark"] .bg-primary\/5 {
+  background-color: #333333 !important;
+}
+
+/* Message bubbles from admin in UserMessagesPage */
+[data-theme-type="dark"] .bg-gray-100 {
+  background-color: #0a0a0a !important;
+}
+
+[data-theme-type="dark"] .bg-gradient-primary {
+  background: var(--color-primary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme-type="dark"] .bg-gradient-secondary {
+  background: var(--color-secondary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme-type="dark"] .bg-gradient-background {
+  background: var(--color-background) !important;
+}
+
+[data-theme-type="dark"] .gradient-text-primary {
+  background: none !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Ensure text is white in dark mode */
+[data-theme-type="dark"] .text-primary {
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme-type="dark"] .text-inverse {
+  color: var(--color-text-primary) !important;
+}
+
+/* Dark mode: use gray palette for backgrounds, white for ALL text */
+[data-theme-type="dark"] {
+  background-color: #000000 !important;
+}
+
+[data-theme-type="dark"] main {
+  background-color: #000000 !important;
+}
+
+/* Background layers using your palette */
+/* Removed - was forcing black backgrounds */
+
+/* Removed - was forcing dark backgrounds */
+
+/* Removed - was forcing dark backgrounds */
+
+/* Removed - this was forcing dark backgrounds on all bg-card elements */
+
+/* Targeted dark mode text colors - specific elements only */
+[data-theme-type="dark"] h1,
+[data-theme-type="dark"] h2,
+[data-theme-type="dark"] h3,
+[data-theme-type="dark"] h4,
+[data-theme-type="dark"] h5,
+[data-theme-type="dark"] h6,
+[data-theme-type="dark"] p,
+[data-theme-type="dark"] span,
+[data-theme-type="dark"] div,
+[data-theme-type="dark"] label,
+[data-theme-type="dark"] .text-center,
+[data-theme-type="dark"] .font-bold,
+[data-theme-type="dark"] .text-primary,
+[data-theme-type="dark"] .text-secondary,
+[data-theme-type="dark"] .font-black,
+[data-theme-type="dark"] .text-4xl,
+[data-theme-type="dark"] .text-sm,
+[data-theme-type="dark"] .text-lg {
+  color: #FFFFFF !important;
+}
+
+/* Form elements */
+[data-theme-type="dark"] input,
+[data-theme-type="dark"] textarea,
+[data-theme-type="dark"] select {
+  background-color: #222222 !important;
+  color: #FFFFFF !important;
+  border-color: #3b3b3b !important;
+}
+
+/* Buttons */
+[data-theme-type="dark"] button {
+  background-color: #222222 !important;
+  color: #FFFFFF !important;
+  border-color: #3b3b3b !important;
+}
+
+[data-theme-type="dark"] button:hover {
+  background-color: #3b3b3b !important;
+}
+
+/* Primary button override */
+[data-theme-type="dark"] .bg-primary {
+  background-color: #222222 !important;
+  color: #FFFFFF !important;
+}
+
+/* Theme color swatches using CSS custom properties */
+.theme-primary-swatch {
+  background-color: var(--swatch-primary) !important;
+  color: transparent !important;
+}
+
+.theme-secondary-swatch {
+  background-color: var(--swatch-secondary) !important;
+  color: transparent !important;
+}
+
+.theme-background-swatch {
+  background-color: var(--swatch-background) !important;
+  color: transparent !important;
+}
+
+/* Exclude theme color swatches from text color overrides */
+[data-theme-type="dark"] .theme-primary-swatch,
+[data-theme-type="dark"] .theme-secondary-swatch,
+[data-theme-type="dark"] .theme-background-swatch {
+  color: transparent !important;
+}
+
+
+
+[data-theme-type="dark"] .shadow-theme {
+  box-shadow: 0 4px 6px -1px var(--color-shadow), 0 2px 4px -1px var(--color-shadow-light);
+}
+
+[data-theme-type="dark"] .shadow-theme-lg {
+  box-shadow: 0 10px 15px -3px var(--color-shadow), 0 4px 6px -2px var(--color-shadow-light);
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Override for elements that shouldn't transition */
+.no-transition,
+.no-transition * {
+  transition: none !important;
+}
+
+/* ===== SEMANTIC THEME CLASSES ===== */
+/* Modern semantic class mappings for component usage */
+
+/* Background semantic classes */
+.bg-background {
+  background-color: var(--color-background);
+}
+
+.bg-card {
+  background-color: var(--color-background-secondary);
+}
+
+.bg-accent {
+  background-color: var(--color-background-tertiary);
+}
+
+/* Text semantic classes */
+.text-foreground {
+  color: var(--color-text-primary);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-muted-foreground {
+  color: var(--color-text-muted);
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-primary-foreground {
+  color: var(--color-text-inverse);
+}
+
+.text-inverse {
+  color: var(--color-text-inverse);
+}
+
+/* Border semantic classes */
+.border-border {
+  border-color: var(--color-border);
+  border-width: 2px;
+}
+
+.border-primary {
+  border-color: var(--color-primary);
+  border-width: 2px;
+}
+
+/* Smooth rounded corners for better aesthetics */
+.rounded-enhanced {
+  border-radius: 16px;
+}
+
+.rounded-card {
+  border-radius: 12px;
+}
+
+.rounded-button {
+  border-radius: 10px;
+}
+
+/* Hover states */
+.hover\:bg-accent:hover {
+  background-color: var(--color-background-tertiary);
+}
+
+.hover\:bg-primary:hover {
+  background-color: var(--color-primary);
+}
+
+.hover\:text-inverse:hover {
+  color: var(--color-text-inverse);
+}
+
+.hover\:text-primary:hover {
+  color: var(--color-primary);
+}
+
+/* Focus states */
+.focus\:ring-primary:focus {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.focus-visible\:ring-primary:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+/* ===== ENHANCED CONTENT AREAS ===== */
+/* Better contrast for content boxes */
+.content-box {
+  background-color: var(--color-background);
+  border: 2px solid var(--color-border);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px var(--color-shadow);
+}
+
+.content-box-secondary {
+  background-color: var(--color-background-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px var(--color-shadow-light);
+}
+
+/* Enhanced borders - thicker and smoother */
+.border-enhanced {
+  border-width: 2px;
+  border-style: solid;
+  border-color: var(--color-border);
+}
+
+.border-primary-enhanced {
+  border-width: 2px;
+  border-style: solid;
+  border-color: var(--color-primary);
+}
+
+/* Better text contrast for readability */
+.text-content {
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+.text-content-light {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Enhanced card styling */
+.card-enhanced {
+  background-color: var(--color-background);
+  border: 2px solid var(--color-border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 12px var(--color-shadow), 0 2px 6px var(--color-shadow-light);
+  transition: all 0.2s ease-in-out;
+}
+
+.card-enhanced:hover {
+  box-shadow: 0 8px 24px var(--color-shadow), 0 4px 12px var(--color-shadow-light);
+  border-color: var(--color-primary);
+}
+
+/* ===== THEME-AWARE BACKGROUND CLASSES ===== */
+/* Light theme-colored background for dashboard containers */
+.bg-theme-light {
+  background-color: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+/* Ensure this doesn't apply to dark mode */
+[data-theme-name="dark"] .bg-theme-light {
+  background-color: transparent;
+}
+
+/* Override stronger borders in dark mode - keep subtle borders */
+[data-theme-name="dark"] .border-primary {
+  border-color: var(--color-border) !important;
+}
+
+[data-theme-name="dark"] .border-2 {
+  border-width: 1px !important;
+}
+
+/* ===== GLOBAL DASHBOARD BOX STYLING ===== */
+/* Main container boxes with theme-colored light backgrounds */
+.dashboard-box {
+  background-color: var(--color-primary-light);
+  border: 2px solid var(--color-primary);
+  border-radius: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem;
+}
+
+/* Inner content boxes with white sunken effect - like input fields */
+.dashboard-inner-box,
+.bg-white.rounded-xl.shadow-inner,
+.bg-white.rounded-lg.shadow-inner {
+  background-color: #f5f5f5;
+  border: 2px solid color-mix(in srgb, var(--color-primary) 30%, #e0e0e0);
+  border-radius: 0.5rem;
+  box-shadow: 
+    inset 2px 2px 5px rgba(0, 0, 0, 0.1),
+    inset -1px -1px 3px rgba(255, 255, 255, 0.5);
+  padding: 0.75rem;
+}
+
+/* Dark mode overrides - keep subtle design */
+[data-theme-name="dark"] .dashboard-box {
+  background-color: transparent;
+  border-color: var(--color-border);
+  border-width: 1px;
+}
+
+[data-theme-name="dark"] .dashboard-inner-box {
+  background-color: transparent;
+  box-shadow: none;
+}

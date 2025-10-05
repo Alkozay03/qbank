@@ -123,12 +123,8 @@ export async function selectQuestions(opts: {
     };
 
     const allQuestions = await prisma.question.findMany({ select: { id: true } });
-    for (const q of allQuestions) {
-      if (!usedQuestionIds.has(q.id)) {
-        questionIdsByType.unused.add(q.id);
-      }
-    }
-
+    
+    // First, classify all questions based on their response history
     for (const [questionId, response] of responsesByQuestion.entries()) {
       if (response.choiceId === null || response.choiceId === undefined) {
         questionIdsByType.omitted.add(questionId);
@@ -136,6 +132,25 @@ export async function selectQuestions(opts: {
         questionIdsByType.correct.add(questionId);
       } else if (response.isCorrect === false) {
         questionIdsByType.incorrect.add(questionId);
+      }
+    }
+    
+    // Questions that were in tests but have no response should be omitted, not unused
+    for (const questionId of usedQuestionIds) {
+      if (!responsesByQuestion.has(questionId) && !markedQuestions.has(questionId)) {
+        questionIdsByType.omitted.add(questionId);
+      }
+    }
+    
+    // Only questions that have NEVER been in any test are truly "unused"
+    for (const q of allQuestions) {
+      const questionId = q.id;
+      if (!questionIdsByType.correct.has(questionId) && 
+          !questionIdsByType.incorrect.has(questionId) && 
+          !questionIdsByType.omitted.has(questionId) && 
+          !markedQuestions.has(questionId) &&
+          !usedQuestionIds.has(questionId)) {
+        questionIdsByType.unused.add(questionId);
       }
     }
 

@@ -29,18 +29,40 @@ export async function getCurrentQuestionMode(questionId: string): Promise<Questi
   return canonicalizeQuestionMode(record?.tag?.value ?? null);
 }
 
-export async function setQuestionMode(questionId: string, mode: QuestionMode): Promise<void> {
-  await prisma.questionTag.deleteMany({
-    where: { questionId, tag: { type: TagType.MODE } },
+/**
+ * Set the USER-SPECIFIC mode for a question
+ * This updates the cached UserQuestionMode table
+ */
+export async function setQuestionModeForUser(
+  userId: string,
+  questionId: string,
+  mode: QuestionMode
+): Promise<void> {
+  await prisma.userQuestionMode.upsert({
+    where: {
+      userId_questionId: { userId, questionId }
+    },
+    update: {
+      mode,
+      updatedAt: new Date(),
+    },
+    create: {
+      userId,
+      questionId,
+      mode,
+      updatedAt: new Date(),
+    },
   });
+}
 
-  const tag = await prisma.tag.upsert({
-    where: { type_value: { type: TagType.MODE, value: mode } },
-    update: {},
-    create: { type: TagType.MODE, value: mode },
-  });
-
-  await prisma.questionTag.create({ data: { questionId, tagId: tag.id } });
+/**
+ * @deprecated Use setQuestionModeForUser instead - modes are now user-specific
+ */
+export async function setQuestionMode(_questionId?: string, _mode?: QuestionMode): Promise<void> {
+  void _questionId;
+  void _mode;
+  // This function is kept for backwards compatibility but does nothing
+  // MODE tags should not be stored globally anymore
 }
 
 export async function deriveModeFromHistory(questionId: string): Promise<QuestionMode> {

@@ -9,7 +9,6 @@ import {
   FlaskConical,
   Highlighter as HighlighterIcon,
   Maximize2,
-  MessageSquare,
   Minimize2,
   PanelLeftClose,
   PanelLeftOpen,
@@ -30,7 +29,121 @@ import React, {
   ReactNode,
 } from "react";
 import clsx from "clsx";
-import QuestionDiscussion from "./QuestionDiscussion";
+import { ClientSideQuestionDetails } from "./ClientSideQuestionDetails";
+
+// Helper to check if dark mode is active
+const isDarkMode = () => {
+  if (typeof window === 'undefined') return false;
+  return document.documentElement.getAttribute('data-theme-type') === 'dark';
+};
+
+// Zoom buttons component with reactive dark mode
+const ZoomButtons = memo(function ZoomButtons({ 
+  decFont, 
+  resetFont, 
+  incFont 
+}: { 
+  decFont: () => void;
+  resetFont: () => void;
+  incFont: () => void;
+}) {
+  const [isDark, setIsDark] = useState(false);
+  
+  useEffect(() => {
+    const checkDark = () => setIsDark(isDarkMode());
+    checkDark();
+    
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme-type', 'data-theme-name']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+
+  const buttonColor = isDark ? '#e5e7eb' : 'var(--color-primary)';
+  
+  return (
+    <div 
+      className="ml-1 inline-flex items-center gap-1 rounded-xl border p-1 shadow-sm"
+      style={{ 
+        backgroundColor: isDark ? '#000000' : 'white',
+        borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+        transition: 'all 0.2s ease-out'
+      }}
+    >
+      <button
+        onClick={decFont}
+        className="rounded-lg px-3 py-2 text-xl leading-none transition-all duration-200"
+        title="Smaller"
+        style={{ 
+          color: buttonColor,
+          backgroundColor: isDark ? '#000000' : 'white',
+          transition: 'all 0.2s ease-out' 
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = isDark 
+            ? '0 10px 25px rgba(255, 255, 255, 0.15)' 
+            : '0 10px 25px rgba(var(--color-primary-rgb), 0.15)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+      >
+        <ZoomOut size={18} />
+      </button>
+
+      <button
+        onClick={resetFont}
+        className="rounded-lg px-2 py-1 transition-all duration-200"
+        title="Reset to default"
+        style={{ 
+          color: buttonColor,
+          backgroundColor: isDark ? '#000000' : 'white',
+          transition: 'all 0.2s ease-out' 
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = isDark 
+            ? '0 10px 25px rgba(255, 255, 255, 0.15)' 
+            : '0 10px 25px rgba(var(--color-primary-rgb), 0.15)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+      >
+        <Undo2 size={18} />
+      </button>
+
+      <button
+        onClick={incFont}
+        className="rounded-lg px-3 py-2 text-xl leading-none transition-all duration-200"
+        title="Larger"
+        style={{ 
+          color: buttonColor,
+          backgroundColor: isDark ? '#000000' : 'white',
+          transition: 'all 0.2s ease-out' 
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = isDark 
+            ? '0 10px 25px rgba(255, 255, 255, 0.15)' 
+            : '0 10px 25px rgba(var(--color-primary-rgb), 0.15)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+      >
+        <ZoomIn size={18} />
+      </button>
+    </div>
+  );
+});
 
 type TagType = "SUBJECT" | "SYSTEM" | "TOPIC" | "ROTATION" | "RESOURCE" | "MODE";
 type DisplayTagType = Exclude<TagType, "MODE" | "TOPIC">;
@@ -89,26 +202,38 @@ const TOP_H = 56;
 const BOTTOM_H = 56;
 const DEFAULT_OBJECTIVE = "This section summarizes the key takeaway for rapid review.";
 
-const PALETTE = {
-  primary: "#2F6F8F",
-  accent: "#56A2CD",
-  accentSoft: "#E4F2FB",
-  surface: "#FFFFFF",
-  surfaceAlt: "#F4FAFF",
-  outline: "#E6F0F7",
-  success: "#16a34a",
-  danger: "#e11d48",
-};
-
-const TAG_LABELS: Record<DisplayTagType, string> = {
-  SUBJECT: "Subject/Discipline",
-  SYSTEM: "System",
-  ROTATION: "Rotation",
-  RESOURCE: "Resource",
-};
-
 /** Persisted HTML (with highlights) per item and section */
 type SectionHTML = { stem: string; explanation: string; objective: string };
+
+// Helper function to safely get HTML content without risking TypeError
+function getSafeHTML(
+  item: Item | undefined, 
+  htmlMap: Record<string, SectionHTML> | undefined, 
+  section: keyof SectionHTML,
+  fallbackFn: () => string
+): string {
+  // Safety checks to prevent "is not a function" errors
+  if (!item) return fallbackFn();
+  if (!htmlMap) return fallbackFn();
+  if (!item.id) return fallbackFn();
+  
+  const sectionData = htmlMap[item.id];
+  if (!sectionData) return fallbackFn();
+  
+  const content = sectionData[section];
+  return content || fallbackFn();
+}
+
+// Helper function to safely get response data
+function getSafeResponse(item: Item | undefined) {
+  if (!item || !item.responses || !item.responses[0]) {
+    return { choiceId: null, isCorrect: null };
+  }
+  return {
+    choiceId: item.responses[0].choiceId || null,
+    isCorrect: item.responses[0].isCorrect ?? null
+  };
+}
 
 const SECTION_SELECTOR = '[data-section="stem"],[data-section="explanation"],[data-section="objective"]';
 
@@ -200,10 +325,190 @@ const normalizeSectionHighlights = (sectionEl: Element) => {
   marks.forEach((m) => mergeWithNeighbors(m));
 };
 
+// Add CSS rule for dark mode answer choices to ensure parent and daughter containers match
+// Helper function to convert newlines to HTML breaks
+function toHTML(s: string) { return s.replace(/\n/g, "<br/>"); }
+
+// BarIconBtn component - moved outside QuizRunner to fix React Fast Refresh
+function BarIconBtn({
+  title,
+  onClick,
+  children,
+  active = false,
+  disabled = false,
+  forceBlackBackground = false,
+}: {
+  title: string;
+  onClick: () => void;
+  children: ReactNode;
+  active?: boolean;
+  disabled?: boolean;
+  forceBlackBackground?: boolean;
+}) {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const checkDark = () => setIsDark(isDarkMode());
+    checkDark();
+    
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme-type', 'data-theme-name']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+
+  // Determine background color based on dark mode and forceBlackBackground prop
+  const getBackgroundColor = () => {
+    if (isDark) {
+      return forceBlackBackground ? '#000000' : '#4b5563'; // Black for specific icons, gray for others in dark mode
+    }
+    return 'white'; // Light mode always white
+  };
+  
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      className={clsx(
+        "group inline-flex h-10 w-10 items-center justify-center rounded-xl",
+        disabled
+          ? "cursor-not-allowed text-muted opacity-50"
+          : active
+          ? `${isDark ? "text-white" : "text-primary"} shadow-md ring-2 ring-primary-light`
+          : `${isDark ? "text-white" : "text-primary"} hover:shadow-md`
+      )}
+      style={{ 
+        transition: 'all 0.2s ease-out',
+        backgroundColor: getBackgroundColor()
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = isDark 
+            ? '0 10px 25px rgba(255, 255, 255, 0.15)' 
+            : '0 10px 25px rgba(var(--color-primary-rgb), 0.15)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!disabled) {
+          e.currentTarget.style.transform = active ? 'translateY(-1px)' : 'translateY(0)';
+          e.currentTarget.style.boxShadow = active ? '0 4px 6px -1px rgb(0 0 0 / 0.1)' : 'none';
+          e.currentTarget.style.backgroundColor = getBackgroundColor();
+        }
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+const darkModeSelectedStyle = `
+  /* Base style for all containers in dark mode - only in quiz runner */
+  html[data-theme-type="dark"] .year4-quiz-runner .dark-mode-container {
+    background-color: #000000 !important;
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out !important;
+  }
+  
+  /* Special overriding style for cross button when crossed */
+  html[data-theme-type="dark"] .year4-quiz-runner .crossed-button {
+    background-color: #ff0000 !important;
+    background: #ff0000 !important;
+    border: 2px solid #ff0000 !important;
+    color: white !important;
+  }
+  
+  /* Override any styles for buttons with aria-label="cross out" */
+  html[data-theme-type="dark"] .year4-quiz-runner button[aria-label="cross out"] {
+    background-color: transparent !important;
+    background: transparent !important;
+  }
+  
+  /* Make sure this takes highest priority for crossed buttons */
+  html[data-theme-type="dark"] .year4-quiz-runner button[aria-label="cross out"].crossed-button {
+    background-color: #ff0000 !important;
+    background: #ff0000 !important;
+    border: 2px solid #ff0000 !important;
+    color: white !important;
+  }
+  
+  /* Apply to the main answer button, but exclude the cross button */
+  html[data-theme-type="dark"] .year4-quiz-runner .dark-mode-container > button:not([aria-label="cross out"]) {
+    background-color: #000000 !important;
+    transition: inherit !important;
+    display: flex !important;
+    width: 100% !important;
+  }
+  
+  /* Override for selected answers - these have higher specificity */
+  html[data-theme-type="dark"] .year4-quiz-runner .dark-mode-container.dark-mode-selected {
+    background-color: #444444 !important;
+  }
+  
+  html[data-theme-type="dark"] .year4-quiz-runner .dark-mode-container.dark-mode-selected > button:not([aria-label="cross out"]) {
+    background-color: #444444 !important;
+  }
+  
+  /* Hover animations for parent and daughter containers */
+  html[data-theme-type="dark"] .year4-quiz-runner .dark-mode-container:not(.answer-disabled):hover {
+    transform: scale(1.01) !important;
+    z-index: 1 !important;
+  }
+  
+  /* Ensure buttons inherit hover state from parent */
+  html[data-theme-type="dark"] .year4-quiz-runner .dark-mode-container:not(.answer-disabled):hover > button:not([aria-label="cross out"]) {
+    background-color: inherit !important;
+  }
+`;
+
 export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }) {
+  // Add the CSS rules to the document (client-side only)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
+    // Add the style element if it doesn't exist
+    if (!document.getElementById('dark-mode-quiz-styles')) {
+      const styleElement = document.createElement('style');
+      styleElement.id = 'dark-mode-quiz-styles';
+      styleElement.textContent = darkModeSelectedStyle;
+      document.head.appendChild(styleElement);
+    }
+    
+    // Cleanup on component unmount
+    return () => {
+      if (typeof document === 'undefined') return;
+      const styleElement = document.getElementById('dark-mode-quiz-styles');
+      if (styleElement) {
+        document.head.removeChild(styleElement);
+      }
+    };
+  }, []);
   const [id] = useState(initialQuiz.id);
   const [items, setItems] = useState<Item[]>(initialQuiz.items);
   const [curIndex, setCurIndex] = useState(0);
+
+  // Dark mode detection - fix SSR hydration mismatch
+  const [isDark, setIsDark] = useState(false); // Start with false to match SSR
+  
+  useEffect(() => {
+    // Only check theme after hydration
+    const checkDark = () => setIsDark(isDarkMode());
+    checkDark(); // Initial check after mount
+    
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme-type', 'data-theme-name']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+
   const [status, setStatus] = useState<"Active" | "Suspended" | "Ended">(initialQuiz.status);
   const [statsByQuestion, setStatsByQuestion] = useState<Record<string, QuestionFirstAttemptStats>>({});
   const statsLoadedRef = useRef(false);
@@ -241,11 +546,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [showLabs, setShowLabs] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Feedback
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackToast, setFeedbackToast] = useState(false);
-
   // Confirmations
   const [confirmSuspend, setConfirmSuspend] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -268,7 +568,12 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   const currentItem = items[curIndex];
   const total = items.length;
-  const isAnswered = Boolean(currentItem?.responses?.[0]?.choiceId);
+  const isAnswered = Boolean(
+    currentItem && 
+    currentItem.responses && 
+    currentItem.responses[0] && 
+    currentItem.responses[0].choiceId
+  );
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -281,12 +586,12 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
           stem: toHTML(currentItem.question.stem ?? ""),
           explanation:
             toHTML(currentItem.question.explanation ?? "") ||
-            "<div class='text-sm text-slate-500'>No explanation provided.</div>",
+            `<div class='text-sm' style='color: ${isDark ? 'var(--color-text-primary)' : '#64748b'}'>No explanation provided.</div>`,
           objective: toHTML(currentItem.question.objective ?? DEFAULT_OBJECTIVE),
         },
       };
     });
-  }, [currentItem]);
+  }, [currentItem, isDark]);
 
   // Close palette on outside *click* — keep highlighter enabled
   useEffect(() => {
@@ -409,11 +714,15 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
       const finalCorrect =
         typeof data?.isCorrect === "boolean" ? data.isCorrect : localCorrect;
+      
+
+      
       setItems((prev) =>
         prev.map((it) =>
           it.id === currentItem.id
             ? {
                 ...it,
+                // Keep marked state unchanged - user controls it manually
                 responses: [
                   {
                     choiceId: data?.pickedId ?? selectedChoiceId,
@@ -429,7 +738,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       setItems((prev) =>
         prev.map((it) =>
           it.id === currentItem.id
-            ? { ...it, responses: [{ choiceId: selectedChoiceId, isCorrect: Boolean(localCorrect) }] }
+            ? { 
+                ...it, 
+                // Keep marked state unchanged - user controls it manually
+                responses: [{ choiceId: selectedChoiceId, isCorrect: Boolean(localCorrect) }] 
+              }
             : it
         )
       );
@@ -455,26 +768,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     } finally {
       setConfirmSuspend(false);
       window.location.href = portalRoot;
-    }
-  }
-
-  async function sendFeedback() {
-    try {
-      await fetch(`/api/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id,
-          questionId: currentItem?.question.id ?? null,
-          text: feedbackText.trim(),
-        }),
-      });
-      setFeedbackText("");
-      setShowFeedback(false);
-      setFeedbackToast(true);
-      setTimeout(() => setFeedbackToast(false), 2500);
-    } catch {
-      /* no-op */
     }
   }
 
@@ -577,59 +870,33 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     return () => (rootEl as EventTarget).removeEventListener("click", onClick as EventListener);
   }, [highlightEnabled, saveSectionHTML]);
 
-  function BarIconBtn({
-    title,
-    onClick,
-    children,
-    active = false,
-    disabled = false,
-  }: {
-    title: string;
-    onClick: () => void;
-    children: ReactNode;
-    active?: boolean;
-    disabled?: boolean;
-  }) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        title={title}
-        aria-label={title}
-        className={clsx(
-          "group inline-flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ease-out",
-          disabled
-            ? "cursor-not-allowed text-[#9DBED5]"
-            : active
-            ? "bg-white text-[#1D4D66] shadow-md hover:-translate-y-0.5"
-            : "text-[#2F6F8F] hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-md"
-        )}
-      >
-        {children}
-      </button>
-    );
-  }
-
   return (
     <div
-      className="relative h-[100dvh] w-full overflow-hidden bg-neutral-50"
+      className="relative h-[100dvh] w-full overflow-hidden bg-neutral-50 year4-quiz-runner"
       style={{ ["--sbw" as unknown as string]: sidebarWidth }}
     >
       {/* LEFT SIDEBAR */}
       <aside
         className={[
-          "fixed z-60 border-r bg-white border-[#E6F0F7]",
-          "left-0 overflow-hidden",
+          "fixed border-r overflow-hidden",
+          "left-0",
           "transition-[width] duration-300 ease-in-out will-change-[width]"
         ].join(" ")}
-        style={{ width: sidebarWidth, top: 0, bottom: 0 }}
+        style={{ 
+          width: sidebarWidth, 
+          top: 0, 
+          bottom: 0,
+          zIndex: 9999, 
+          borderRightColor: isDark ? '#4b5563' : 'var(--color-primary)',
+          backgroundColor: isDark ? '#000000' : 'var(--color-background)'
+        }}
       >
         <div className="h-full overflow-auto">
           <div className="flex flex-col">
             {items.map((it, i) => {
-              const _answered = Boolean(it.responses?.[0]?.choiceId);
-              const _correct = it.responses?.[0]?.isCorrect ?? false;
+              const response = getSafeResponse(it);
+              const _answered = Boolean(response.choiceId);
+              const _correct = response.isCorrect ?? false;
               const even = i % 2 === 0;
               return (
                 <button
@@ -637,10 +904,22 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   onClick={() => setCurIndex(i)}
                   className={[
                     "relative flex items-center justify-between px-3 py-2 text-sm font-semibold",
-                    even ? "bg-white" : "bg-[#F3F9FC]",
-                    "text-[#2F6F8F]",
-                    i === curIndex ? "ring-2 ring-[#A5CDE4] z-10" : ""
+                    isDark ? "text-white" : "text-neutral-900",
+                    i === curIndex ? "z-10" : ""
                   ].join(" ")}
+                  style={{
+                    backgroundColor: isDark 
+                      ? (even ? '#1f2937' : '#374151') 
+                      : (even ? 'var(--color-background)' : 'var(--color-background-secondary)'),
+                    ...(i === curIndex ? { 
+                      borderTop: isDark ? '2px solid #4b5563' : '2px solid var(--color-primary)',
+                      borderLeft: isDark ? '2px solid #4b5563' : '2px solid var(--color-primary)',
+                      borderRight: isDark ? '2px solid #4b5563' : '2px solid var(--color-primary)',
+                      borderBottom: isDark ? '2px solid #4b5563' : '2px solid var(--color-primary)'
+                    } : {
+                      borderBottom: isDark ? '1px solid #4b5563' : '1px solid var(--color-primary)'
+                    })
+                  }}
                   title={`Question ${i + 1}`}
                 >
                   <span className="text-base">{i + 1}</span>
@@ -664,43 +943,83 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* TOP BAR */}
       <header
         className={[
-          "fixed left-0 right-0 top-0 z-30 border-b border-[#E6F0F7]",
-          "bg-gradient-to-r from-[#F4FAFF] via-white to-[#F4FAFF] backdrop-blur",
+          "fixed left-0 right-0 top-0 z-10 border-b",
           "h-14 transition-[padding-left] duration-300 ease-in-out"
         ].join(" ")}
-        style={{ paddingLeft: `var(--sbw)` }}
+        style={{ 
+          paddingLeft: `var(--sbw)`,
+          backgroundColor: isDark ? '#000000' : 'var(--color-background)',
+          backgroundImage: isDark ? 'linear-gradient(135deg, rgba(99, 99, 99, 0.3) 0%, rgba(59, 59, 59, 0.2) 50%, rgba(99, 99, 99, 0.3) 100%)' : 'linear-gradient(to right, var(--color-primary-light), var(--color-background), var(--color-primary-light))',
+          borderColor: isDark ? '#4b5563' : 'var(--color-border)'
+        }}
       >
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <BarIconBtn
               title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
               onClick={() => setSidebarOpen((v) => !v)}
+              forceBlackBackground={true}
             >
               {sidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
             </BarIconBtn>
 
-            <div className="rounded-xl border border-[#E6F0F7] bg-white/90 px-3 py-1.5 text-sm font-semibold text-[#1D4D66] shadow-sm">
+            <div 
+              className="rounded-xl border border-theme px-3 py-1.5 text-sm font-semibold shadow-sm"
+              style={{
+                backgroundColor: isDark ? '#000000' : 'white',
+                color: isDark ? '#ffffff' : 'var(--color-primary)',
+                borderColor: isDark ? '#4b5563' : 'var(--color-primary)'
+              }}
+            >
               Question {curIndex + 1} of {total}
             </div>
 
-            <button
-              type="button"
-              onClick={() => currentItem && toggleFlag(!currentItem.marked)}
-              className={clsx(
-                "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition",
-                currentItem?.marked
-                  ? "border-[#F3D1D6] bg-[#FFF5F6] text-[#b91c1c]"
-                  : "border-[#E6F0F7] bg-white text-[#2F6F8F] hover:bg-[#F3F9FC]"
-              )}
-              aria-pressed={currentItem?.marked ?? false}
-            >
-              <Flag
-                size={18}
-                className={currentItem?.marked ? "text-[#e11d48]" : "text-[#2F6F8F]"}
-                aria-hidden
-              />
-              {currentItem?.marked ? "Marked" : "Mark"}
-            </button>
+            {status !== "Ended" && (
+              <button
+                type="button"
+                onClick={() => currentItem && toggleFlag(!currentItem.marked)}
+                className={clsx(
+                  "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold",
+                  currentItem?.marked
+                    ? (isDark ? "border-red-500 bg-red-900 text-red-200" : "border-red-300 bg-red-50 text-red-700")
+                    : "border-theme"
+                )}
+                style={{
+                  ...(currentItem?.marked ? {} : {
+                    backgroundColor: isDark ? '#000000' : 'white',
+                    color: isDark ? '#ffffff' : 'var(--color-primary)',
+                    borderColor: isDark ? '#4b5563' : 'var(--color-border)'
+                  }),
+                  transition: 'all 0.2s ease-out'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1)';
+                  if (currentItem?.marked) {
+                    e.currentTarget.style.backgroundColor = 'rgb(254 226 226)';
+                  } else {
+                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
+                  if (currentItem?.marked) {
+                    e.currentTarget.style.backgroundColor = 'rgb(254 242 242)';
+                  } else {
+                    e.currentTarget.style.backgroundColor = 'white';
+                  }
+                }}
+                aria-pressed={currentItem?.marked ?? false}
+              >
+                <Flag
+                  size={18}
+                  className={currentItem?.marked ? "text-[#e11d48]" : "text-primary"}
+                  aria-hidden
+                />
+                {currentItem?.marked ? "Marked" : "Mark"}
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -708,6 +1027,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               title="Previous question"
               onClick={() => setCurIndex((i) => Math.max(0, i - 1))}
               disabled={curIndex === 0}
+              forceBlackBackground={true}
             >
               <ChevronLeft size={18} />
             </BarIconBtn>
@@ -715,6 +1035,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               title="Next question"
               onClick={() => setCurIndex((i) => Math.min(total - 1, i + 1))}
               disabled={curIndex >= total - 1}
+              forceBlackBackground={true}
             >
               <ChevronRight size={18} />
             </BarIconBtn>
@@ -725,27 +1046,72 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               type="button"
               onClick={() => setShowHighlighter((prev) => !prev)}
               className={clsx(
-                "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition",
+                "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold",
                 highlightEnabled
-                  ? "border-[#56A2CD] bg-[#E4F2FB] text-[#1D4D66] shadow-sm"
-                  : "border-[#E6F0F7] bg-white text-[#2F6F8F] hover:bg-[#F3F9FC]"
+                  ? (isDark ? "border-primary bg-gray-700 text-primary shadow-sm" : "border-primary bg-primary-light text-primary shadow-sm")
+                  : "border-theme"
               )}
+              style={{
+                ...(highlightEnabled ? {} : {
+                  backgroundColor: isDark ? '#000000' : 'white',
+                  color: isDark ? '#ffffff' : 'var(--color-primary)',
+                  borderColor: isDark ? '#4b5563' : 'var(--color-border)'
+                }),
+                transition: 'all 0.2s ease-out'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1)';
+                if (highlightEnabled) {
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary)';
+                  e.currentTarget.style.color = 'white';
+                } else {
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                if (highlightEnabled) {
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+                  e.currentTarget.style.color = 'var(--color-primary)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
+                } else {
+                  e.currentTarget.style.backgroundColor = 'white';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
               aria-expanded={showHighlighter}
             >
               <HighlighterIcon size={18} />
               Highlight
             </button>
             {showHighlighter && (
-              <div className="absolute right-0 top-12 z-40 mt-2 w-56 rounded-2xl border border-[#E6F0F7] bg-white/95 p-3 shadow-lg">
-                <div className="flex items-center justify-between gap-3 border-b border-[#E6F0F7] pb-2">
-                  <div className="text-sm font-semibold text-[#1D4D66]">Highlighter</div>
+              <div 
+                className="absolute left-0 top-12 z-40 mt-2 w-56 rounded-2xl border p-3 shadow-lg"
+                style={{
+                  borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                  backgroundColor: isDark ? '#1f2937' : 'white'
+                }}
+              >
+                <div 
+                  className="flex items-center justify-between gap-3 border-b pb-2"
+                  style={{ borderColor: isDark ? '#4b5563' : 'var(--color-border)' }}
+                >
+                  <div 
+                    className="text-sm font-semibold"
+                    style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
+                  >
+                    Highlighter
+                  </div>
                   <button
                     type="button"
                     onClick={() => setHighlightEnabled((prev) => !prev)}
-                    className={clsx(
-                      "relative flex h-6 w-11 items-center rounded-full transition-colors",
-                      highlightEnabled ? "bg-[#56A2CD]" : "bg-slate-300"
-                    )}
+                    className="relative flex h-6 w-11 items-center rounded-full transition-colors"
+                    style={{
+                      backgroundColor: highlightEnabled 
+                        ? (isDark ? '#56A2CD' : 'var(--color-primary)') 
+                        : '#cbd5e1'
+                    }}
                     aria-pressed={highlightEnabled}
                     title={highlightEnabled ? "Disable highlighter" : "Enable highlighter"}
                   >
@@ -761,26 +1127,37 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
                 <div className="mt-3 flex items-center justify-between gap-3">
                   {[
-                    { c: PALETTE.danger, n: "Red" },
-                    { c: PALETTE.success, n: "Green" },
-                    { c: PALETTE.accent, n: "Blue" },
-                    { c: "#ffe066", n: "Yellow" },
+                    { c: "#fca5a5", n: "Red" },
+                    { c: "#86efac", n: "Green" },
+                    { c: "#93c5fd", n: "Blue" },
+                    { c: "#fde047", n: "Yellow" },
                   ].map((k) => (
                     <button
                       key={k.n}
                       onClick={() => setHighlightColor(k.c)}
+                      disabled={!highlightEnabled}
                       className={clsx(
-                        "h-7 w-7 rounded-full border border-[#E6F0F7] transition-all",
-                        highlightColor === k.c ? "ring-2 ring-[#A5CDE4]" : "",
-                        highlightEnabled ? "hover:scale-105" : "opacity-60"
+                        "h-7 w-7 rounded-full border transition-all",
+                        highlightColor === k.c ? "ring-2" : "",
+                        highlightEnabled ? "hover:scale-105 cursor-pointer" : "cursor-not-allowed"
                       )}
-                      style={{ backgroundColor: k.c }}
+                      style={{ 
+                        backgroundColor: k.c,
+                        borderColor: isDark ? '#4b5563' : '#e5e7eb',
+                        filter: highlightEnabled ? 'none' : 'opacity(0.5)',
+                        ...(highlightColor === k.c ? {
+                          boxShadow: isDark ? '0 0 0 2px #6b7280' : '0 0 0 2px var(--color-primary)'
+                        } : {})
+                      }}
                       title={k.n}
                       type="button"
                     />
                   ))}
                 </div>
-                <div className="mt-3 text-[11px] text-slate-500">
+                <div 
+                  className="mt-3 text-[11px]"
+                  style={{ color: isDark ? 'var(--color-text-primary)' : '#64748b' }}
+                >
                   {highlightEnabled
                     ? "Select text in the question or explanation and release to apply."
                     : "Enable the highlighter to start selecting text."}
@@ -789,31 +1166,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             )}
 
             {/* Text size */}
-            <div className="ml-1 inline-flex items-center gap-1 rounded-xl border border-[#E6F0F7] bg-white/90 p-1 shadow-sm">
-              <button
-                onClick={decFont}
-                className="rounded-lg px-3 py-2 text-xl leading-none text-[#2F6F8F] hover:bg-[#F3F9FC]"
-                title="Smaller"
-              >
-                <ZoomOut size={18} />
-              </button>
-
-              <button
-                onClick={resetFont}
-                className="rounded-lg px-2 py-1 text-[#2F6F8F] hover:bg-[#F3F9FC]"
-                title="Reset to default"
-              >
-                <Undo2 size={18} />
-              </button>
-
-              <button
-                onClick={incFont}
-                className="rounded-lg px-3 py-2 text-xl leading-none text-[#2F6F8F] hover:bg-[#F3F9FC]"
-                title="Larger"
-              >
-                <ZoomIn size={18} />
-              </button>
-            </div>
+            <ZoomButtons decFont={decFont} resetFont={resetFont} incFont={incFont} />
 
             {/* Fullscreen */}
             <BarIconBtn
@@ -828,17 +1181,18 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 }
               }}
               active={isFullscreen}
+              forceBlackBackground={true}
             >
               {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
             </BarIconBtn>
 
             {/* Calculator */}
-            <BarIconBtn title="Calculator" onClick={() => setShowCalc(true)} active={showCalc}>
+            <BarIconBtn title="Calculator" onClick={() => setShowCalc(true)} active={showCalc} forceBlackBackground={true}>
               <Calculator size={20} />
             </BarIconBtn>
 
             {/* Lab values */}
-            <BarIconBtn title="Lab Values" onClick={() => setShowLabs(true)} active={showLabs}>
+            <BarIconBtn title="Lab Values" onClick={() => setShowLabs(true)} active={showLabs} forceBlackBackground={true}>
               <FlaskConical size={20} />
             </BarIconBtn>
           </div>
@@ -848,57 +1202,91 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* BOTTOM BAR */}
       <footer
         className={[
-          "fixed bottom-0 left-0 right-0 z-30 border-t border-[#E6F0F7]",
-          "bg-gradient-to-r from-[#F4FAFF] via-white to-[#F4FAFF] backdrop-blur",
+          "fixed bottom-0 left-0 right-0 z-10 border-t",
           "h-14 transition-[padding-left] duration-300 ease-in-out"
         ].join(" ")}
-        style={{ paddingLeft: `var(--sbw)` }}
+        style={{ 
+          paddingLeft: `var(--sbw)`,
+          backgroundColor: isDark ? '#000000' : 'var(--color-background)',
+          backgroundImage: isDark ? 'linear-gradient(135deg, rgba(99, 99, 99, 0.3) 0%, rgba(59, 59, 59, 0.2) 50%, rgba(99, 99, 99, 0.3) 100%)' : 'linear-gradient(to right, var(--color-primary-light), var(--color-background), var(--color-primary-light))',
+          borderColor: isDark ? '#4b5563' : 'var(--color-border)'
+        }}
       >
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
-          <div className="text-sm font-semibold text-[#1D4D66]">
+          <div 
+            className="text-sm font-semibold"
+            style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
+          >
             Block Elapsed Time: <span className="tabular-nums">{fmtHMS(blockSeconds)}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowFeedback(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm font-semibold text-[#2F6F8F] shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#F3F9FC] hover:shadow-md"
-              title="Send feedback"
-            >
-              <MessageSquare size={18} />
-              Feedback
-            </button>
+            {status === "Active" && (
+              <>
+                <button
+                  onClick={() => setConfirmSuspend(true)}
+                  className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm"
+                  title="Suspend"
+                  style={{ 
+                    backgroundColor: isDark ? '#000000' : 'white',
+                    color: isDark ? '#ffffff' : 'var(--color-primary)',
+                    borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
+                    transition: 'all 0.2s ease-out' 
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.15)';
+                    e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
+                    e.currentTarget.style.backgroundColor = 'white';
+                  }}
+                >
+                  <PauseCircle size={18} />
+                  Suspend
+                </button>
 
-            <button
-              onClick={() => setConfirmSuspend(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm font-semibold text-[#2F6F8F] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#F3F9FC] hover:shadow-md"
-              title="Suspend"
-            >
-              <PauseCircle size={18} />
-              Suspend
-            </button>
-
-            <button
-              onClick={() => setConfirmEnd(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#F3D1D6] bg-white px-3 py-2 text-sm font-semibold text-[#b91c1c] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#FFF5F6] hover:shadow-md"
-              title="End block"
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 100 100"
-                aria-hidden="true"
-                className="drop-shadow-sm"
-              >
-                <polygon
-                  points="30,5 70,5 95,30 95,70 70,95 30,95 5,70 5,30"
-                  fill="#e11d48"
-                  stroke="#b91c1c"
-                  strokeWidth="6"
-                />
-              </svg>
-              End Block
-            </button>
+                <button
+                  onClick={() => setConfirmEnd(true)}
+                  className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"
+                  title="End block"
+                  style={{
+                    backgroundColor: isDark ? '#7f1d1d' : 'white',
+                    color: isDark ? '#fca5a5' : '#b91c1c',
+                    borderColor: isDark ? '#dc2626' : '#F3D1D6',
+                    transition: 'all 0.2s ease-out'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 10px 25px rgba(239, 29, 72, 0.15)';
+                    e.currentTarget.style.backgroundColor = '#FFF5F6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
+                    e.currentTarget.style.backgroundColor = 'white';
+                  }}
+                >
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 100 100"
+                    aria-hidden="true"
+                    className="drop-shadow-sm"
+                  >
+                    <polygon
+                      points="30,5 70,5 95,30 95,70 70,95 30,95 5,70 5,30"
+                      fill="#e11d48"
+                      stroke="#b91c1c"
+                      strokeWidth="6"
+                    />
+                  </svg>
+                  End Block
+                </button>
+              </>
+            )}
           </div>
         </div>
       </footer>
@@ -915,15 +1303,21 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         style={{ top: `${TOP_H}px`, bottom: `${BOTTOM_H}px`, paddingLeft: `var(--sbw)` }}
       >
         <div className="mx-auto max-w-4xl px-4 py-6">
-          <div className="quiz-question rounded-2xl border border-[#E6F0F7] bg-white p-5">
+          <div className="quiz-question rounded-2xl border bg-white p-5" style={{ borderColor: 'var(--color-primary)' }}>
             <div
               data-section="stem"
-              className="text-[15px] leading-relaxed text-neutral-900"
-              style={{ fontSize: `${fontScale}rem` }}
+              className="text-[15px] leading-relaxed"
+              style={{ 
+                fontSize: `${fontScale}rem`,
+                color: isDark ? 'var(--color-text-primary)' : '#171717'
+              }}
               dangerouslySetInnerHTML={{
-                __html:
-                  sectionHTMLByItem[currentItem?.id ?? ""]?.stem ??
-                  toHTML(currentItem?.question.stem ?? "")
+                __html: getSafeHTML(
+                  currentItem, 
+                  sectionHTMLByItem, 
+                  'stem', 
+                  () => toHTML(currentItem?.question.stem ?? "")
+                )
               }}
             />
           </div>
@@ -982,8 +1376,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   key={ch.id}
                   choice={ch}
                   index={idx}
-                  submittedId={currentItem?.responses?.[0]?.choiceId ?? null}
-                  submitted={Boolean(currentItem?.responses?.[0]?.choiceId)}
+                  submittedId={getSafeResponse(currentItem).choiceId}
+                  submitted={Boolean(getSafeResponse(currentItem).choiceId)}
                   selectedId={selectedChoiceId}
                   crossed={!!crossed[ch.id]}
                   status={status}
@@ -991,7 +1385,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   firstAttemptPercent={percentValue}
                   firstAttemptCount={countValue}
                   onSelect={() => {
-                    if (currentItem?.responses?.[0]?.choiceId || status !== "Active" || crossed[ch.id]) return;
+                    if (getSafeResponse(currentItem).choiceId || status !== "Active" || crossed[ch.id]) return;
                     setSelectedChoiceId((prev) => {
                       const next = prev === ch.id ? null : ch.id;
                       if (next !== prev) {
@@ -1002,8 +1396,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     });
                   }}
                   onCross={() => {
-                    if (currentItem?.responses?.[0]?.choiceId) return;
-                    setCrossed((m) => ({ ...m, [ch.id]: !m[ch.id] }));
+                    if (getSafeResponse(currentItem).choiceId) return;
+                    const newValue = !crossed[ch.id];
+                    setCrossed((m) => ({ ...m, [ch.id]: newValue }));
                     if (selectedChoiceId === ch.id) {
                       setSelectedChoiceId(null);
                       changeRef.current += 1;
@@ -1020,245 +1415,96 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               <button
                 onClick={submitAnswer}
                 disabled={!selectedChoiceId}
-                className="rounded-2xl px-6 py-2 font-semibold text-white bg-[#56A2CD] hover:bg-[#2F6F8F] disabled:opacity-60 disabled:cursor-not-allowed shadow"
+                className="rounded-2xl px-6 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                style={{
+                  backgroundColor: isDarkMode() ? '#56A2CD' : 'var(--color-primary)',
+                  transition: 'all 0.2s ease-out',
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    const isDark = isDarkMode();
+                    // Update background color on hover
+                    if (!isDark) {
+                      e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
+                    } else {
+                      e.currentTarget.style.backgroundColor = '#2F6F8F';
+                    }
+                    // Use gray glow in dark mode, theme glow in light mode
+                    e.currentTarget.style.boxShadow = isDark 
+                      ? '0 10px 25px rgba(75, 85, 99, 0.25)' // Gray glow for dark mode
+                      : '0 10px 25px rgba(0, 0, 0, 0.15)'; // Theme glow for light mode
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const isDark = isDarkMode();
+                  e.currentTarget.style.backgroundColor = isDark ? '#56A2CD' : 'var(--color-primary)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
+                }}
               >
                 Submit Answer
               </button>
             </div>
           )}
 
-          {(() => {
-            if (!currentItem || !isAnswered) return null;
-            const wasCorrect = currentItem.responses?.[0]?.isCorrect ?? null;
-            const tagsByType = (currentItem.question.tags ?? []).reduce<
-              Partial<Record<DisplayTagType, string[]>>
-            >((acc, tag) => {
-              if (!tag?.label) return acc;
-              const key = tag.type;
-              const label = tag.label.trim();
-              if (!label) return acc;
-              const bucket = acc[key] ?? [];
-              if (!bucket.includes(label)) bucket.push(label);
-              acc[key] = bucket;
-              return acc;
-            }, {});
-            const references = parseReferences(currentItem.question.references);
-            const screenshotUrl = currentItem.question.iduScreenshotUrl
-              ? currentItem.question.iduScreenshotUrl.trim()
-              : "";
-            const occurrenceItems = (currentItem.question.occurrences ?? [])
-              .map((occ) => {
-                const pieces: string[] = [];
-                if (occ?.year && occ.year.trim()) pieces.push(occ.year.trim());
-                if (occ?.rotation && occ.rotation.trim()) pieces.push(occ.rotation.trim());
-                const label = pieces.join(" · ");
-                return label ? { key: `${pieces.join("|")}`, label } : null;
-              })
-              .filter((item): item is { key: string; label: string } => Boolean(item))
-              .filter((item, index, arr) => arr.findIndex((candidate) => candidate.key === item.key) === index);
-            const questionStats = statsByQuestion[currentItem.question.id];
-            const percentLabel =
-              questionStats && questionStats.percent !== null
-                ? `${questionStats.percent}%`
-                : "—%";
-            return (
-              <div className="mt-5 rounded-2xl border bg-white p-4" style={{ borderColor: wasCorrect ? "#CDEFE1" : "#F3D1D6" }}>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <div className="flex items-center justify-center rounded-xl bg-[#F3F9FC] p-3">
-                    <span className="text-lg font-extrabold" style={{ color: wasCorrect ? "#16a34a" : "#e11d48" }}>
-                      {wasCorrect ? "Correct" : "Incorrect"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-3xl font-extrabold text-[#2F6F8F]">{percentLabel}</div>
-                      <div className="text-xs leading-tight text-slate-500">Answered Correctly</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-lg font-extrabold text-[#2F6F8F]">
-                        {Math.floor(questionSeconds / 60)} Mins, {questionSeconds % 60} Secs
-                      </div>
-                      <div className="text-xs text-slate-500">Time Spent on Question</div>
-                    </div>
-                  </div>
-                </div>
-
-                {screenshotUrl ? (
-                  <div className="mt-6">
-                    <div className="text-lg font-bold text-[#2F6F8F]">IDU Screenshot:</div>
-                    <div className="mt-3 overflow-hidden rounded-2xl border border-[#E6F0F7] bg-[#F8FBFD]">
-                      <Image
-                        src={screenshotUrl}
-                        alt="IDU Screenshot"
-                        width={1280}
-                        height={720}
-                        className="h-auto w-full max-h-[480px] object-contain bg-[#F8FBFD]"
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                {occurrenceItems.length ? (
-                  <div className="mt-6">
-                    <div className="text-lg font-bold text-[#2F6F8F]">Question Occurrences:</div>
-                    <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {occurrenceItems.map((occ) => (
-                        <li
-                          key={occ.key}
-                          className="rounded-xl border border-[#E6F0F7] bg-[#F9FCFF] px-3 py-2 text-sm text-[#2F6F8F] flex-shrink-0"
-                        >
-                          <span className="font-bold">{occ.label}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                <div className="quiz-explanation mt-6">
-                  <div className="text-lg font-bold text-[#2F6F8F]">Explanation:</div>
-                  
-                  {/* Explanation Image */}
-                  {currentItem?.question.explanationImageUrl && (
-                    <div className="mt-3">
-                      <Image
-                        src={currentItem.question.explanationImageUrl}
-                        alt="Explanation image"
-                        width={1024}
-                        height={768}
-                        className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                  
-                  <div
-                    data-section="explanation"
-                    className="prose mt-2 max-w-none text-neutral-900"
-                    style={{ fontSize: `${fontScale}rem` }}
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        sectionHTMLByItem[currentItem.id]?.explanation ??
-                        (currentItem?.question.explanation
-                          ? toHTML(currentItem.question.explanation)
-                          : "<div class='text-sm text-slate-500'>No explanation provided.</div>")
-                    }}
-                  />
-                </div>
-
-                <div className="quiz-objective mt-6" style={{ fontSize: `${fontScale}rem` }}>
-                  <div className="text-lg font-bold text-[#2F6F8F]">Educational Objective:</div>
-                  <div
-                    data-section="objective"
-                    className="mt-2 text-neutral-900"
-                    dangerouslySetInnerHTML={{
-                      __html: sectionHTMLByItem[currentItem.id]?.objective ?? toHTML(DEFAULT_OBJECTIVE)
-                    }}
-                  />
-                </div>
-
-                <div className="mt-6">
-                  <div className="text-lg font-bold text-[#2F6F8F]">References:</div>
-                  {references.length ? (
-                    <ul className="mt-2 list-inside list-disc space-y-1 text-neutral-900">
-                      {references.map((ref, idx) => {
-                        const isLink = /^https?:\/\//i.test(ref);
-                        return (
-                          <li key={`${ref}-${idx}`}>
-                            {isLink ? (
-                              <a
-                                href={ref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[#2F6F8F] underline decoration-[#A5CDE4] underline-offset-2 transition hover:text-[#1D4D66]"
-                              >
-                                {ref}
-                              </a>
-                            ) : (
-                              <span>{ref}</span>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <div className="mt-2 text-sm text-slate-500">No references provided.</div>
-                  )}
-                </div>
-
-                <div className="mt-6 border-t border-[#E6F0F7] pt-3">
-                  <div className="flex flex-wrap gap-6 text-sm">
-                    {Object.entries(TAG_LABELS).map(([type, label]) => {
-                      const typed = type as DisplayTagType;
-                      const display = tagsByType?.[typed] ?? [];
-                      return (
-                        <div key={typed}>
-                          <div className="text-[#2F6F8F] font-semibold">{label}</div>
-                          <div className="mt-1 text-neutral-900">
-                            {display.length ? (
-                              <div className="flex flex-wrap gap-1">
-                                {display.map((value) => (
-                                  <span
-                                    key={`${typed}-${value}`}
-                                    className="rounded-full bg-[#F3F9FC] px-2 py-0.5 text-xs font-medium text-[#2F6F8F] border border-[#E6F0F7]"
-                                  >
-                                    {value}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              "—"
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <QuestionDiscussion questionId={currentItem.question.id} />
-                </div>
-              </div>
-            );
-          })()}
+          {currentItem && isAnswered && (
+            <ClientSideQuestionDetails
+              currentItem={currentItem}
+              statsByQuestion={statsByQuestion}
+              questionSeconds={questionSeconds}
+              fontScale={fontScale}
+              sectionHTMLByItem={sectionHTMLByItem}
+            />
+          )}
         </div>
       </main>
 
       {showCalc && <DraggableCalc onClose={() => setShowCalc(false)} />}
       {showLabs && <LabDrawer onClose={() => setShowLabs(false)} />}
 
-      {/* Feedback modal */}
-      {showFeedback && (
-        <Modal onClose={() => setShowFeedback(false)} title="Submit Feedback">
-          <textarea
-            value={feedbackText}
-            onChange={(e) => setFeedbackText(e.target.value)}
-            placeholder="Describe the issue or suggestion…"
-            className="mt-3 h-32 w-full rounded-xl border border-[#E6F0F7] p-3 outline-none focus:ring-2 focus:ring-[#A5CDE4] text-neutral-900"
-          />
-          <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => setShowFeedback(false)} className="rounded-xl border border-[#E6F0F7] bg-white px-4 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]">Cancel</button>
-            <button onClick={sendFeedback} disabled={!feedbackText.trim()} className="rounded-xl bg-[#56A2CD] px-4 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed">Submit</button>
-          </div>
-        </Modal>
-      )}
-
-      {feedbackToast && (
-        <div className="pointer-events-none fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-[#2F6F8F] px-6 py-3 text-white shadow-lg">
-          Feedback Submitted!
-        </div>
-      )}
-
       {/* Suspend confirm */}
       {confirmSuspend && (
         <Modal onClose={() => setConfirmSuspend(false)} title="Suspend Test Block">
-          <p className="text-neutral-800">You are about to suspend this test block, you can always return back to it later on.</p>
-          <p className="mt-2 text-neutral-800">Are you sure you want to suspend the test block?</p>
+          <p style={{ color: isDark ? 'var(--color-text-primary)' : '#262626' }}>You are about to suspend this test block, you can always return back to it later on.</p>
+          <p className="mt-2" style={{ color: isDark ? 'var(--color-text-primary)' : '#262626' }}>Are you sure you want to suspend the test block?</p>
           <div className="mt-5 flex justify-end gap-2">
-            <button onClick={() => setConfirmSuspend(false)} className="rounded-xl border border-[#E6F0F7] bg-white px-4 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]">Cancel</button>
-            <button onClick={suspendQuiz} className="rounded-xl bg-[#56A2CD] px-4 py-2 font-semibold text-white">Confirm</button>
+            <button 
+              onClick={() => setConfirmSuspend(false)} 
+              className="rounded-xl border px-4 py-2 font-semibold transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md"
+              style={{
+                borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                backgroundColor: isDark ? '#374151' : 'white',
+                color: isDark ? '#e5e7eb' : 'var(--color-primary)'
+              }}
+              onMouseEnter={(e) => {
+                if (!isDark) {
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isDark) {
+                  e.currentTarget.style.backgroundColor = 'white';
+                }
+              }}
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={suspendQuiz} 
+              className="rounded-xl px-4 py-2 font-semibold text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md"
+              style={{
+                backgroundColor: isDark ? '#56A2CD' : 'var(--color-primary)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = isDark ? '#2F6F8F' : 'var(--color-primary-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = isDark ? '#56A2CD' : 'var(--color-primary)';
+              }}
+            >
+              Confirm
+            </button>
           </div>
         </Modal>
       )}
@@ -1266,11 +1512,43 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* End confirm */}
       {confirmEnd && (
         <Modal onClose={() => setConfirmEnd(false)} title="End Test Block">
-          <p className="text-neutral-800">You are about to end this test block.</p>
-          <p className="mt-2 text-neutral-800">Are you sure you want to end the test block?</p>
+          <p style={{ color: isDark ? 'var(--color-text-primary)' : '#262626' }}>You are about to end this test block.</p>
+          <p className="mt-2" style={{ color: isDark ? 'var(--color-text-primary)' : '#262626' }}>Are you sure you want to end the test block?</p>
           <div className="mt-5 flex justify-end gap-2">
-            <button onClick={() => setConfirmEnd(false)} className="rounded-xl border border-[#E6F0F7] bg-white px-4 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]">Cancel</button>
-            <button onClick={endQuiz} className="rounded-xl px-4 py-2 font-semibold text-white" style={{ background: "#e11d48" }}>Confirm</button>
+            <button 
+              onClick={() => setConfirmEnd(false)} 
+              className="rounded-xl border px-4 py-2 font-semibold transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md"
+              style={{
+                borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                backgroundColor: isDark ? '#374151' : 'white',
+                color: isDark ? '#e5e7eb' : 'var(--color-primary)'
+              }}
+              onMouseEnter={(e) => {
+                if (!isDark) {
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isDark) {
+                  e.currentTarget.style.backgroundColor = 'white';
+                }
+              }}
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={endQuiz} 
+              className="rounded-xl px-4 py-2 font-semibold text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md" 
+              style={{ backgroundColor: "#e11d48" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#b91c1c';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#e11d48';
+              }}
+            >
+              Confirm
+            </button>
           </div>
         </Modal>
       )}
@@ -1307,6 +1585,22 @@ const AnswerRow = memo(function AnswerRow({
   onSelect: () => void;
   onCross: () => void;
 }) {
+  const [isDark, setIsDark] = useState(false);
+  
+  useEffect(() => {
+    const checkDark = () => setIsDark(isDarkMode());
+    checkDark();
+    
+    // Re-check on theme changes
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme-type', 'data-theme-name']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+  
   const isSelected = selectedId === choice.id || (submitted && submittedId === choice.id);
   const isCorrectChoice = choice.isCorrect;
   const percentLabel =
@@ -1318,34 +1612,109 @@ const AnswerRow = memo(function AnswerRow({
         typeof firstAttemptCount === "number" ? ` (${firstAttemptCount})` : ""
       }`
     : "First-attempt users choosing this option";
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    if (isDark) {
+      // Clear any non-dark mode styles
+      containerRef.current.style.removeProperty('background');
+      
+      // Let the CSS classes handle the styling for dark mode
+      // The classes are applied dynamically in the JSX className attribute
+    } else {
+      // Non-dark mode styling
+      containerRef.current.classList.remove('dark-mode-container');
+      containerRef.current.classList.remove('dark-mode-selected');
+      
+      if (isSelected) {
+        containerRef.current.style.setProperty('background', 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))', 'important');
+      } else {
+        containerRef.current.style.removeProperty('background');
+        containerRef.current.style.removeProperty('background-color');
+      }
+    }
+  }, [isDark, isSelected]);
 
   return (
-    <div className={[
-      "group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 select-none",
-      isSelected ? "bg-[#2F6F8F] text-white" : "border-[#E6F0F7] bg-white text-neutral-900"
-    ].join(" ")}>
-      <button onClick={onSelect} disabled={submitted || status !== "Active" || crossed} className="flex w-full items-center gap-3 text-left">
-        <span className={[
-          "grid h-5 w-5 place-items-center rounded-full border text-[11px] font-bold",
-          isSelected ? "bg-white text-[#2F6F8F] border-white" : "border-[#A5CDE4] text-[#2F6F8F]"
-        ].join(" ")}>
+    <div 
+      ref={containerRef}
+      className={`group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 select-none border quiz-answer-choice ${isDark ? 'dark-mode-container' : ''} ${isDark && isSelected ? 'dark-mode-selected' : ''} ${submitted || status !== "Active" || crossed ? 'answer-disabled' : ''}`}
+      style={{
+        backgroundColor: isDark ? (isSelected ? '#444444 !important' : '#000000 !important') : (isSelected ? 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))' : 'transparent'),
+        borderColor: isDark ? '#4b5563' : (isSelected ? 'transparent' : 'var(--color-primary)'),
+        color: isDark ? '#e5e7eb !important' : (isSelected ? 'white' : 'var(--color-text-primary)'),
+        opacity: !isSelected ? 0.9 : 1,
+        transition: 'all 0.15s ease-out'
+      }}
+      onMouseEnter={(e) => {
+        if (!submitted && status === "Active" && !crossed) {
+          if (!isDark) {
+            // Apply scale to parent in non-dark mode
+            e.currentTarget.style.transform = 'scale(1.01)';
+          }
+          // For dark mode, the CSS handles the transform
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isDark) {
+          // Reset scale in non-dark mode
+          e.currentTarget.style.transform = 'scale(1)';
+        }
+        // For dark mode, the CSS handles the reset
+      }}
+    >
+      <button
+        onClick={onSelect}
+        disabled={submitted || status !== "Active" || crossed}
+        className="flex w-full items-center gap-3 text-left rounded-xl"
+        style={{ 
+          backgroundColor: isDark ? (isSelected ? '#444444 !important' : '#000000 !important') : 'transparent',
+          border: 'none',
+          padding: 0,
+          cursor: (submitted || status !== "Active" || crossed) ? 'not-allowed' : 'pointer',
+          height: '100%',
+          transition: 'all 0.15s ease-out',
+          color: isDark ? '#e5e7eb !important' : (isSelected ? 'white' : 'var(--color-text-primary)')
+        }}
+      >
+        <span 
+          className="grid h-5 w-5 place-items-center rounded-full border text-[11px] font-bold relative z-10"
+          style={{
+            backgroundColor: isDark ? 'transparent' : (isSelected ? 'white' : 'transparent'),
+            borderColor: isDark ? '#4b5563' : (isSelected ? 'white' : 'var(--color-primary)'),
+            color: isDark ? '#e5e7eb' : 'var(--color-primary)'
+          }}
+        >
           {String.fromCharCode(65 + index)}
         </span>
-        <span className={crossed ? "line-through text-slate-400" : ""} style={{ fontSize: `${fontScale}rem` }}>
+        <span 
+          className={`${crossed ? "line-through" : ""} relative z-10`} 
+          style={{ 
+            fontSize: `${fontScale}rem`,
+            ...(crossed && { color: isDark ? '#9ca3af' : '#9ca3af' })
+          }}
+        >
           {choice.text}
         </span>
       </button>
 
-      <div className="shrink-0 flex items-center gap-3 pr-1">
+      <div className="shrink-0 flex items-center gap-3 pr-1 relative z-10">
         {submitted && (
           <>
             {!isCorrectChoice ? (
-              <span className="text-lg font-extrabold" style={{ color: "#e11d48" }} title="Incorrect">×</span>
+              <span className="text-lg font-extrabold" style={{ color: isDark ? "#ffffff" : "#e11d48" }} title="Incorrect">×</span>
             ) : (
-              <span className="text-lg font-extrabold" style={{ color: "#16a34a" }} title="Correct">✓</span>
+              <span className="text-lg font-extrabold" style={{ color: isDark ? "#ffffff" : "#16a34a" }} title="Correct">✓</span>
             )}
             <span
-              className={["text-xs tabular-nums", isSelected ? "text-white/80" : "text-slate-500"].join(" ")}
+              className="text-xs tabular-nums"
+              style={{ 
+                color: isDark ? (isSelected ? '#e5e7eb' : '#9ca3af') : (isSelected ? 'white' : '#6b7280'),
+                opacity: isSelected ? 0.8 : 1
+              }}
               title={statTitle}
             >
               {percentLabel}
@@ -1353,37 +1722,63 @@ const AnswerRow = memo(function AnswerRow({
           </>
         )}
         <button
+          id={`cross-button-${choice.id}`}
           aria-label="cross out"
           onClick={onCross}
-          className={[
-            "shrink-0 rounded-full px-2 py-0.5 text-xl leading-none font-semibold transition",
-            crossed ? (isSelected ? "text-white" : "text-[#e11d48]") : (isSelected ? "text-white/80" : "text-slate-500 hover:text-[#e11d48]")
-          ].join(" ")}
+          className={`shrink-0 px-2 py-1 leading-none relative cross-button ${crossed ? 'crossed-button' : ''}`}
+          style={{ 
+            transition: 'all 0.2s ease-out',
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            backgroundColor: crossed ? '#ff0000' : (isDark ? '#000000' : 'transparent'),
+            background: crossed ? '#ff0000' : (isDark ? '#000000' : 'transparent'),
+            border: crossed ? '2px solid #ff0000' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: '999'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.15)';
+            if (!crossed) {
+              e.currentTarget.style.border = 'none';
+              e.currentTarget.style.background = isDark ? '#000000' : 'transparent';
+            } else {
+              e.currentTarget.style.background = '#ff3333';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            
+            if (!crossed) {
+              e.currentTarget.style.border = 'none';
+              e.currentTarget.style.background = isDark ? '#000000' : 'transparent';
+            } else {
+              // Keep red background when crossed
+              e.currentTarget.style.background = '#ff0000';
+              e.currentTarget.style.border = '2px solid #ff0000';
+            }
+          }}
         >
-          ×
+          <span style={{
+            color: crossed ? 'white' : (isDark ? '#ffffff' : '#666'),
+            fontSize: '18px',
+            fontWeight: 'bold',
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)'
+          }}>×</span>
         </button>
       </div>
     </div>
   );
 });
 
-function toHTML(s: string) { return s.replace(/\n/g, "<br/>"); }
-
-function parseReferences(refs?: string | null): string[] {
-  if (!refs) return [];
-  const normalized = refs
-    .replace(/\r/g, "")
-    .replace(/[•\u2022\u2023\u25E6]/g, "\n");
-  const segments = normalized
-    .split(/\n+/)
-    .flatMap((segment) => segment.split(/\s*;\s*/));
-  const filtered = segments
-    .map((part) => part.trim())
-    .filter(Boolean);
-  return Array.from(new Set(filtered));
-}
-
 function Modal({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string; }) {
+  const isDark = isDarkMode();
+  
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onEsc);
@@ -1392,41 +1787,147 @@ function Modal({ children, onClose, title }: { children: React.ReactNode; onClos
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
-      <div className="relative w-full max-w-lg rounded-2xl border border-[#E6F0F7] bg-white shadow-xl">
-        <div className="rounded-t-2xl bg-[#2F6F8F] px-4 py-2 text-white flex items-center justify-between">
-          <div className="text-base font-semibold">{title}</div>
-          <button onClick={onClose} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/15" aria-label="Close">×</button>
+      <div className="relative w-full max-w-lg rounded-2xl shadow-xl" style={{ 
+        backgroundColor: isDark ? '#000000' : 'white'
+      }}>
+        <div className="rounded-t-2xl px-4 py-2 text-white flex items-center justify-between" style={{
+          background: isDark ? '#3f3f3f' : 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))'
+        }}>
+          <div className="text-base font-semibold text-white">{title}</div>
+          <button onClick={onClose} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 text-white" aria-label="Close">×</button>
         </div>
-        <div className="p-4">{children}</div>
+        <div className="p-4" style={{ backgroundColor: isDark ? '#000000' : 'white' }}>{children}</div>
       </div>
     </div>
   );
 }
 
 function DraggableCalc({ onClose }: { onClose: () => void }) {
+  const [isDark, setIsDark] = useState(false);
+  
+  useEffect(() => {
+    const checkDark = () => setIsDark(isDarkMode());
+    checkDark();
+    
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme-type', 'data-theme-name']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+  
+  useEffect(() => {
+    if (!isDark) return;
+    
+    // Force CSS injection for Calculator
+    const styleId = 'force-calc-black-bg';
+    let style = document.getElementById(styleId) as HTMLStyleElement;
+    if (!style) {
+      style = document.createElement('style');
+      style.id = styleId;
+      document.head.appendChild(style);
+    }
+    
+    style.textContent = `
+      [data-theme-type="dark"] .calculator-modal-force {
+        background-color: var(--color-background) !important;
+        background: var(--color-background) !important;
+      }
+      [data-theme-type="dark"] .calculator-modal-force *:not(.calculator-title-force) {
+        background-color: var(--color-background) !important;
+      }
+      [data-theme-type="dark"] .calculator-display-force {
+        background-color: var(--color-background) !important;
+        color: var(--color-text-primary) !important;
+      }
+      [data-theme-type="dark"] .calculator-button-force {
+        background-color: var(--color-background) !important;
+        color: var(--color-text-primary) !important;
+      }
+      [data-theme-type="dark"] .calculator-title-force {
+        background-color: transparent !important;
+        background: transparent !important;
+        color: var(--color-text-inverse) !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+      }
+    `;
+    
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
+  }, [isDark]);
+  
   const box = useRef<HTMLDivElement | null>(null);
   const drag = useRef<{ x: number; y: number; dx: number; dy: number } | null>(null);
   const onDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     const rect = box.current?.getBoundingClientRect();
     if (!rect) return;
     drag.current = { x: e.clientX, y: e.clientY, dx: rect.left, dy: rect.top };
-    document.addEventListener("mousemove", onMove as EventListener);
-    document.addEventListener("mouseup", onUp as EventListener, { once: true });
+    document.addEventListener("mousemove", onMove, { passive: false });
+    document.addEventListener("mouseup", onUp, { once: true });
   };
   const onMove = (e: MouseEvent) => {
+    e.preventDefault();
     if (!box.current || !drag.current) return;
-    const nx = drag.current.dx + (e.clientX - drag.current.x);
-    const ny = drag.current.dy + (e.clientY - drag.current.y);
+    const nx = Math.max(0, Math.min(window.innerWidth - 256, drag.current.dx + (e.clientX - drag.current.x)));
+    const ny = Math.max(0, Math.min(window.innerHeight - 200, drag.current.dy + (e.clientY - drag.current.y)));
     box.current.style.left = `${nx}px`;
     box.current.style.top = `${ny}px`;
+    box.current.style.transform = 'none';
   };
-  const onUp = () => { document.removeEventListener("mousemove", onMove as EventListener); drag.current = null; };
+  const onUp = (e: MouseEvent) => { 
+    e.preventDefault();
+    document.removeEventListener("mousemove", onMove); 
+    drag.current = null; 
+  };
 
   return (
-    <div ref={box} className="fixed left-10 top-24 z-40 w-64 rounded-2xl border border-[#E6F0F7] bg-white shadow-lg" style={{ userSelect: "none" }}>
-      <div onMouseDown={onDown} className="flex cursor-move items-center justify-between rounded-t-2xl border-b border-[#E6F0F7] bg-[#F3F9FC] px-3 py-2">
-        <div className="text-sm font-semibold text-[#2F6F8F]">Calculator</div>
-        <button onClick={onClose} className="rounded-lg p-1 text-[#2F6F8F]" aria-label="Close">×</button>
+    <div 
+      ref={box} 
+      className={isDark ? 'calculator-modal-force' : ''}
+      style={{ 
+        position: 'fixed',
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 40,
+        width: '256px',
+        borderRadius: '16px',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        userSelect: 'none',
+        backgroundColor: isDark ? 'var(--color-background)' : 'white',
+        border: `1px solid ${isDark ? '#4b5563' : 'var(--color-border)'}`
+      }}
+    >
+      <div onMouseDown={onDown} className="flex cursor-move items-center justify-between rounded-t-2xl border-b px-3 py-2" style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))', borderColor: 'var(--color-primary)' }}>
+        <div className={`text-sm font-semibold ${isDark ? 'calculator-title-force' : 'text-white'}`} style={{ userSelect: 'none' }}>Calculator</div>
+        <button
+          onClick={onClose}
+          className="rounded-lg p-1 text-white"
+          aria-label="Close"
+          style={{ transition: 'all 0.2s ease-out' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.1)';
+            e.currentTarget.style.backgroundColor = 'rgba(239, 29, 72, 0.2)';
+            e.currentTarget.style.color = '#e11d48';
+            e.currentTarget.style.boxShadow = '0 0 10px rgba(239, 29, 72, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'white';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >×</button>
       </div>
       <CalcPad />
     </div>
@@ -1434,6 +1935,21 @@ function DraggableCalc({ onClose }: { onClose: () => void }) {
 }
 
 function CalcPad() {
+  const [isDark, setIsDark] = useState(false);
+  
+  useEffect(() => {
+    const checkDark = () => setIsDark(isDarkMode());
+    checkDark();
+    
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme-type', 'data-theme-name']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+  
   const [val, setVal] = useState("0");
   const press = (t: string) => {
     if (t === "C") return setVal("0");
@@ -1443,11 +1959,56 @@ function CalcPad() {
   };
   const keys = ["7","8","9","/","4","5","6","*","1","2","3","-","0",".","=","+","C","←"];
   return (
-    <div className="p-3">
-      <div className="mb-2 rounded-xl border border-[#E6F0F7] bg-white p-2 text-right font-mono text-lg text-neutral-900">{val}</div>
-      <div className="grid grid-cols-4 gap-2">
+    <div style={{ padding: '12px', backgroundColor: isDark ? '#000000 !important' : 'white !important' }}>
+      <div 
+        className={isDark ? 'calculator-display-force' : ''}
+        style={{ 
+          marginBottom: '8px',
+          borderRadius: '12px',
+          border: '1px solid var(--color-primary)',
+          padding: '8px',
+          textAlign: 'right',
+          fontFamily: 'monospace',
+          fontSize: '18px',
+          fontWeight: '600',
+          backgroundColor: isDark ? 'var(--color-background)' : 'white',
+          color: isDark ? '#ffffff' : 'var(--color-primary)',
+          borderColor: 'var(--color-primary)' 
+        }}
+      >
+        {val}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
         {keys.map((k) => (
-          <button key={k} onClick={() => press(k)} className={["rounded-xl border px-3 py-2", k==="="? "bg-[#56A2CD] text-white border-[#56A2CD]" : "bg-white border-[#E6F0F7] hover:bg-[#F3F9FC] text-[#2F6F8F]"].join(" ")}>{k}</button>
+          <button 
+            key={k} 
+            onClick={() => press(k)} 
+            className={isDark ? 'calculator-button-force' : ''}
+            style={{ 
+              borderRadius: '12px',
+              border: '1px solid var(--color-primary)',
+              paddingLeft: '12px',
+              paddingRight: '12px',
+              paddingTop: '8px',
+              paddingBottom: '8px',
+              fontWeight: '600',
+              transition: 'all 150ms ease-out',
+              cursor: 'pointer',
+              backgroundColor: isDark ? 'var(--color-background)' : 'white',
+              color: isDark ? '#ffffff' : 'var(--color-primary)',
+              borderColor: 'var(--color-primary)' 
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-primary)';
+              e.currentTarget.style.color = 'white';
+              e.currentTarget.style.boxShadow = '0 0 15px rgba(0, 0, 0, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = isDark ? 'var(--color-background)' : 'white';
+              e.currentTarget.style.color = isDark ? '#ffffff' : 'var(--color-primary)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >{k}</button>
         ))}
       </div>
     </div>
@@ -1457,35 +2018,371 @@ function CalcPad() {
 function LabDrawer({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<"Serum" | "CSF" | "Blood" | "Urine" | "BMI">("Serum");
   const [q, setQ] = useState("");
+  const [isDark, setIsDark] = useState(false);
+  
+  useEffect(() => {
+    const checkDark = () => setIsDark(isDarkMode());
+    checkDark();
+    
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme-type', 'data-theme-name']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+  
+  useEffect(() => {
+    if (!isDark) return;
+    
+    // Force CSS injection for Lab Values
+    const styleId = 'force-lab-black-bg';
+    let style = document.getElementById(styleId) as HTMLStyleElement;
+    if (!style) {
+      style = document.createElement('style');
+      style.id = styleId;
+      document.head.appendChild(style);
+    }
+    
+    style.textContent = `
+      [data-theme-type="dark"] .lab-modal-force {
+        background-color: var(--color-background) !important;
+        background: var(--color-background) !important;
+        min-height: 100% !important;
+      }
+      [data-theme-type="dark"] .lab-modal-force::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background-color: var(--color-background) !important;
+        z-index: -1 !important;
+      }
+      [data-theme-type="dark"] .lab-modal-force * {
+        background-color: var(--color-background) !important;
+      }
+      [data-theme-type="dark"] .lab-input-force {
+        background-color: var(--color-background) !important;
+        color: var(--color-text-primary) !important;
+      }
+      [data-theme-type="dark"] .lab-item-force {
+        background-color: var(--color-background) !important;
+        color: var(--color-text-primary) !important;
+      }
+      [data-theme-type="dark"] .lab-button-force {
+        background-color: var(--color-background) !important;
+        color: var(--color-text-primary) !important;
+      }
+      [data-theme-type="dark"] .lab-title-force {
+        background-color: transparent !important;
+        color: var(--color-text-inverse) !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+      }
+    `;
+    
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
+  }, [isDark]);
   const all: Record<string, { name: string; value: string }[]> = {
-    Serum: [{ name: "Sodium", value: "135–145 mEq/L" }, { name: "Potassium", value: "3.5–5.0 mEq/L" }, { name: "Creatinine", value: "0.6–1.3 mg/dL" }],
-    CSF: [{ name: "Opening pressure", value: "90–180 mmH2O" }],
-    Blood: [{ name: "Hemoglobin (M)", value: "13.5–17.5 g/dL" }],
-    Urine: [{ name: "Specific Gravity", value: "1.005–1.030" }],
-    BMI: [{ name: "Normal BMI", value: "18.5–24.9" }],
+    Serum: [
+      { name: "Alanine aminotransferase (ALT)", value: "10-40 U/L | SI: 10-40 U/L" },
+      { name: "Aspartate aminotransferase (AST)", value: "12-38 U/L | SI: 12-38 U/L" },
+      { name: "Alkaline phosphatase", value: "25-100 U/L | SI: 25-100 U/L" },
+      { name: "Amylase", value: "25-125 U/L | SI: 25-125 U/L" },
+      { name: "Bilirubin (Total)", value: "0.1-1.0 mg/dL | SI: 2-17 μmol/L" },
+      { name: "Bilirubin (Direct)", value: "0.0-0.3 mg/dL | SI: 0-5 μmol/L" },
+      { name: "Calcium", value: "8.4-10.2 mg/dL | SI: 2.1-2.6 mmol/L" },
+      { name: "Cholesterol (Total, Normal)", value: "<200 mg/dL | SI: <5.2 mmol/L" },
+      { name: "Cholesterol (Total, High)", value: ">240 mg/dL | SI: >6.2 mmol/L" },
+      { name: "Cholesterol (HDL)", value: "40-60 mg/dL | SI: 1.0-1.6 mmol/L" },
+      { name: "Cholesterol (LDL)", value: "<160 mg/dL | SI: <4.2 mmol/L" },
+      { name: "Triglycerides (Normal)", value: "<150 mg/dL | SI: <1.70 mmol/L" },
+      { name: "Triglycerides (Borderline)", value: "151-199 mg/dL | SI: 1.71-2.25 mmol/L" },
+      { name: "Cortisol (0800 h)", value: "5-23 μg/dL | SI: 138-635 nmol/L" },
+      { name: "Cortisol (1600 h)", value: "3-15 μg/dL | SI: 82-413 nmol/L" },
+      { name: "Cortisol (2000 h)", value: "<50% of 0800 h | SI: Fraction <0.50" },
+      { name: "Creatine kinase (Male)", value: "25-90 U/L | SI: 25-90 U/L" },
+      { name: "Creatine kinase (Female)", value: "10-70 U/L | SI: 10-70 U/L" },
+      { name: "Creatinine", value: "0.6-1.2 mg/dL | SI: 53-106 μmol/L" },
+      { name: "Urea nitrogen", value: "7-18 mg/dL | SI: 1.2-3.0 mmol/L" },
+      { name: "Sodium (Na+)", value: "136-146 mEq/L | SI: 136-146 mmol/L" },
+      { name: "Potassium (K+)", value: "3.5-5.0 mEq/L | SI: 3.5-5.0 mmol/L" },
+      { name: "Chloride (Cl-)", value: "95-105 mEq/L | SI: 95-105 mmol/L" },
+      { name: "Bicarbonate (HCO3-)", value: "22-28 mEq/L | SI: 22-28 mmol/L" },
+      { name: "Magnesium (Mg2+)", value: "1.5-2.0 mEq/L | SI: 0.75-1.0 mmol/L" },
+      { name: "Ferritin (Male)", value: "20-250 ng/mL | SI: 20-250 μg/L" },
+      { name: "Ferritin (Female)", value: "10-120 ng/mL | SI: 10-120 μg/L" },
+      { name: "FSH (Male)", value: "4-25 mIU/mL | SI: 4-25 U/L" },
+      { name: "FSH (Female, premenopause)", value: "4-30 mIU/mL | SI: 4-30 U/L" },
+      { name: "FSH (Female, midcycle peak)", value: "10-90 mIU/mL | SI: 10-90 U/L" },
+      { name: "FSH (Female, postmenopause)", value: "40-250 mIU/mL | SI: 40-250 U/L" },
+      { name: "Glucose (Fasting)", value: "70-110 mg/dL | SI: 3.8-5.6 mmol/L" },
+      { name: "Glucose (Random, non-fasting)", value: "<140 mg/dL | SI: <7.7 mmol/L" },
+      { name: "Growth hormone (Fasting)", value: "<5 ng/mL | SI: <5 μg/L" },
+      { name: "Growth hormone (Provocative)", value: ">7 ng/mL | SI: >7 μg/L" },
+      { name: "Iron (Male)", value: "65-175 μg/dL | SI: 11.6-31.3 μmol/L" },
+      { name: "Iron (Female)", value: "50-170 μg/dL | SI: 9.0-30.4 μmol/L" },
+      { name: "Total iron-binding capacity", value: "250-400 μg/dL | SI: 44.8-71.6 μmol/L" },
+      { name: "Transferrin", value: "200-360 mg/dL | SI: 2.0-3.6 g/L" },
+      { name: "Lactate dehydrogenase", value: "45-200 U/L | SI: 45-200 U/L" },
+      { name: "LH (Male)", value: "6-23 mIU/mL | SI: 6-23 U/L" },
+      { name: "LH (Female, follicular phase)", value: "5-30 mIU/mL | SI: 5-30 U/L" },
+      { name: "LH (Female, midcycle)", value: "75-150 mIU/mL | SI: 75-150 U/L" },
+      { name: "LH (Female, postmenopause)", value: "30-200 mIU/mL | SI: 30-200 U/L" },
+      { name: "Osmolality", value: "275-295 mOsmol/kg H2O | SI: 275-295 mOsmol/kg H2O" },
+      { name: "Parathyroid hormone (PTH)", value: "10-60 pg/mL | SI: 10-60 ng/mL" },
+      { name: "Phosphorus (inorganic)", value: "3.0-4.5 mg/dL | SI: 1.0-1.5 mmol/L" },
+      { name: "Prolactin (Male)", value: "<17 ng/mL | SI: <17 μg/L" },
+      { name: "Prolactin (Female)", value: "<25 ng/mL | SI: <25 μg/L" },
+      { name: "Proteins (Total)", value: "6.0-7.8 g/dL | SI: 60-78 g/L" },
+      { name: "Albumin", value: "3.5-5.5 g/dL | SI: 35-55 g/L" },
+      { name: "Globulin", value: "2.3-3.5 g/dL | SI: 23-35 g/L" },
+      { name: "Troponin I", value: "<0.04 ng/dL | SI: <0.04 μg/L" },
+      { name: "TSH", value: "0.4-4.0 μU/mL | SI: 0.4-4.0 μU/mL" },
+      { name: "Thyroidal iodine (123I) uptake", value: "8%-30% of dose/24 h | SI: 0.08-0.30/24 h" },
+      { name: "Thyroxine (T4)", value: "5-12 μg/dL | SI: 64-155 nmol/L" },
+      { name: "Free T4", value: "0.9-1.7 ng/dL | SI: 12.0-21.9 pmol/L" },
+      { name: "Triiodothyronine (T3)", value: "100-200 ng/dL | SI: 1.5-3.1 nmol/L" },
+      { name: "T3 resin uptake", value: "25%-35% | SI: 0.25-0.35" },
+      { name: "Uric acid", value: "3.0-8.2 mg/dL | SI: 0.18-0.48 mmol/L" },
+      { name: "IgA", value: "76-390 mg/dL | SI: 0.76-3.90 g/L" },
+      { name: "IgE", value: "0-380 IU/mL | SI: 0-380 kIU/L" },
+      { name: "IgG", value: "650-1500 mg/dL | SI: 6.5-15.0 g/L" },
+      { name: "IgM", value: "50-300 mg/dL | SI: 0.5-3.0 g/L" },
+      { name: "ABG pH", value: "7.35-7.45 | SI: [H+] 36-44 nmol/L" },
+      { name: "ABG Pco2", value: "33-45 mm Hg | SI: 4.4-5.9 kPa" },
+      { name: "ABG Po2", value: "75-105 mm Hg | SI: 10.0-14.0 kPa" },
+    ],
+    CSF: [
+      { name: "Cell count", value: "0-5/mm3 | SI: 0-5 x 106/L" },
+      { name: "Chloride", value: "118-132 mEq/L | SI: 118-132 mmol/L" },
+      { name: "Gamma globulin", value: "3%-12% total proteins | SI: 0.03-0.12" },
+      { name: "Glucose", value: "40-70 mg/dL | SI: 2.2-3.9 mmol/L" },
+      { name: "Pressure", value: "70-180 mm H2O | SI: 70-180 mm H2O" },
+      { name: "Proteins, total", value: "<40 mg/dL | SI: <0.40 g/L" },
+    ],
+    Blood: [
+      { name: "Erythrocyte count (Male)", value: "4.3-5.9 million/mm3 | SI: 4.3-5.9 x 1012/L" },
+      { name: "Erythrocyte count (Female)", value: "3.5-5.5 million/mm3 | SI: 3.5-5.5 x 1012/L" },
+      { name: "ESR (Male)", value: "0-15 mm/h | SI: 0-15 mm/h" },
+      { name: "ESR (Female)", value: "0-20 mm/h | SI: 0-20 mm/h" },
+      { name: "Hematocrit (Male)", value: "41%-53% | SI: 0.41-0.53" },
+      { name: "Hematocrit (Female)", value: "36%-46% | SI: 0.36-0.46" },
+      { name: "Hemoglobin (Male)", value: "13.5-17.5 g/dL | SI: 135-175 g/L" },
+      { name: "Hemoglobin (Female)", value: "12.0-16.0 g/dL | SI: 120-160 g/L" },
+      { name: "Hemoglobin A1c", value: "≤6% | SI: ≤42 mmol/mol" },
+      { name: "Hemoglobin, plasma", value: "<4 mg/dL | SI: <0.62 mmol/L" },
+      { name: "Leukocyte count (WBC)", value: "4500-11,000/mm3 | SI: 4.5-11.0 x 109/L" },
+      { name: "Neutrophils, segmented", value: "54%-62% | SI: 0.54-0.62" },
+      { name: "Neutrophils, bands", value: "3%-5% | SI: 0.03-0.05" },
+      { name: "Eosinophils", value: "1%-3% | SI: 0.01-0.03" },
+      { name: "Basophils", value: "0%-0.75% | SI: 0.00-0.0075" },
+      { name: "Lymphocytes", value: "25%-33% | SI: 0.25-0.33" },
+      { name: "Monocytes", value: "3%-7% | SI: 0.03-0.07" },
+      { name: "CD4+ T-lymphocyte count", value: "≥500/mm3 | SI: ≥0.5 x 109/L" },
+      { name: "Platelet count", value: "150,000-400,000/mm3 | SI: 150-400 x 109/L" },
+      { name: "Reticulocyte count", value: "0.5%-1.5% | SI: 0.005-0.015" },
+      { name: "D-Dimer", value: "≤250 ng/mL | SI: ≤1.4 nmol/L" },
+      { name: "PTT (activated)", value: "25-40 seconds | SI: 25-40 seconds" },
+      { name: "Prothrombin time (PT)", value: "11-15 seconds | SI: 11-15 seconds" },
+      { name: "MCH", value: "25-35 pg/cell | SI: 0.39-0.54 fmol/cell" },
+      { name: "MCHC", value: "31%-36% Hb/cell | SI: 4.8-5.6 mmol Hb/L" },
+      { name: "MCV", value: "80-100 μm3 | SI: 80-100 fL" },
+      { name: "Plasma volume (Male)", value: "25-43 mL/kg | SI: 0.025-0.043 L/kg" },
+      { name: "Plasma volume (Female)", value: "28-45 mL/kg | SI: 0.028-0.045 L/kg" },
+      { name: "Red cell volume (Male)", value: "20-36 mL/kg | SI: 0.020-0.036 L/kg" },
+      { name: "Red cell volume (Female)", value: "19-31 mL/kg | SI: 0.019-0.031 L/kg" },
+    ],
+    Urine: [
+      { name: "Calcium", value: "100-300 mg/24 h | SI: 2.5-7.5 mmol/24 h" },
+      { name: "Creatinine clearance (Male)", value: "97-137 mL/min | SI: 97-137 mL/min" },
+      { name: "Creatinine clearance (Female)", value: "88-128 mL/min | SI: 88-128 mL/min" },
+      { name: "Osmolality", value: "50-1200 mOsmol/kg H2O | SI: 50-1200 mmol/kg" },
+      { name: "Oxalate", value: "8-40 μg/mL | SI: 90-445 μmol/L" },
+      { name: "Proteins, total", value: "<150 mg/24 h | SI: <0.15 g/24 h" },
+      { name: "17-Hydroxycorticosteroids (Male)", value: "3.0-10.0 mg/24 h | SI: 8.2-27.6 μmol/24 h" },
+      { name: "17-Hydroxycorticosteroids (Female)", value: "2.0-8.0 mg/24 h | SI: 5.5-22.0 μmol/24 h" },
+      { name: "17-Ketosteroids (Male)", value: "8-20 mg/24 h | SI: 28-70 μmol/24 h" },
+      { name: "17-Ketosteroids (Female)", value: "6-15 mg/24 h | SI: 21-52 μmol/24 h" },
+    ],
+    BMI: [
+      { name: "Normal BMI (Adult)", value: "19-25 kg/m2" },
+    ],
   };
   const list = (all[tab] ?? []).filter((x) => x.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <div className="fixed right-0 z-40 w-96 border-l border-[#E6F0F7] bg-white shadow-lg" style={{ top: `${TOP_H}px`, bottom: `${BOTTOM_H}px` }}>
-      <div className="flex items-center justify-between border-b border-[#E6F0F7] bg-[#F3F9FC] px-3 py-2">
-        <div className="text-sm font-semibold text-[#2F6F8F]">Lab Values</div>
-        <button onClick={onClose} className="rounded-lg p-1 text-[#2F6F8F]" aria-label="Close">×</button>
+    <div 
+      className={isDark ? 'lab-modal-force' : ''}
+      style={{ 
+        position: 'fixed',
+        right: 0,
+        zIndex: 40,
+        width: '384px',
+        borderLeft: '1px solid var(--color-primary)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        top: `${TOP_H}px`, 
+        bottom: `${BOTTOM_H}px`, 
+        backgroundColor: isDark ? 'var(--color-background)' : 'white',
+        borderColor: 'var(--color-primary)',
+        minHeight: '100%'
+      }}
+    >
+      {/* Background fill to ensure complete coverage */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: isDark ? 'var(--color-background)' : 'white',
+        zIndex: -1
+      }} />
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        borderBottom: '1px solid var(--color-primary)', 
+        padding: '8px 12px',
+        background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))', 
+        borderColor: 'var(--color-primary)' 
+      }}>
+        <div className={`text-sm font-semibold ${isDark ? 'lab-title-force' : 'text-white'}`} style={{ userSelect: 'none' }}>Lab Values</div>
+        <button
+          onClick={onClose}
+          className="rounded-lg p-1 text-white"
+          aria-label="Close"
+          style={{ transition: 'all 0.2s ease-out' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.1)';
+            e.currentTarget.style.backgroundColor = 'rgba(239, 29, 72, 0.2)';
+            e.currentTarget.style.color = '#e11d48';
+            e.currentTarget.style.boxShadow = '0 0 10px rgba(239, 29, 72, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'white';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >×</button>
       </div>
-      <div className="px-3 py-3">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search biomarker…" className="w-full rounded-xl border border-[#E6F0F7] p-2 outline-none focus:ring-2 focus:ring-[#A5CDE4] text-neutral-900" />
+      <div style={{ padding: '12px', backgroundColor: isDark ? 'var(--color-background)' : 'white' }}>
+        <input 
+          value={q} 
+          onChange={(e) => setQ(e.target.value)} 
+          placeholder="Search biomarker…" 
+          className={`${isDark ? 'lab-input-force' : ''} w-full rounded-xl border p-2 outline-none`}
+          style={{ 
+            backgroundColor: isDark ? 'var(--color-background)' : 'white',
+            color: isDark ? 'var(--color-text-primary)' : '#000000',
+            borderColor: 'var(--color-border)'
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'var(--color-primary)';
+            e.currentTarget.style.boxShadow = '0 0 0 2px var(--color-primary-light)';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = 'var(--color-border)';
+            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.backgroundColor = isDark ? 'var(--color-background)' : 'white';
+          }}
+        />
       </div>
-      <div className="flex flex-wrap gap-2 px-3">
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '0 12px', backgroundColor: isDark ? 'var(--color-background)' : 'white' }}>
         {(["Serum","CSF","Blood","Urine","BMI"] as const).map((t)=>(
-          <button key={t} onClick={()=>setTab(t)} className={["rounded-xl border px-3 py-1 text-sm", tab===t? "bg-[#56A2CD] text-white border-[#56A2CD]" : "bg-white text-[#2F6F8F] border-[#E6F0F7] hover:bg-[#F3F9FC]"].join(" ")}>{t}</button>
+          <button
+            key={t}
+            onClick={()=>setTab(t)}
+            className={["rounded-xl border px-3 py-1 text-sm", tab===t? "text-white" : ""].join(" ")}
+            style={{
+              ...(tab === t ? {
+                background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
+                borderColor: 'var(--color-primary)'
+              } : {
+                backgroundColor: isDark ? '#000000' : 'white',
+                color: isDark ? '#ffffff' : 'var(--color-primary)',
+                borderColor: isDark ? '#4b5563' : 'var(--color-primary)'
+              }),
+              transition: 'all 0.2s ease-out'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.15)';
+              if (tab === t) {
+                e.currentTarget.style.opacity = '0.9';
+              } else {
+                e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+              if (tab === t) {
+                e.currentTarget.style.opacity = '1';
+              } else {
+                e.currentTarget.style.backgroundColor = isDark ? '#000000' : 'white';
+                e.currentTarget.style.color = isDark ? '#ffffff' : 'var(--color-primary)';
+              }
+            }}
+          >{t}</button>
         ))}
       </div>
-      <div className="mt-3 max-h-[calc(100%-130px)] overflow-auto px-3 pb-20">
-        {list.length===0 && <div className="p-2 text-sm text-slate-500">No results.</div>}
+      <div style={{ 
+        marginTop: '12px', 
+        maxHeight: 'calc(100% - 130px)', 
+        overflow: 'auto', 
+        padding: '0 12px 80px 12px',
+        backgroundColor: isDark ? '#000000 !important' : 'white !important' 
+      }}>
+        {list.length===0 && (
+          <div 
+            style={{ 
+              padding: '8px', 
+              fontSize: '14px',
+              color: isDark ? '#ffffff' : '#6b7280',
+              backgroundColor: isDark ? '#000000 !important' : 'white !important'
+            }}
+          >
+            No results.
+          </div>
+        )}
         {list.map((row,i)=>(
-          <div key={row.name+"-"+i} className="mb-2 rounded-xl border border-[#E6F0F7] bg-white p-3">
-            <div className="text-sm font-semibold text-[#2F6F8F]">{row.name}</div>
-            <div className="text-neutral-900">{row.value}</div>
+          <div 
+            key={row.name+"-"+i} 
+            style={{ 
+              marginBottom: '8px',
+              borderRadius: '12px',
+              border: '1px solid var(--color-primary)',
+              padding: '12px',
+              backgroundColor: isDark ? '#000000 !important' : 'white !important',
+              borderColor: 'var(--color-primary)' 
+            }}
+          >
+            <div 
+              style={{ 
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#ffffff !important'
+              }}
+            >
+              {row.name}
+            </div>
+            <div 
+              style={{ color: '#ffffff !important' }}
+            >
+              {row.value}
+            </div>
           </div>
         ))}
       </div>

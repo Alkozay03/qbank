@@ -26,6 +26,38 @@ export function ClerkshipAdapter(): Adapter {
   return {
     ...base,
 
+    async useVerificationToken(params) {
+      try {
+        // Normalize the identifier (email) to lowercase
+        const normalizedIdentifier = params.identifier.toLowerCase().trim();
+        
+        console.warn(`🔍 Looking for token with identifier: ${normalizedIdentifier}`);
+        
+        // Try to find and delete the token
+        const token = await prisma.verificationToken.delete({
+          where: {
+            identifier_token: {
+              identifier: normalizedIdentifier,
+              token: params.token,
+            },
+          },
+        });
+        
+        console.warn(`✅ Token found and deleted for: ${normalizedIdentifier}`);
+        return token;
+      } catch {
+        console.error(`❌ Token not found for identifier: ${params.identifier}, token: ${params.token}`);
+        
+        // Check what tokens exist for this identifier
+        const existingTokens = await prisma.verificationToken.findMany({
+          where: { identifier: { contains: params.identifier, mode: 'insensitive' } },
+        });
+        console.error(`Found ${existingTokens.length} token(s) for similar identifier:`, existingTokens);
+        
+        return null;
+      }
+    },
+
     async getUser(id) {
       const u = await prisma.user.findUnique({
         where: { id },
@@ -63,6 +95,7 @@ export function ClerkshipAdapter(): Adapter {
           // updatedAt: true, // Column doesn't exist yet
           gradYear: true,
           role: true,
+          approvalStatus: true,
         },
       });
       if (!u) return null;
@@ -91,9 +124,11 @@ export function ClerkshipAdapter(): Adapter {
           firstName,
           lastName,
           image: data.image ?? null,
+          // approvalStatus defaults to PENDING from schema
         },
-        select: { id: true, email: true, firstName: true, lastName: true, image: true },
+        select: { id: true, email: true, firstName: true, lastName: true, image: true, approvalStatus: true },
       });
+      console.warn(`✅ Created new user: ${u.email} with status: ${u.approvalStatus}`);
       const name = [u.firstName ?? "", u.lastName ?? ""].join(" ").trim() || null;
       return { id: u.id, name, email: u.email, emailVerified: null, image: u.image ?? null } satisfies AdapterUser;
     },

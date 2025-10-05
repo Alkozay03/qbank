@@ -15,7 +15,7 @@ export async function GET() {
     include: { items: true },
   });
 
-  if (!schedule) return NextResponse.json({ title: "Schedule", blocks: [] });
+    if (!schedule) return NextResponse.json({ title: "Schedule", targetRotation: null, blocks: [] });
 
   // Map DB items -> editor "blocks" shape the UI expects
   const blocks = schedule.items.map((b) => ({
@@ -30,15 +30,16 @@ export async function GET() {
     link: b.link ?? undefined,
   }));
 
-  return NextResponse.json({ title: schedule.title, blocks });
+    return NextResponse.json({ title: schedule.title, targetRotation: schedule.targetRotation, blocks });
 }
 
 export async function POST(req: Request) {
   await requireRole(["ADMIN", "MASTER_ADMIN"]);
 
   const body = await req.json();
-  const { title, blocks } = body as {
+  const { title, targetRotation, blocks } = body as {
     title: string;
+    targetRotation?: string | null;
     blocks: Array<{
       id?: string;
       dayOfWeek: number;
@@ -57,8 +58,8 @@ export async function POST(req: Request) {
   // Upsert Schedule for this weekStart
   const schedule = await db.schedule.upsert({
     where: { weekStart },
-    create: { weekStart, title },
-    update: { title },
+    create: { weekStart, title, targetRotation: targetRotation || null },
+    update: { title, targetRotation: targetRotation || null },
   });
 
   // Replace items for this week

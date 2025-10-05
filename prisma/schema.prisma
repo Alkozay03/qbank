@@ -1,5 +1,7 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -16,6 +18,8 @@ model User {
   email             String             @unique
   image             String?
   role              Role               @default(MEMBER)
+  approvalStatus    ApprovalStatus     @default(PENDING)
+  theme             String?            @default("blue")
   gradYear          Int?
   rotation          String?
   createdAt         DateTime           @default(now())
@@ -29,6 +33,11 @@ model User {
   responses         Response[]         @relation("UserResponses")
   schedules         Schedule[]         @relation("ScheduleCreator")
   sessions          Session[]
+  conversations     Conversation[]
+  messages          Message[]
+  questionModes     UserQuestionMode[]
+
+  @@index([approvalStatus], map: "idx_user_approval_status")
 }
 
 model Account {
@@ -85,6 +94,7 @@ model Question {
   occurrences      QuestionOccurrence[]
   questionTags     QuestionTag[]
   quizItems        QuizItem[]
+  userModes        UserQuestionMode[]
 
   @@index([id], map: "idx_question_id")
 }
@@ -204,19 +214,36 @@ model QuestionTag {
   @@index([tagId], map: "idx_questiontag_tagid")
 }
 
+model UserQuestionMode {
+  userId     String
+  questionId String
+  mode       String   // "unused", "correct", "incorrect", "omitted", "marked"
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, questionId])
+  @@index([userId], map: "idx_userquestionmode_userid")
+  @@index([questionId], map: "idx_userquestionmode_questionid")
+  @@index([userId, mode], map: "idx_userquestionmode_userid_mode")
+}
+
 model Notification {
-  id           String             @id @default(cuid())
-  shortId      Int                @unique
-  title        String
-  body         String
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  isDeleted    Boolean            @default(false)
-  createdById  String?
-  createdBy    User?              @relation("NotificationCreator", fields: [createdById], references: [id])
-  readReceipts NotificationRead[]
+  id             String             @id @default(cuid())
+  shortId        Int                @unique
+  title          String
+  body           String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  isDeleted      Boolean            @default(false)
+  targetRotation String?            // null = global, or specific rotation name
+  createdById    String?
+  createdBy      User?              @relation("NotificationCreator", fields: [createdById], references: [id])
+  readReceipts   NotificationRead[]
 
   @@index([isDeleted], map: "idx_notification_isdeleted")
+  @@index([targetRotation], map: "idx_notification_targetrotation")
 }
 
 model NotificationRead {
@@ -234,14 +261,17 @@ model NotificationRead {
 }
 
 model Schedule {
-  id          String         @id @default(cuid())
-  title       String         @default("Week Schedule")
-  weekStart   DateTime       @unique
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  createdById String?
-  createdBy   User?          @relation("ScheduleCreator", fields: [createdById], references: [id])
-  items       ScheduleItem[]
+  id             String         @id @default(cuid())
+  title          String         @default("Week Schedule")
+  weekStart      DateTime       @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  targetRotation String?        // null = global, or specific rotation name
+  createdById    String?
+  createdBy      User?          @relation("ScheduleCreator", fields: [createdById], references: [id])
+  items          ScheduleItem[]
+
+  @@index([targetRotation], map: "idx_schedule_targetrotation")
 }
 
 model ScheduleItem {
@@ -298,6 +328,12 @@ enum Role {
   @@map("Role")
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
 enum ScheduleItemType {
   HOSPITAL_SHIFT
   LECTURE
@@ -330,4 +366,38 @@ model HelpItem {
   updatedAt   DateTime @updatedAt
 
   @@map("HelpItem")
+}
+
+model Conversation {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+  
+  // Track unread messages for both user and admin
+  userUnreadCount  Int @default(0)
+  adminUnreadCount Int @default(0)
+  
+  // Track last message for ordering
+  lastMessageAt DateTime @default(now())
+
+  @@map("Conversation")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content        String
+  imageUrl       String?
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("Message")
 }

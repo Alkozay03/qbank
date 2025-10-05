@@ -13,6 +13,9 @@ const nextConfig = {
   
   // Clean and simple - no AI-related exclusions needed
   serverExternalPackages: [],
+
+  // Prisma configuration for Vercel deployment
+  serverComponentsExternalPackages: ['@prisma/client', '@prisma/engines'],
   
   // Basic optimizations only
   webpack: (config, { dev }) => {

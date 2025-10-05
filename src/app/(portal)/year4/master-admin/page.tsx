@@ -3,10 +3,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
+import ForceBlueTheme from "@/components/ForceBlueTheme";
 
-const AI_EXTRACTOR_ENABLED =
-  process.env.NEXT_PUBLIC_ENABLE_AI_EXTRACTOR === "true" ||
-  process.env.ENABLE_AI_EXTRACTOR === "true";
+
 
 export default async function MasterAdminHub() {
   // Only allow access to MASTER_ADMIN
@@ -28,19 +27,14 @@ export default async function MasterAdminHub() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6">
-      <h1 className="text-2xl font-bold text-[#2F6F8F]">Master Admin Settings</h1>
-      <p className="mt-2 text-slate-600">Manage user roles, system administration, and advanced settings.</p>
+    <ForceBlueTheme>
+      <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6">
+      <h1 className="text-2xl font-bold text-primary">Master Admin Settings</h1>
+      <p className="mt-2 text-secondary">Manage user roles, system administration, and advanced settings.</p>
       
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card href="/year4/master-admin/role-manager" label="Role Manager" description="Manage user roles and permissions" />
         <Card href="/year4/master-admin/user-list" label="User List" description="View and manage all users" />
-        <Card
-          href="/year4/admin/ai-question-builder"
-          label="AI Question Builder"
-          description="Import questions from PDFs and images"
-          disabled={!AI_EXTRACTOR_ENABLED}
-        />
         <Card href="/year4/admin/bulk-question-manager" label="Bulk Question Manager" description="Upload PDFs and manage multiple questions with references and tags" />
         <Card href="/year4/admin/view-questions" label="View Questions" description="Filter existing questions and open them for editing" />
         {/* Manual Question Management page removed */}
@@ -52,8 +46,8 @@ export default async function MasterAdminHub() {
       </div>
 
       <div className="mt-8">
-        <h2 className="text-xl font-bold text-[#2F6F8F]">System Status</h2>
-        <div className="mt-3 bg-white p-4 rounded-lg border border-[#E6F0F7] shadow-sm">
+        <h2 className="text-xl font-bold text-primary">System Status</h2>
+        <div className="mt-3 bg-card p-4 rounded-lg border border-border shadow-sm">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatusCard title="Database" status="Healthy" />
             <StatusCard title="Storage" status="Healthy" />
@@ -61,7 +55,8 @@ export default async function MasterAdminHub() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ForceBlueTheme>
   );
 }
 
@@ -78,19 +73,17 @@ function Card({
 }) {
   if (disabled) {
     return (
-      <div className="rounded-2xl border border-[#E6F0F7] bg-white p-5 opacity-60">
-        <div className="text-lg font-semibold text-[#2F6F8F]">{label}</div>
-        <div className="mt-1 text-sm text-slate-600">
-          AI extractor archived. Set ENABLE_AI_EXTRACTOR=true in .env.local to restore this tool.
-        </div>
+      <div className="rounded-2xl border border-border bg-card p-5 opacity-60">
+        <div className="text-lg font-semibold text-primary">{label}</div>
+        <div className="mt-1 text-sm text-secondary">{description}</div>
       </div>
     );
   }
 
   return (
-    <Link href={href} className="rounded-2xl border border-[#E6F0F7] bg-white p-5 shadow hover:bg-[#F3F9FC]">
-      <div className="text-lg font-semibold text-[#2F6F8F]">{label}</div>
-      <div className="mt-1 text-sm text-slate-600">{description}</div>
+    <Link href={href} className="rounded-2xl border border-border bg-card p-5 shadow hover:bg-accent">
+      <div className="text-lg font-semibold text-primary">{label}</div>
+      <div className="mt-1 text-sm text-secondary">{description}</div>
     </Link>
   );
 }

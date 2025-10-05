@@ -72,14 +72,14 @@ async function ensureOriginColumnPresence(): Promise<boolean> {
   return cachedHasOriginColumn;
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { questionId: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ questionId: string }> }) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { questionId } = params;
+    const { questionId } = await params;
     if (!questionId) {
       return NextResponse.json({ error: "Question id required" }, { status: 400 });
     }
@@ -163,14 +163,14 @@ export async function GET(_req: NextRequest, { params }: { params: { questionId:
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { questionId: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ questionId: string }> }) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { questionId } = params;
+    const { questionId } = await params;
     if (!questionId) {
       return NextResponse.json({ error: "Question id required" }, { status: 400 });
     }
@@ -218,6 +218,16 @@ export async function POST(req: NextRequest, { params }: { params: { questionId:
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
     }
 
+    // Get the actual user from database to ensure valid createdById
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const hasOriginColumn = await ensureOriginColumnPresence();
 
     let comment;
@@ -229,7 +239,7 @@ export async function POST(req: NextRequest, { params }: { params: { questionId:
           imageUrl: sanitizedImageUrl || null,
           authorName: authorName || "Previous Batch",
           ...(hasOriginColumn ? { origin: requestedOrigin } : {}),
-          createdById: session.user.id,
+          createdById: user.id,
         },
         include: {
           createdBy: {

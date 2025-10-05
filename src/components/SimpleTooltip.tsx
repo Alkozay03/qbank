@@ -74,7 +74,7 @@ export default function SimpleTooltip({ text, children }: SimpleTooltipProps) {
         animation: 'tooltipFadeIn 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards'
       }}
     >
-      <div className="bg-gradient-to-r from-[#F3F9FC] to-[#E6F0F7] text-[#2F6F8F] text-xs font-medium px-3 py-1.5 rounded-full shadow-lg border border-[#E6F0F7] whitespace-nowrap transform scale-95 opacity-0"
+      <div className="bg-primary text-inverse text-xs font-semibold px-3 py-1.5 rounded-full shadow-xl border border-primary-dark whitespace-nowrap transform scale-95 opacity-0"
            style={{
              animation: 'tooltipScale 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0.02s forwards'
            }}>

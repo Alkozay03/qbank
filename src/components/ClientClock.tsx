@@ -13,11 +13,27 @@ interface ClientClockProps {
 
 export default function ClientClock({ user }: ClientClockProps) {
   const [now, setNow] = useState<Date>(() => new Date());
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // Prevent hydration mismatch by not rendering time on server
+  if (!isClient) {
+    return (
+      <div className="text-center">
+        <div className="text-2xl font-semibold text-primary mb-3">
+          Loading...
+        </div>
+        <div className="text-4xl font-extrabold text-primary">
+          --:--:--
+        </div>
+      </div>
+    );
+  }
 
   // Format time for local timezone
   const localTime = now.toLocaleTimeString();
@@ -99,22 +115,22 @@ export default function ClientClock({ user }: ClientClockProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-16 max-w-6xl mx-auto">
           {/* Local Time */}
           <div className="text-center">
-            <div className="text-lg font-medium text-slate-600 mb-2">{localCountry}</div>
-            <div className="text-2xl font-semibold text-[#2F6F8F] mb-3">
+            <div className="text-lg font-medium text-secondary mb-2">{localCountry}</div>
+            <div className="text-2xl font-semibold text-primary mb-3">
               {localDate}
             </div>
-            <div className="text-4xl font-extrabold text-[#2F6F8F]">
+            <div className="text-4xl font-extrabold text-primary">
               {localTime}
             </div>
           </div>
 
           {/* Preferred Timezone */}
           <div className="text-center">
-            <div className="text-lg font-medium text-slate-600 mb-2">{preferredCountry}</div>
-            <div className="text-2xl font-semibold text-[#2F6F8F] mb-3">
+            <div className="text-lg font-medium text-secondary mb-2">{preferredCountry}</div>
+            <div className="text-2xl font-semibold text-primary mb-3">
               {preferredDate}
             </div>
-            <div className="text-4xl font-extrabold text-[#2F6F8F]">
+            <div className="text-4xl font-extrabold text-primary">
               {preferredTime}
             </div>
           </div>
@@ -122,10 +138,10 @@ export default function ClientClock({ user }: ClientClockProps) {
       ) : (
         /* Local Time Only */
         <div>
-          <div className="text-2xl font-semibold text-[#2F6F8F] mb-3">
+          <div className="text-2xl font-semibold text-primary mb-3">
             {localDate}
           </div>
-          <div className="text-4xl font-extrabold text-[#2F6F8F]">
+          <div className="text-4xl font-extrabold text-primary">
             {localTime}
           </div>
         </div>

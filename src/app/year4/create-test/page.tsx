@@ -1,6 +1,7 @@
 "use client";
 
 import Shell from "@/components/Shell";
+import SimpleTooltip from "@/components/SimpleTooltip";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -71,7 +72,7 @@ const systems: Option[] = [
   { key: "pregnancy", label: "Pregnancy, Childbirth & Puerperium" },
   { key: "pulm", label: "Pulmonary & Critical Care" },
   { key: "renal", label: "Renal, Urinary Systems & Electrolytes" },
-  { key: "rheum", label: "Rheumatology/Orthopedics & Sports" },
+  { key: "rheum", label: "Rheumatology, Orthopedics & Sports" },
 ];
 
 export default function CreateTest() {
@@ -137,52 +138,78 @@ export default function CreateTest() {
     }
   }
 
-  // Fetch dynamic counts when selections change (debounced)
+  // Fetch intersection-based counts when any selections change (debounced)
   useEffect(() => {
     const controller = new AbortController();
     const t = setTimeout(async () => {
       try {
-        const rotationKeys = selRotations;
-        const resourceValues = selResources;
-        const disciplineValues = selDisciplines;
-        const systemValues = selSystems;
-        const r = await fetch("/api/quiz/options-counts", {
+        const r = await fetch("/api/quiz/filtered-counts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: controller.signal,
-          body: JSON.stringify({ rotationKeys, resourceValues, disciplineValues, systemValues }),
+          body: JSON.stringify({ 
+            selectedModes: selModes,
+            rotationKeys: selRotations,
+            resourceValues: selResources,
+            disciplineValues: selDisciplines,
+            systemValues: selSystems 
+          }),
         });
         if (!r.ok) return;
         const j = await r.json();
-        setCounts(j);
+        setModeCounts(j.modeCounts);
+        setCounts(j.tagCounts);
       } catch {
         // ignore
       }
     }, 250);
     return () => { controller.abort(); clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(",")]);
+  }, [selModes.join(","), selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(",")]);
 
-  // Fetch mode counts on mount and when tab regains focus
+  // Fetch initial counts on mount and refresh when page becomes visible
   useEffect(() => {
-    const fetchModeCounts = async () => {
+    const fetchInitialData = async () => {
       try {
-        const response = await fetch("/api/quiz/mode-counts", {
+        const response = await fetch("/api/quiz/filtered-counts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            selectedModes: [],
+            rotationKeys: [], 
+            resourceValues: [], 
+            disciplineValues: [], 
+            systemValues: [] 
+          }),
         });
         if (response.ok) {
-          const counts = await response.json();
-          setModeCounts(counts);
+          const data = await response.json();
+          setModeCounts(data.modeCounts);
+          setCounts(data.tagCounts);
         }
       } catch (error) {
-        console.error("Failed to fetch mode counts:", error);
+        console.error("Failed to fetch initial data:", error);
       }
     };
-    fetchModeCounts();
-    const onFocus = () => fetchModeCounts();
-    window.addEventListener('visibilitychange', onFocus);
-    return () => window.removeEventListener('visibilitychange', onFocus);
+    
+    fetchInitialData();
+    
+    // Also refetch when tab becomes visible (user returns from quiz)
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchInitialData();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    
+    // Also refetch when window regains focus
+    const onFocus = () => fetchInitialData();
+    window.addEventListener('focus', onFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   async function submit() {
@@ -229,42 +256,54 @@ export default function CreateTest() {
                 <label
                   key={m.key}
                   className={`
-                    group relative inline-flex items-center justify-between gap-2 rounded-xl px-4 py-3 cursor-pointer transition-all duration-300 ease-out btn-hover
+                    group relative flex items-center justify-between gap-2 rounded-xl px-4 py-3 cursor-pointer transition-all duration-300 ease-out btn-hover
                     ${isSelected 
-                      ? 'bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white shadow-lg' 
-                      : 'bg-white border border-[#E6F0F7] hover:bg-gradient-to-r hover:from-[#F8FCFF] hover:to-[#A5CDE4]/10 hover:border-[#56A2CD]'
+                      ? 'theme-gradient text-inverse shadow-lg' 
+                      : 'bg-white border border-border hover:bg-accent hover:border-primary'
                     }
                   `}
                 >
-                  <span className="flex-1 font-medium">{m.label}</span>
+                  <span className={`flex-1 font-semibold break-words ${isSelected ? '' : 'text-primary'}`}>{m.label}</span>
                   <div className="flex items-center gap-3">
                     <span className={`
-                      text-xs rounded-full px-3 py-1 min-w-8 text-center font-semibold transition-colors
+                      text-xs rounded-full px-3 py-1.5 min-w-8 text-center font-bold transition-colors
                       ${isSelected 
-                        ? 'bg-white/20 text-white' 
-                        : 'bg-gradient-to-r from-[#A5CDE4] to-[#56A2CD] text-white'
+                        ? 'bg-white' 
+                        : 'theme-gradient text-inverse'
                       }
                     `}>
-                      {getModeCount(m.key)}
+                      <span className={isSelected ? 'theme-gradient-text' : ''}>
+                        {getModeCount(m.key)}
+                      </span>
                     </span>
                     {m.hint && (
-                      <span 
-                        className={`ml-1 text-xs transition-colors ${isSelected ? 'text-white/70' : 'text-slate-500'}`} 
-                        title={m.hint}
-                      >
-                        ⓘ
-                      </span>
+                      <SimpleTooltip text={m.hint}>
+                        <span 
+                          className={`ml-1 text-base transition-colors cursor-help font-bold ${isSelected ? 'text-inverse' : 'theme-gradient-text'}`}
+                        >
+                          ⓘ
+                        </span>
+                      </SimpleTooltip>
                     )}
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggle(setSelModes, m.key)}
-                      className="h-4 w-4 accent-[#56A2CD]"
-                    />
+                    <div className="relative inline-flex items-center justify-center w-4 h-4">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggle(setSelModes, m.key)}
+                        className="w-4 h-4 cursor-pointer appearance-none rounded border bg-white"
+                        style={{
+                          borderColor: 'var(--color-primary)',
+                          borderWidth: '1.5px',
+                          backgroundColor: isSelected ? 'var(--color-primary)' : 'white',
+                        }}
+                      />
+                      {isSelected && (
+                        <svg className="absolute w-2.5 h-2.5 pointer-events-none text-white" viewBox="0 0 12 12" fill="none">
+                          <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
                   </div>
-                  {isSelected && (
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#2F6F8F]/10 to-[#56A2CD]/10 animate-pulse"></div>
-                  )}
                 </label>
               );
             })}
@@ -343,9 +382,9 @@ export default function CreateTest() {
         </Card>
 
         {/* Count + Create */}
-        <div className="flex items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] shadow-lg">
+        <div className="flex items-center justify-between gap-4 p-6 rounded-2xl bg-primary-light border-2 border-primary shadow-lg">
           <div className="flex items-center gap-4">
-            <label className="text-lg font-semibold text-[#2F6F8F]">
+            <label className="text-lg font-semibold text-primary">
               Number of Questions
             </label>
             <div className="relative">
@@ -355,7 +394,7 @@ export default function CreateTest() {
                 max={40}
                 value={qCount || ""}
                 onChange={(e) => setQCount(Number(e.target.value))}
-                className="w-32 rounded-2xl border-2 border-[#E6F0F7] px-4 py-3 text-center text-lg font-bold text-[#2F6F8F] bg-gradient-to-r from-[#F8FCFF] to-white outline-none focus:ring-2 focus:ring-[#56A2CD] focus:border-[#56A2CD] transition-all duration-200"
+                className="w-32 rounded-2xl border-2 border-border px-4 py-3 text-center text-lg font-bold text-primary bg-card outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
                 placeholder="1-40"
               />
             </div>
@@ -365,8 +404,8 @@ export default function CreateTest() {
             disabled={!valid || busy}
             onClick={submit}
             className="
-              group relative overflow-hidden rounded-2xl px-8 py-4 font-bold text-white text-lg btn-hover color-smooth
-              bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] hover:from-[#56A2CD] hover:to-[#A5CDE4]
+              group relative overflow-hidden rounded-2xl px-8 py-4 font-bold text-inverse text-lg btn-hover color-smooth
+              bg-primary hover:bg-primary-hover
               disabled:opacity-50 disabled:cursor-not-allowed
               shadow-lg hover:shadow-xl 
               transition-all duration-300
@@ -376,12 +415,12 @@ export default function CreateTest() {
               {busy ? "Creating..." : "Create Test!"}
             </span>
             {!busy && (
-              <div className="absolute inset-0 bg-gradient-to-r from-[#56A2CD] to-[#A5CDE4] opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="absolute inset-0 bg-primary-hover opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
             )}
           </button>
         </div>
 
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           If you do not select rotations/resources/question mode, defaults are applied
           automatically (all rotations/resources; Unanswered mode).
         </p>
@@ -403,9 +442,9 @@ function HeaderRow({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <div className="text-lg font-semibold text-[#2F6F8F]">{title}</div>
+      <div className="text-lg font-bold theme-gradient-text">{title}</div>
       {withAll && (
-        <label className="flex items-center gap-2 text-sm text-slate-700">
+        <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"
             onChange={(e) => onAll?.(e.target.checked)}
@@ -448,36 +487,47 @@ function CheckGrid({
           <label
             key={o.key}
             className={`
-              group relative inline-flex items-center justify-between gap-2 rounded-xl px-4 py-3 cursor-pointer transition-all duration-300 ease-out btn-hover
+              group relative flex items-center justify-between gap-2 rounded-xl px-4 py-3 cursor-pointer transition-all duration-300 ease-out btn-hover
               ${isSelected 
-                ? 'bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white shadow-lg' 
-                : 'bg-white border border-[#E6F0F7] hover:bg-gradient-to-r hover:from-[#F8FCFF] hover:to-[#A5CDE4]/10 hover:border-[#56A2CD]'
+                ? 'theme-gradient text-inverse shadow-lg' 
+                : 'bg-white border border-border hover:bg-accent hover:border-primary'
               }
               ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}
           >
-            <span className="flex-1 font-medium">{o.label}</span>
+            <span className={`flex-1 font-semibold break-words ${isSelected ? '' : 'text-primary'}`}>{o.label}</span>
             <div className="flex items-center gap-3">
               <span className={`
-                text-xs rounded-full px-3 py-1 min-w-8 text-center font-semibold transition-colors
+                text-xs rounded-full px-3 py-1.5 min-w-8 text-center font-bold transition-colors
                 ${isSelected 
-                  ? 'bg-white text-[#2F6F8F]' 
-                  : 'bg-gradient-to-r from-[#A5CDE4] to-[#56A2CD] text-white'
+                  ? 'bg-white' 
+                  : 'theme-gradient text-inverse'
                 }
               `}>
-                {counts?.[section]?.[o.key] ?? 0}
+                <span className={isSelected ? 'theme-gradient-text' : ''}>
+                  {counts?.[section]?.[o.key] ?? 0}
+                </span>
               </span>
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => onToggle(o.key)}
-                disabled={disabled}
-                className="h-4 w-4 accent-[#56A2CD]"
-              />
+              <div className="relative inline-flex items-center justify-center w-4 h-4">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => onToggle(o.key)}
+                  disabled={disabled}
+                  className="w-4 h-4 cursor-pointer appearance-none rounded border bg-white"
+                  style={{
+                    borderColor: 'var(--color-primary)',
+                    borderWidth: '1.5px',
+                    backgroundColor: isSelected ? 'var(--color-primary)' : 'white',
+                  }}
+                />
+                {isSelected && (
+                  <svg className="absolute w-2.5 h-2.5 pointer-events-none text-white" viewBox="0 0 12 12" fill="none">
+                    <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
             </div>
-            {isSelected && (
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#2F6F8F]/10 to-[#56A2CD]/10 animate-pulse"></div>
-            )}
           </label>
         );
       })}
@@ -487,7 +537,7 @@ function CheckGrid({
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover-lift">
+    <div className="rounded-2xl bg-primary-light border-2 border-primary p-6 shadow-lg">
       {children}
     </div>
   );

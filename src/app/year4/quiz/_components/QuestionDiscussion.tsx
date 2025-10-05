@@ -48,6 +48,7 @@ export default function QuestionDiscussion({ questionId }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [userEmail, setUserEmail] = useState<string>("");
+  const [userRole, setUserRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | null>(null);
 
   const absoluteFormatter = useMemo(
     () =>
@@ -135,6 +136,7 @@ export default function QuestionDiscussion({ questionId }: Props) {
         }
         if (cancelled) return;
         setUserEmail(payload?.email ?? "");
+        setUserRole(payload?.role ?? null);
         const candidateName =
           payload?.name ||
           [payload?.firstName, payload?.lastName]
@@ -348,10 +350,17 @@ export default function QuestionDiscussion({ questionId }: Props) {
       if (!comment) return false;
       const viewerEmail = (userEmail ?? "").trim().toLowerCase();
       if (!viewerEmail) return false;
+      
+      // Allow deletion if user owns the comment
       const ownerEmail = (comment.createdByEmail ?? "").trim().toLowerCase();
-      return Boolean(ownerEmail) && ownerEmail === viewerEmail;
+      if (Boolean(ownerEmail) && ownerEmail === viewerEmail) return true;
+      
+      // Allow deletion if user is admin or master admin
+      if (userRole === "ADMIN" || userRole === "MASTER_ADMIN") return true;
+      
+      return false;
     },
-    [userEmail]
+    [userEmail, userRole]
   );
 
   const commentCount = comments.length;
@@ -362,8 +371,21 @@ export default function QuestionDiscussion({ questionId }: Props) {
       <section className="rounded-2xl border border-[#E6F0F7] bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-[#2F6F8F]">Question Discussion</h3>
-          <span className="inline-flex items-center rounded-full border border-[#E6F0F7] bg-[#F3F9FC] px-2.5 py-0.5 text-xs font-medium text-[#2F6F8F]">
+          <h3 
+            className="text-lg font-semibold"
+            style={{
+              color: '#ffffff'
+            }}
+          >
+            Question Discussion
+          </h3>
+          <span 
+            className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium text-white"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
+              borderColor: 'var(--color-primary)'
+            }}
+          >
             {commentCount} {commentCount === 1 ? "comment" : "comments"}
           </span>
         </div>
@@ -375,7 +397,22 @@ export default function QuestionDiscussion({ questionId }: Props) {
             });
           }}
           disabled={status === "loading"}
-          className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-1.5 text-xs font-medium text-[#2F6F8F] transition hover:bg-[#F3F9FC] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl border bg-white px-3 py-1.5 text-xs font-medium text-primary disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ transition: 'all 0.2s ease-out', borderColor: 'var(--color-primary)' }}
+          onMouseEnter={(e) => {
+            if (!e.currentTarget.disabled) {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1)';
+              e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!e.currentTarget.disabled) {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
+              e.currentTarget.style.backgroundColor = 'white';
+            }
+          }}
         >
           {status === "loading" ? "Refreshing…" : "Refresh"}
         </button>
@@ -395,7 +432,7 @@ export default function QuestionDiscussion({ questionId }: Props) {
 
       <div className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
         {status === "loading" && comments.length === 0 ? (
-          <div className="rounded-xl border border-[#E6F0F7] bg-[#F8FBFD] px-3 py-2 text-sm text-slate-600">
+          <div className="rounded-xl border px-3 py-2 text-sm text-muted" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background-secondary)' }}>
             Loading comments…
           </div>
         ) : null}
@@ -407,52 +444,74 @@ export default function QuestionDiscussion({ questionId }: Props) {
           const isStaff = comment.createdByRole === "ADMIN" || comment.createdByRole === "MASTER_ADMIN";
           const gradLabel =
             typeof comment.createdByGradYear === "number" && Number.isFinite(comment.createdByGradYear)
-              ? `Class of < ${comment.createdByGradYear}`
+              ? `Class of ${comment.createdByGradYear}`
               : null;
           
           let pillLabel: string | null = null;
           let cohortLabel: string;
           let displayName: string;
+          let timeDisplay: string | null = null;
 
           if (isStaff && comment.origin === "editor") {
             // Admin/master admin adding comment through question editor (previous batch)
             pillLabel = "Previous Batch";
             cohortLabel = "Class of < 2027";
             displayName = comment.authorName || "Previous Batch Student";
+            timeDisplay = "Long time ago 🤷";
           } else if (isStaff && comment.origin === "runner") {
-            // Admin/master admin posting directly in quiz runner discussion - treat as regular user
-            pillLabel = null;
+            // Admin/master admin posting directly in quiz runner - show as Member to stay anonymous
+            pillLabel = "Member";
             cohortLabel = gradLabel ?? "Class of 2027";
             displayName = comment.authorName || "Study Partner";
+            timeDisplay = relative;
           } else {
-            // Regular student comment
-            pillLabel = null;
-            cohortLabel = gradLabel ?? "Previous Batches";
+            // Regular student comment - show their actual role
+            pillLabel = comment.createdByRole || "Member";
+            cohortLabel = gradLabel ?? "Class of 2027";
             displayName = comment.authorName || "Study Partner";
+            timeDisplay = relative;
           }
           return (
-            <div key={comment.id} className="rounded-2xl border border-[#E6F0F7] bg-[#F9FCFF] p-3">
+            <div key={comment.id} className="rounded-2xl border p-3" style={{ backgroundColor: 'rgba(var(--color-primary-rgb, 107, 114, 128), 0.02)', borderColor: 'var(--color-border)' }}>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-2 text-sm font-semibold text-[#2F6F8F]">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-primary">
                     <span>{displayName}</span>
                     {pillLabel ? (
-                      <span className="rounded-full bg-[#2F6F8F] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                      <span 
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                        style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))' }}
+                      >
                         {pillLabel}
                       </span>
                     ) : null}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--color-primary)', opacity: 0.6 }}>
                     <span>{cohortLabel}</span>
-                    {absolute && <span>{absolute}</span>}
-                    {relative && <span>· {relative}</span>}
+                    {comment.origin === "editor" ? (
+                      <span>· {timeDisplay}</span>
+                    ) : (
+                      <>
+                        {absolute && <span>{absolute}</span>}
+                        {timeDisplay && <span>· {timeDisplay}</span>}
+                      </>
+                    )}
                   </div>
                 </div>
                 {canDelete(comment) ? (
                   <button
                     type="button"
                     onClick={() => handleDelete(comment.id)}
-                    className="text-xs font-medium text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
+                    className="text-xs font-medium text-[#e11d48] underline underline-offset-2"
+                    style={{ transition: 'all 0.2s ease-out' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.textShadow = '0 0 8px rgba(239, 29, 72, 0.6)';
+                      e.currentTarget.style.color = '#be123c';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.textShadow = 'none';
+                      e.currentTarget.style.color = '#e11d48';
+                    }}
                   >
                     Delete
                   </button>
@@ -460,7 +519,7 @@ export default function QuestionDiscussion({ questionId }: Props) {
               </div>
 
               {comment.body ? (
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-neutral-900">
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed" style={{ color: 'var(--color-primary)', opacity: 0.8 }}>
                   {comment.body}
                 </p>
               ) : null}
@@ -469,7 +528,8 @@ export default function QuestionDiscussion({ questionId }: Props) {
                 <button
                   type="button"
                   onClick={() => setPreviewImageUrl(comment.imageUrl!)}
-                  className="group relative mt-3 block overflow-hidden rounded-xl border border-[#E6F0F7] bg-[#F8FBFD]"
+                  className="group relative mt-3 block overflow-hidden rounded-xl border"
+                  style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background-secondary)' }}
                 >
                   <div className="relative h-44 w-full">
                     <img
@@ -488,57 +548,94 @@ export default function QuestionDiscussion({ questionId }: Props) {
         })}
 
         {status === "loaded" && comments.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#C7D9E6] bg-[#F8FBFD] px-3 py-4 text-sm text-slate-600">
+          <div className="rounded-xl border border-dashed px-3 py-4 text-sm text-muted" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background-secondary)' }}>
             No comments yet. Be the first to share a tip or mnemonic.
           </div>
         ) : null}
       </div>
 
       <div
-        className="mt-6 rounded-2xl border border-[#E6F0F7] bg-[#F9FCFF] p-4"
+        className="mt-6 rounded-2xl border p-4"
+        style={{ backgroundColor: 'rgba(var(--color-primary-rgb, 107, 114, 128), 0.015)', borderColor: 'var(--color-border)' }}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onPaste={(event) => handlePaste(event)}
       >
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)]">
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#2F6F8F]">Display name</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-primary">Display name</label>
             <input
               type="text"
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
-              className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition focus:border-[#A5CDE4] focus:ring-2 focus:ring-[#A5CDE4]"
+              className="rounded-xl border bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition"
+              style={{ borderColor: 'var(--color-border)' }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-primary)';
+                e.currentTarget.style.boxShadow = '0 0 0 2px var(--color-primary-light)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
               placeholder="How should others see you?"
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#2F6F8F]">Comment</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-primary">Comment</label>
             <textarea
               value={draftBody}
               onChange={(e) => setDraftBody(e.target.value)}
               onPaste={(event) => handlePaste(event)}
               rows={3}
-              className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition focus:border-[#A5CDE4] focus:ring-2 focus:ring-[#A5CDE4]"
+              className="rounded-xl border bg-white px-3 py-2 text-sm text-neutral-900 outline-none transition"
+              style={{ borderColor: 'var(--color-border)' }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-primary)';
+                e.currentTarget.style.boxShadow = '0 0 0 2px var(--color-primary-light)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
               placeholder="Share reasoning, references, or tips for this question."
             />
           </div>
         </div>
 
         {draftImageUrl ? (
-          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#BFD7E6] bg-white/70 p-3 text-sm text-[#2F6F8F]">
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border p-3 text-sm text-primary" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background)' }}>
             <div className="flex-1">Image attached. Preview or remove it below.</div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setPreviewImageUrl(draftImageUrl)}
-                className="rounded-xl border border-[#2F6F8F] px-3 py-1 text-sm font-medium text-[#2F6F8F] transition hover:bg-[#F3F9FC]"
+                className="rounded-xl border px-3 py-1 text-sm font-medium text-primary transition"
+                style={{ borderColor: 'var(--color-primary)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
               >
                 Preview
               </button>
               <button
                 type="button"
                 onClick={() => setDraftImageUrl(null)}
-                className="rounded-xl border border-transparent bg-[#e11d48] px-3 py-1 text-sm font-medium text-white transition hover:bg-[#be123c]"
+                className="rounded-xl border border-transparent bg-[#e11d48] px-3 py-1 text-sm font-medium text-white"
+                style={{ transition: 'all 0.2s ease-out' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
+                  e.currentTarget.style.backgroundColor = '#be123c';
+                  e.currentTarget.style.boxShadow = '0 0 15px rgba(239, 29, 72, 0.4), 0 8px 25px rgba(190, 18, 60, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                  e.currentTarget.style.backgroundColor = '#e11d48';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
                 Remove
               </button>
@@ -564,7 +661,22 @@ export default function QuestionDiscussion({ questionId }: Props) {
             type="button"
             onClick={triggerUpload}
             disabled={isUploading || isSubmitting}
-            className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm font-medium text-[#2F6F8F] transition hover:bg-[#F3F9FC] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl border bg-white px-3 py-2 text-sm font-medium text-primary disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ transition: 'all 0.2s ease-out', borderColor: 'var(--color-primary)' }}
+            onMouseEnter={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
+                e.currentTarget.style.backgroundColor = 'white';
+              }
+            }}
           >
             {isUploading ? "Uploading…" : "Attach image"}
           </button>
@@ -572,11 +684,29 @@ export default function QuestionDiscussion({ questionId }: Props) {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="rounded-xl bg-[#2F6F8F] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#225978] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ 
+              transition: 'all 0.2s ease-out',
+              background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))'
+            }}
+            onMouseEnter={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.25)';
+                e.currentTarget.style.opacity = '0.9';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
+                e.currentTarget.style.opacity = '1';
+              }
+            }}
           >
             {isSubmitting ? "Posting…" : "Post comment"}
           </button>
-          <span className="text-[11px] text-slate-500">Images under {uploadLimitMb} MB (PNG/JPG) recommended.</span>
+          <span className="text-[11px]" style={{ color: 'var(--color-primary)', opacity: 0.5 }}>Images under {uploadLimitMb} MB (PNG/JPG) recommended.</span>
         </div>
       </div>
       </section>

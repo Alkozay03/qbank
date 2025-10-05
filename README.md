@@ -1,8 +1,37 @@
-# QBank - Medical Question Bank Platform# QBank - AI-Powered Question Extraction System
+# Clerkship QBank - Medical Question Bank Platform
 
+A comprehensive medical education platform built with Next.js, PostgreSQL, and Prisma.
 
+🌐 **Live Site**: [https://clerkship.me](https://clerkship.me)
 
-A comprehensive medical education platform built with Next.js and PostgreSQL.This is a [Next.js](https://nextjs.org) project with an advanced AI question extraction backend, featuring enhanced structure detection for tables and images.
+## ✨ Features
+
+- 📚 **Question Bank**: Comprehensive medical question database
+- 🎯 **Quiz System**: Interactive quiz functionality with performance tracking
+- 📊 **Performance Analytics**: Track progress and identify weak areas
+- 🎨 **Multi-Theme Support**: 8 themes including dark mode
+- 👥 **User Management**: Role-based access (Member, Admin, Master Admin)
+- 💬 **Messaging System**: Direct communication between users and admins
+- 🔐 **Secure Authentication**: Email magic links via NextAuth v5
+- 📱 **Responsive Design**: Works seamlessly on all devices
+
+## 🚀 Quick Deploy
+
+Ready to deploy to production? We've got you covered!
+
+1. **Read the deployment guide**: [`READY_TO_DEPLOY.md`](./READY_TO_DEPLOY.md) - Start here!
+2. **Follow the checklist**: [`DEPLOYMENT_CHECKLIST.md`](./DEPLOYMENT_CHECKLIST.md)
+3. **Detailed instructions**: [`DEPLOYMENT.md`](./DEPLOYMENT.md)
+4. **Command reference**: [`COMMANDS.md`](./COMMANDS.md)
+
+**Quick start:**
+```bash
+npm i -g vercel
+vercel login
+vercel --prod
+```
+
+Then configure your environment variables and domain!
 
 
 

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import TopRightBar from "./TopRightBar";
+import { getSelectedGradientClasses, getGradientTextClasses } from "@/utils/gradients";
 
 export default function Shell({
   title,
@@ -68,7 +69,7 @@ export default function Shell({
   }, []);
 
   return (
-    <div className="min-h-screen gradient-background-subtle overflow-x-hidden">
+    <div className="h-full min-h-screen bg-white overflow-x-hidden" style={{ minHeight: '100vh' }}>
       {/* Mobile overlay */}
       {isMobile && !collapsed && (
         <div 
@@ -81,14 +82,17 @@ export default function Shell({
 
       {/* Enhanced Top row: icons and page title */}
       <div
-        className="h-16 transition-[padding] duration-400 ease-in-out flex justify-between items-center bg-white/50 backdrop-blur-md shadow-sm"
-        style={{ paddingLeft: isMobile ? 16 : leftPad }}
+        className="h-16 flex justify-between items-center bg-white/50 backdrop-blur-md"
+        style={{ 
+          paddingLeft: `${isMobile ? 16 : leftPad}px`,
+          transition: 'padding-left 300ms ease-in-out'
+        }}
       >
         {/* Page title on the left */}
         {pageName && (
           <div className="flex items-center ml-6">
-            <div className="w-1 h-8 bg-gradient-to-b from-[#2F6F8F] to-[#56A2CD] rounded-full mr-3"></div>
-            <span className="font-extrabold tracking-tight text-3xl bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] bg-clip-text text-transparent">
+            <div className={`w-1 h-8 rounded-full mr-3 ${getSelectedGradientClasses()}`}></div>
+            <span className={`font-extrabold tracking-tight text-3xl ${getGradientTextClasses()}`}>
               {pageName}
             </span>
           </div>
@@ -100,23 +104,37 @@ export default function Shell({
 
       {/* Enhanced Content area */}
       <main
-        className="pb-10 transition-[padding] duration-400 ease-in-out overflow-x-hidden"
-        style={{ paddingLeft: isMobile ? 16 : leftPad }}
+        className="pb-10 overflow-x-hidden relative"
+        style={{ 
+          paddingLeft: `${isMobile ? 16 : leftPad}px`,
+          transition: 'padding-left 300ms ease-in-out'
+        }}
       >
-        {/* Enhanced Subtitle/title bar */}
-        <div className="px-6 py-4 bg-gradient-to-r from-white/80 to-[#F8FCFF]/80 backdrop-blur border-b border-[#E6F0F7]">
-          <div className="text-xl font-semibold text-[#2F6F8F] flex items-center">
-            <div className="w-0.5 h-6 bg-[#56A2CD] rounded-full mr-3"></div>
-            {title}
+        {/* Subtitle */}
+        <div className="px-6 py-5 relative">
+          <div className="text-xl font-semibold flex items-center">
+            <div className={`w-1 h-6 rounded-full mr-3 ${getSelectedGradientClasses()}`}></div>
+            <span className={getGradientTextClasses()}>{title}</span>
           </div>
+          {/* Full-width separator line - matches sidebar vertical line */}
+          <div 
+            className="absolute right-0 mt-4 border-b border-border"
+            style={{ 
+              left: 0,
+              width: `calc(100vw - ${isMobile ? 16 : leftPad}px)`
+            }}
+          ></div>
         </div>
 
         {/* Enhanced main content container */}
+        <div style={{ paddingTop: '1.5rem' }}></div>
         <div
-          className="mx-auto px-6 pt-8"
+          className="mx-auto px-6 pt-8 bg-white"
           style={{ maxWidth: 1200, width: "100%" }}
         >
-          {children}
+          <div className="space-y-6">
+            {children}
+          </div>
         </div>
       </main>
     </div>

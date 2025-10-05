@@ -3,8 +3,8 @@
 /* Tailwind v4 single import */
 @import "tailwindcss";
 
-/* Import gradient theme */
-@import "../styles/gradient-theme.css";
+/* Import theme styles */
+@import "../styles/themes.css";
 
 /* Import lightweight hover animations */
 @import "../styles/hover-animations.css";
@@ -19,10 +19,17 @@ html, body, #__next, :root { height: 100%; }
   color-scheme: dark;
 }
 
-/* Light mode when html doesn't have .dark */
-html:not(.dark) body {
+/* Light mode when html doesn't have specific dark theme */
+html:not([data-theme="dark"]):not([data-theme-name="dark"]) body {
   background-color: #ffffff;
   color: #0a0a0a;
+}
+
+/* Fallback: ensure body is always black only for dark theme specifically */
+html[data-theme="dark"] body,
+html[data-theme-name="dark"] body {
+  background-color: #000000 !important;
+  color: #f5f5f5 !important;
 }
 
 /* Animation classes for popups and tooltips */
@@ -66,10 +73,120 @@ html:not(.dark) body {
   animation: scaleIn 0.3s ease-out forwards;
 }
 
-/* Dark mode default */
-.dark body {
-  background-color: #0a0a0a; /* neutral-950 adjacent */
+/* Dark theme specific - Aggressive black approach only for "dark" theme */
+[data-theme-name="dark"],
+[data-theme-name="dark"] body,
+[data-theme-name="dark"] html,
+[data-theme-name="dark"] #__next {
+  background-color: #000000 !important; /* Pure black */
+  min-height: 100vh !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+[data-theme-name="dark"] body {
   color: #f5f5f5;
+}
+
+/* Eliminate any potential white elements - dark theme only */
+[data-theme-name="dark"] * {
+  border-color: #374151;
+}
+
+/* Aggressive white background override - dark theme only */
+[data-theme-name="dark"] [class*="bg-white"]:not(.quiz-answer-choice):not(.quiz-question),
+[data-theme-name="dark"] .bg-white:not(.quiz-answer-choice):not(.quiz-question) {
+  background-color: #000000 !important;
+}
+
+/* Quiz elements use inline styles for proper theming */
+
+/* Dark theme only - change white inner box borders to black */
+[data-theme-name="dark"] .border-primary,
+[data-theme-name="dark"] [class*="border-primary"] {
+  border-color: #000000 !important;
+}
+
+[data-theme-name="dark"] .border-2,
+[data-theme-name="dark"] [class*="border-2"] {
+  border-color: #000000 !important;
+}
+
+/* Dark theme only - remove visible white outlines from shadow-inner boxes */
+[data-theme-name="dark"] .shadow-inner,
+[data-theme-name="dark"] [class*="shadow-inner"] {
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Dark theme only - specific fix for inner white boxes in dashboard and performance pages */
+[data-theme-name="dark"] .bg-primary-light .bg-white,
+[data-theme-name="dark"] .bg-primary-light [class*="bg-white"] {
+  border: 1px solid #000000 !important;
+  outline: 1px solid #000000 !important;
+}
+
+/* Dark theme only - change all hover shadow glows from blue to dark gray */
+[data-theme-name="dark"] .hover\:shadow-xl:hover,
+[data-theme-name="dark"] .hover\:shadow-lg:hover,
+[data-theme-name="dark"] .hover\:shadow-2xl:hover {
+  box-shadow: 0 20px 25px -5px rgba(75, 75, 75, 0.3), 0 10px 10px -5px rgba(75, 75, 75, 0.2) !important;
+}
+
+[data-theme-name="dark"] .shadow-xl,
+[data-theme-name="dark"] .shadow-lg,
+[data-theme-name="dark"] .shadow-2xl {
+  box-shadow: 0 10px 15px -3px rgba(75, 75, 75, 0.2), 0 4px 6px -2px rgba(75, 75, 75, 0.15) !important;
+}
+
+/* Fix any potential viewport issues - dark theme only */
+[data-theme-name="dark"] {
+  overflow-x: hidden;
+}
+
+/* Ensure no white fixed elements appear - dark theme only */
+[data-theme-name="dark"] [class*="fixed"],
+[data-theme-name="dark"] [style*="position: fixed"] {
+  background-color: transparent !important;
+}
+
+[data-theme-name="dark"] [class*="fixed"][class*="bg-white"],
+[data-theme-name="dark"] [class*="fixed"][class*="bg-["] {
+  background-color: #000000 !important;
+}
+
+/* Override gradient backgrounds in dark theme only */
+[data-theme-name="dark"] .gradient-background-subtle {
+  background: #000000 !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important; /* Dynamic viewport height */
+  position: relative;
+}
+
+/* Ensure no white space appears when zooming out - dark theme only */
+[data-theme-name="dark"] .gradient-background-subtle::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000000;
+  z-index: -1;
+}
+
+/* Dark theme specific styling for Shell components - ONLY for dark theme */
+[data-theme-name="dark"] .h-full.min-h-screen {
+  background-color: #000000 !important;
+}
+
+[data-theme-name="dark"] .h-16.flex {
+  background-color: #000000 !important;
+}
+
+/* Dark theme specific - override theme-aware backgrounds */
+[data-theme-name="dark"] .bg-theme-light {
+  background-color: #141414 !important;
 }
 
 /* Utility tweaks */
@@ -80,7 +197,7 @@ a { text-decoration: none; }
   position: absolute;
   border-radius: 9999px;
   opacity: 0.6;
-  background-color: rgba(59, 130, 246, 0.3);
+  background-color: var(--color-shadow);
   filter: blur(80px);
   will-change: transform, width, height, opacity, background-color;
 }
@@ -98,4 +215,345 @@ a { text-decoration: none; }
 
 .card-on-background:hover {
   backdrop-filter: blur(12px);
+}
+
+/* Simple Hamburger Menu Animation Styles */
+.hamburger-icon {
+  transition: transform 0.2s ease;
+}
+
+.hamburger-line {
+  transition: all 0.2s ease;
+}
+
+/* Simple hover effect - just slight scale */
+.group:hover .hamburger-icon {
+  transform: scale(1.1);
+}
+
+/* Simple active effect - quick scale down */
+.group:active .hamburger-icon {
+  transform: scale(0.95);
+}
+
+/* Smooth sidebar brand animations */
+.brand-title {
+  will-change: transform, opacity;
+}
+
+/* Prevent layout shifts during sidebar collapse */
+.sidebar-brand-container {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Smooth sidebar width transition */
+.sidebar-smooth-width {
+  transition: width 300ms ease-in-out !important;
+  will-change: width;
+}
+
+/* Modern sidebar text animations */
+.sidebar-text {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  will-change: transform, opacity;
+}
+
+.sidebar-text-collapsed {
+  opacity: 0 !important;
+  transform: translateX(-8px) scale(0.95) !important;
+  transition: all 200ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+.sidebar-text-expanded {
+  opacity: 1 !important;
+  transform: translateX(0) scale(1) !important;
+  transition: all 350ms cubic-bezier(0, 0, 0.2, 1) 120ms !important;
+}
+
+/* Smooth brand title animation */
+.sidebar-brand {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  will-change: transform, opacity;
+}
+
+.sidebar-brand-collapsed {
+  opacity: 0 !important;
+  transform: translateX(-12px) scale(0.9) !important;
+  transition: all 180ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+.sidebar-brand-expanded {
+  opacity: 1 !important;
+  transform: translateX(0) scale(1) !important;
+  transition: all 380ms cubic-bezier(0, 0, 0.2, 1) 100ms !important;
+}
+
+/* Theme-Specific Gradient Classes - Only for Light Themes */
+
+/* Red Theme - Fiery Beautiful Gradient */
+[data-theme="red"] {
+  --theme-gradient: linear-gradient(135deg, #ff4500 0%, #dc143c 50%, #8b0000 100%);
+}
+
+[data-theme="red"] .theme-gradient {
+  background: var(--theme-gradient) !important;
+}
+
+[data-theme="red"] .theme-gradient-text {
+  background: var(--theme-gradient) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+}
+
+/* Blue Theme Gradient */
+[data-theme="blue"] {
+  --theme-gradient: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 50%, #7dd3fc 100%);
+}
+
+[data-theme="blue"] .theme-gradient {
+  background: var(--theme-gradient) !important;
+}
+
+[data-theme="blue"] .theme-gradient-text {
+  background: var(--theme-gradient) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+}
+
+/* Green Theme Gradient */
+[data-theme="green"] {
+  --theme-gradient: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+}
+
+[data-theme="green"] .theme-gradient {
+  background: var(--theme-gradient) !important;
+}
+
+[data-theme="green"] .theme-gradient-text {
+  background: var(--theme-gradient) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+}
+
+/* Yellow Theme Gradient */
+[data-theme="yellow"] {
+  --theme-gradient: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+}
+
+[data-theme="yellow"] .theme-gradient {
+  background: var(--theme-gradient) !important;
+}
+
+[data-theme="yellow"] .theme-gradient-text {
+  background: var(--theme-gradient) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+}
+
+/* Pink Theme Gradient - Lighter Palette */
+[data-theme="pink"] {
+  --theme-gradient: linear-gradient(135deg, #fb7fb8 0%, #f472b6 50%, #ec4899 100%);
+}
+
+[data-theme="pink"] .theme-gradient {
+  background: var(--theme-gradient) !important;
+}
+
+[data-theme="pink"] .theme-gradient-text {
+  background: var(--theme-gradient) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+}
+
+/* Purple Theme Gradient - Lighter Palette */
+[data-theme="purple"] {
+  --theme-gradient: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #7c3aed 100%);
+}
+
+[data-theme="purple"] .theme-gradient {
+  background: var(--theme-gradient) !important;
+}
+
+[data-theme="purple"] .theme-gradient-text {
+  background: var(--theme-gradient) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+}
+
+/* Gray Theme Gradient */
+[data-theme="gray"] {
+  --theme-gradient: linear-gradient(135deg, #6b7280 0%, #4b5563 50%, #374151 100%);
+}
+
+[data-theme="gray"] .theme-gradient {
+  background: var(--theme-gradient) !important;
+}
+
+[data-theme="gray"] .theme-gradient-text {
+  background: var(--theme-gradient) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+}
+
+/* Dark Theme - Clean White Text Only */
+[data-theme="dark"] {
+  --theme-gradient: linear-gradient(135deg, #525252 0%, #737373 100%);
+}
+
+[data-theme="dark"] .theme-gradient {
+  background: linear-gradient(135deg, #525252 0%, #737373 100%) !important; /* Pure grays */
+}
+
+[data-theme="dark"] .theme-gradient-text {
+  color: white !important;
+  background: none !important;
+  -webkit-text-fill-color: white !important;
+}
+
+/* Global Selected Element Classes */
+.selected-gradient {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 300ms ease-in-out;
+}
+
+/* Theme-specific text colors for selected elements */
+[data-theme="red"] .selected-gradient,
+[data-theme="red"] .selected-gradient * {
+  color: white !important;
+}
+
+[data-theme="blue"] .selected-gradient,
+[data-theme="blue"] .selected-gradient * {
+  color: white !important;
+}
+
+[data-theme="green"] .selected-gradient,
+[data-theme="green"] .selected-gradient * {
+  color: white !important;
+}
+
+[data-theme="yellow"] .selected-gradient,
+[data-theme="yellow"] .selected-gradient * {
+  color: white !important;
+}
+
+[data-theme="pink"] .selected-gradient,
+[data-theme="pink"] .selected-gradient * {
+  color: white !important;
+}
+
+[data-theme="purple"] .selected-gradient,
+[data-theme="purple"] .selected-gradient * {
+  color: white !important;
+}
+
+[data-theme="gray"] .selected-gradient,
+[data-theme="gray"] .selected-gradient * {
+  color: white !important;
+}
+
+[data-theme="dark"] .selected-gradient,
+[data-theme="dark"] .selected-gradient * {
+  color: white !important;
+}
+
+/* Force gradient text to work - Debug mode */
+.theme-gradient-text {
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+  display: inline-block !important;
+}
+
+/* Ensure text gradients override any other color styles */
+span.theme-gradient-text,
+div.theme-gradient-text,
+h1.theme-gradient-text,
+h2.theme-gradient-text,
+h3.theme-gradient-text,
+h4.theme-gradient-text,
+h5.theme-gradient-text,
+h6.theme-gradient-text {
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+}
+
+/* Progress Circle Gradients - Clean Design, NO GLOW EFFECTS */
+
+/* Red Theme - Lava Lamp Style: Deep Red with Subtle Orange Hints */
+[data-theme="red"] .progress-start-color {
+  stop-color: #dc2626; /* Deep red like lava core */
+}
+[data-theme="red"] .progress-end-color {
+  stop-color: #ef4444; /* Bright red with orange undertones */
+}
+
+/* Blue Theme - Sky Blue Gradient (matching theme) */
+[data-theme="blue"] .progress-start-color {
+  stop-color: #0ea5e9; /* Sky blue start */
+}
+[data-theme="blue"] .progress-end-color {
+  stop-color: #38bdf8; /* Lighter sky blue */
+}
+
+/* Green Theme - Fresh Green Gradient */
+[data-theme="green"] .progress-start-color {
+  stop-color: #16a34a; /* Forest green */
+}
+[data-theme="green"] .progress-end-color {
+  stop-color: #22c55e; /* Bright green */
+}
+
+/* Yellow Theme - Golden Yellow Gradient */
+[data-theme="yellow"] .progress-start-color {
+  stop-color: #eab308; /* Deep yellow */
+}
+[data-theme="yellow"] .progress-end-color {
+  stop-color: #facc15; /* Bright yellow */
+}
+
+/* Pink Theme - Rose Pink Gradient */
+[data-theme="pink"] .progress-start-color {
+  stop-color: #ec4899; /* Deep pink */
+}
+[data-theme="pink"] .progress-end-color {
+  stop-color: #f472b6; /* Bright pink */
+}
+
+/* Purple Theme - Royal Purple Gradient */
+[data-theme="purple"] .progress-start-color {
+  stop-color: #7c3aed; /* Deep purple */
+}
+[data-theme="purple"] .progress-end-color {
+  stop-color: #8b5cf6; /* Bright purple */
+}
+
+/* Gray Theme - Sophisticated Gray Gradient */
+[data-theme="gray"] .progress-start-color {
+  stop-color: #4b5563; /* Dark gray */
+}
+[data-theme="gray"] .progress-end-color {
+  stop-color: #6b7280; /* Lighter gray */
+}
+
+/* Dark Theme - Pure Gray */
+[data-theme="dark"] .progress-start-color {
+  stop-color: #525252; /* Pure gray-600 */
+}
+[data-theme="dark"] .progress-end-color {
+  stop-color: #737373; /* Pure gray-500 - lighter */
+}
+
+/* Ensure NO glow effects on progress circles */
+svg circle[stroke^="url("] {
+  filter: none !important;
 }

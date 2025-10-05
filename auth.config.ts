@@ -16,7 +16,7 @@ export default {
   callbacks: {
     authorized({ auth, request }: { auth: Session | null; request: NextRequest }) {
       const { pathname } = new URL(request.url);
-      const protectedRoots = ["/year4", "/performance", "/quiz"];
+      const protectedRoots = ["/years", "/year4", "/year5", "/performance", "/quiz", "/profile"];
       const isProtected =
         protectedRoots.some((p) => pathname === p || pathname.startsWith(p + "/")) ||
         pathname === "/quiz/new";

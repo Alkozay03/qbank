@@ -62,6 +62,7 @@ export async function POST() {
       marked: 0,
     };
 
+    // Count questions by their state
     questionState.forEach((snapshot) => {
       if (snapshot.marked) {
         counts.marked += 1;
@@ -69,7 +70,14 @@ export async function POST() {
       }
 
       const response = snapshot.response;
-      if (!response || !response.choiceId) {
+      if (!response) {
+        // Question has QuizItem but no response - this means it was in a test but not answered
+        // Questions can never be "unused" again once they're in a test, so count as omitted
+        counts.omitted += 1;
+        return;
+      }
+      
+      if (!response.choiceId) {
         counts.omitted += 1;
         return;
       }
@@ -81,7 +89,10 @@ export async function POST() {
       }
     });
 
-    counts.unused = Math.max(0, totalQuestions - questionState.size);
+    // Unused = questions that have NEVER been in any test
+    // Total questions - (questions with quiz items) 
+    const questionsInAnyTest = questionState.size;
+    counts.unused = Math.max(0, totalQuestions - questionsInAnyTest);
 
     return NextResponse.json(counts);
   } catch (error) {

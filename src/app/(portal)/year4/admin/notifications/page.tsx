@@ -15,6 +15,7 @@ type NotificationRow = {
   shortId: number;
   title: string;
   body: string;
+  targetRotation?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -27,6 +28,7 @@ export default function NotificationsAdminPage() {
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [targetRotation, setTargetRotation] = useState<string>("");
   const [searchId, setSearchId] = useState<string>("");
   const [editCuid, setEditCuid] = useState<string | null>(null);
   const [customId, setCustomId] = useState<number>(() => genShortNumericId());
@@ -65,6 +67,7 @@ export default function NotificationsAdminPage() {
       setEditCuid(notification.id);
       setTitle(notification.title);
       setBody(notification.body);
+      setTargetRotation(notification.targetRotation || "");
       setCustomId(notification.shortId);
       setSearchId(String(notification.shortId));
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -83,6 +86,7 @@ export default function NotificationsAdminPage() {
       setEditCuid(notification.id);
       setTitle(notification.title);
       setBody(notification.body);
+      setTargetRotation(notification.targetRotation || "");
       setCustomId(notification.shortId);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
@@ -91,13 +95,18 @@ export default function NotificationsAdminPage() {
   }
 
   async function onSubmit() {
-    const payload = { shortId: customId, title: title.trim(), body: body.trim() };
+    const payload = { 
+      shortId: customId, 
+      title: title.trim(), 
+      body: body.trim(),
+      targetRotation: targetRotation || null
+    };
     if (!payload.title || !payload.body) { alert("Please fill title and details."); return; }
     const url = "/api/notifications/item" + (editCuid ? `?id=${encodeURIComponent(editCuid)}` : "");
     const method = editCuid ? "PATCH" : "POST";
     const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (r.ok) {
-      setEditCuid(null); setTitle(""); setBody(""); setCustomId(genShortNumericId()); setSearchId(""); await loadList();
+      setEditCuid(null); setTitle(""); setBody(""); setTargetRotation(""); setCustomId(genShortNumericId()); setSearchId(""); await loadList();
       alert(editCuid ? "Notification updated." : "Notification pushed!");
     } else {
       const j = await r.json().catch(() => ({})); alert(j?.error || "Failed to save notification.");
@@ -105,7 +114,7 @@ export default function NotificationsAdminPage() {
   }
 
   function resetToAdd() {
-    setEditCuid(null); setTitle(""); setBody(""); setCustomId(genShortNumericId()); setSearchId("");
+    setEditCuid(null); setTitle(""); setBody(""); setTargetRotation(""); setCustomId(genShortNumericId()); setSearchId("");
   }
 
   return (
@@ -145,6 +154,22 @@ export default function NotificationsAdminPage() {
         <div className="mt-4">
           <label className="text-sm font-medium text-slate-700">Notification Details</label>
           <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder="Full notification text shown in the popup" className="mt-1 w-full rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]" />
+        </div>
+
+        <div className="mt-4">
+          <label className="text-sm font-medium text-slate-700">Target Rotation</label>
+          <select 
+            value={targetRotation} 
+            onChange={(e) => setTargetRotation(e.target.value)} 
+            className="mt-1 w-full rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+          >
+            <option value="">All Rotations (Global)</option>
+            <option value="Pediatrics">Pediatrics</option>
+            <option value="Internal Medicine">Internal Medicine</option>
+            <option value="General Surgery">General Surgery</option>
+            <option value="Obstetrics & Gynecology">Obstetrics & Gynecology</option>
+          </select>
+          <p className="mt-1 text-xs text-slate-500">Leave as &quot;All Rotations&quot; to send to everyone, or select a specific rotation</p>
         </div>
 
         <div className="mt-5 flex items-center justify-end">

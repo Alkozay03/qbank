@@ -3,44 +3,54 @@ import Shell from "@/components/Shell";
 import { auth } from "@/auth";
 import ClientClock from "@/components/ClientClock";
 import DashboardStatsClient from "@/components/year4/DashboardStatsClient";
-import { headers } from "next/headers";
+import { prisma } from "@/server/db";
 
-type ProfileResponse = {
-  firstName?: string | null;
-  timezone?: string | null;
-};
+// Force dynamic rendering to ensure fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function Dashboard() {
   const session = await auth();
-  const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const proto = headerList.get("x-forwarded-proto") ?? (process.env.NODE_ENV === "production" ? "https" : "http");
-
-  let profile: ProfileResponse | null = null;
+  
+  let firstName: string | null = null;
+  let timezone: string | null = null;
   let dbUnavailable = false;
 
-  if (host) {
+  // Directly query the database for the most up-to-date profile data
+  if (session?.user?.email) {
     try {
-      const res = await fetch(`${proto}://${host}/api/profile`, { cache: "no-store" });
-      if (res.ok) {
-        profile = (await res.json()) as ProfileResponse;
-      } else if (res.status === 503) {
-        dbUnavailable = true;
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { 
+          firstName: true,
+          timezone: true,
+        },
+      });
+      
+      if (user) {
+        firstName = user.firstName;
+        timezone = user.timezone;
       }
-    } catch {
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
       dbUnavailable = true;
     }
   }
 
   const fallbackName = session?.user?.name || session?.user?.email || "Student";
-  const name = dbUnavailable ? "Offline Mode" : profile?.firstName || fallbackName;
-  const userForClock = { timezone: profile?.timezone || undefined };
+  // Ensure we use firstName if it exists and is not empty
+  const name = dbUnavailable 
+    ? "Offline Mode" 
+    : (firstName && firstName.trim() !== "") 
+      ? firstName 
+      : fallbackName;
+  const userForClock = { timezone: timezone || undefined };
 
   return (
     <Shell title={`Welcome, ${name}`} pageName="Dashboard">
       {dbUnavailable && (
-        <div className="mb-6 rounded-xl border border-[#F5C06C] bg-[#FFF7E6] p-4 text-[#8B6D00]">
-          We couldn’t reach the database. Some dynamic features are disabled, but you can continue reviewing static
+        <div className="mb-4 rounded-xl border-2 border-warning bg-warning/10 p-4 text-warning">
+          We couldn&apos;t reach the database. Some dynamic features are disabled, but you can continue reviewing static
           content. Check your DATABASE_URL/LOCAL_DATABASE_URL or start the local database to restore full
           functionality.
         </div>
@@ -48,8 +58,8 @@ export default async function Dashboard() {
 
       <DashboardStatsClient />
 
-      <div className="rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] p-6 shadow-lg">
-        <div className="flex justify-center items-center">
+      <div className="rounded-2xl bg-primary-light border-2 border-primary p-6 shadow-lg">
+        <div className="flex justify-center items-center bg-white rounded-xl shadow-inner p-4">
           <ClientClock user={userForClock} />
         </div>
       </div>

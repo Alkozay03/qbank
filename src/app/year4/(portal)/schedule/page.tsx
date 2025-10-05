@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/server/db";
+// import { auth } from "@/auth"; // TODO: Uncomment after Prisma migration for rotation filtering
 import { startOfWeekMonday, addDaysUTC, format12h } from "@/lib/dates";
 import Shell from "@/components/Shell";
 
@@ -32,6 +33,31 @@ export default async function Year4SchedulePage() {
   let items: UiBlock[] = [];
 
   try {
+    // Get current user's rotation
+    // const session = await auth();
+    // let userRotation: string | null = null;
+    // if (session?.user?.email) {
+    //   const user = await prisma.user.findUnique({
+    //     where: { email: session.user.email },
+    //     select: { rotation: true },
+    //   });
+    //   userRotation = user?.rotation || null;
+    // }
+
+    // TODO: After running Prisma migration, uncomment this to filter by rotation:
+    // const schedule = await prisma.schedule.findFirst({
+    //   where: {
+    //     weekStart,
+    //     OR: [
+    //       { targetRotation: null }, // Global schedules
+    //       { targetRotation: userRotation || undefined }, // User's rotation
+    //     ],
+    //   },
+    //   include: { items: true },
+    //   orderBy: { targetRotation: 'desc' }, // Prefer rotation-specific over global
+    // });
+    
+    // Temporary: Until Prisma migration runs
     const schedule = await prisma.schedule.findUnique({
       where: { weekStart },
       include: { items: true },
@@ -69,42 +95,42 @@ export default async function Year4SchedulePage() {
   return (
     <Shell title={title} pageName="Schedule">
       {/* Week Overview Header */}
-      <div className="mb-8 bg-gradient-to-r from-white via-[#FAFCFE] to-[#F3F9FC] rounded-3xl border-2 border-[#E6F0F7] shadow-xl p-6">
+      <div className="mb-8 bg-primary-light rounded-2xl border-2 border-primary shadow-lg p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-transparent bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] bg-clip-text">
+            <h2 className="text-2xl font-bold theme-gradient-text">
               {weekStart.toLocaleDateString("en-US", { month: "long", day: "numeric" })} - {addDaysUTC(weekStart, 6).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </h2>
-            <p className="text-[#3B82A0] font-medium mt-1">
+            <p className="text-primary font-medium mt-1">
               {items.length} scheduled {items.length === 1 ? "event" : "events"} this week
             </p>
           </div>
           <div className="hidden md:flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD]"></div>
-              <span className="text-sm font-medium text-[#2F6F8F]">Hospital Shift</span>
+              <div className="w-4 h-4 rounded-full theme-gradient"></div>
+              <span className="text-sm font-medium text-primary">Hospital Shift</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-gradient-to-r from-[#56A2CD] to-[#A5CDE4]"></div>
-              <span className="text-sm font-medium text-[#2F6F8F]">Lecture</span>
+              <div className="w-4 h-4 rounded-full bg-primary"></div>
+              <span className="text-sm font-medium text-primary">Lecture</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white rounded-3xl border-2 border-[#E6F0F7] shadow-2xl overflow-hidden">
+      <div className="rounded-xl overflow-hidden shadow-lg">
         {/* Header Row */}
-        <div className="grid grid-cols-7 bg-gradient-to-r from-[#F3F9FC] to-[#E6F0F7]">
+        <div className="grid grid-cols-7 theme-gradient rounded-t-xl">
           {days.map((d) => {
             const isToday = d.i === currentDayIndex;
             return (
-              <div key={d.i} className={`p-4 text-center border-r border-[#E6F0F7] last:border-r-0 ${isToday ? 'bg-gradient-to-b from-[#2F6F8F] to-[#56A2CD] text-white' : ''}`}>
-                <div className={`font-bold text-lg ${isToday ? 'text-white' : 'text-[#2F6F8F]'}`}>
+              <div key={d.i} className="p-4 text-center">
+                <div className="font-bold text-lg text-white">
                   <span className="hidden sm:inline">{d.name}</span>
                   <span className="sm:hidden">{d.short}</span>
                 </div>
-                <div className={`text-sm font-medium mt-1 ${isToday ? 'text-white/90' : 'text-[#56A2CD]'}`}>
+                <div className="text-sm font-medium mt-1 text-white/90">
                   {d.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </div>
                 {isToday && (
@@ -118,23 +144,23 @@ export default async function Year4SchedulePage() {
         </div>
 
         {/* Day blocks with events */}
-        <div className="grid grid-cols-7 min-h-[500px]">
+        <div className="grid grid-cols-7 min-h-[500px] bg-white rounded-b-xl">
           {days.map((d) => {
-            const isToday = d.i === currentDayIndex;
             return (
               <div 
                 key={d.i} 
-                className={`p-4 border-r border-[#E6F0F7] last:border-r-0 relative ${isToday ? 'bg-gradient-to-b from-[#F8FCFF] to-[#F3F9FC]' : 'bg-gradient-to-b from-white to-[#FAFCFE]'}`}
+                className="p-4 relative border-r-2 last:border-r-0"
+                style={{ borderColor: 'var(--color-primary)' }}
               >
                 {d.blocks.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#E6F0F7] to-[#F3F9FC] flex items-center justify-center mx-auto mb-3">
-                        <svg className="w-6 h-6 text-[#A5CDE4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
-                      <p className="text-[#A5CDE4] text-sm font-medium">No events</p>
+                      <p className="text-gray-500 text-sm font-medium">No events</p>
                     </div>
                   </div>
                 ) : (
@@ -145,19 +171,15 @@ export default async function Year4SchedulePage() {
                       return (
                         <div 
                           key={b.id}
-                          className={`group relative p-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${
+                          className={`group relative p-4 rounded-xl shadow-md transition-all duration-200 ${
                             isHospital 
-                              ? 'bg-gradient-to-br from-[#2F6F8F] to-[#56A2CD] text-white' 
-                              : 'bg-gradient-to-br from-[#56A2CD] to-[#A5CDE4] text-white'
+                              ? 'theme-gradient text-white' 
+                              : 'bg-primary text-white'
                           }`}
                         >
                           {/* Event Type Badge */}
                           <div className="absolute top-2 right-2">
-                            <div className={`px-2 py-1 rounded-full text-xs font-bold ${
-                              isHospital 
-                                ? 'bg-white/20 text-white' 
-                                : 'bg-white/20 text-white'
-                            }`}>
+                            <div className="px-2 py-1 rounded-full text-xs font-bold bg-white/20 text-white">
                               {isHospital ? "🏥" : "📚"}
                             </div>
                           </div>
@@ -203,7 +225,7 @@ export default async function Year4SchedulePage() {
                                 href={b.link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-semibold transition-all duration-200 transform hover:scale-105"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-all duration-200"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -212,9 +234,6 @@ export default async function Year4SchedulePage() {
                               </a>
                             </div>
                           )}
-
-                          {/* Hover Glow Effect */}
-                          <div className="absolute inset-0 rounded-2xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                         </div>
                       );
                     })}
@@ -229,12 +248,12 @@ export default async function Year4SchedulePage() {
       {/* Mobile Legend */}
       <div className="md:hidden mt-6 flex items-center justify-center gap-6">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD]"></div>
-          <span className="text-sm font-medium text-[#2F6F8F]">Hospital Shift</span>
+          <div className="w-4 h-4 rounded-full theme-gradient"></div>
+          <span className="text-sm font-medium text-primary">Hospital Shift</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-gradient-to-r from-[#56A2CD] to-[#A5CDE4]"></div>
-          <span className="text-sm font-medium text-[#2F6F8F]">Lecture</span>
+          <div className="w-4 h-4 rounded-full bg-primary"></div>
+          <span className="text-sm font-medium text-primary">Lecture</span>
         </div>
       </div>
     </Shell>

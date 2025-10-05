@@ -5,7 +5,31 @@ type Props = React.SVGProps<SVGSVGElement>;
 
 export const Icon = {
   Hamburger: (p: Props) => (
-    <svg viewBox="0 0 24 24" width="24" height="24" {...p}><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+    <svg viewBox="0 0 24 24" width="24" height="24" {...p} className={`hamburger-icon ${p.className || ''}`}>
+      <g className="hamburger-lines">
+        <path 
+          d="M4 7h16" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round"
+          className="hamburger-line hamburger-line-top"
+        />
+        <path 
+          d="M4 12h16" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round"
+          className="hamburger-line hamburger-line-middle"
+        />
+        <path 
+          d="M4 17h16" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round"
+          className="hamburger-line hamburger-line-bottom"
+        />
+      </g>
+    </svg>
   ),
   Dashboard: (p: Props) => (
     <svg viewBox="0 0 24 24" width="24" height="24" {...p}><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z" stroke="currentColor" fill="none" strokeWidth="2"/></svg>
@@ -54,6 +78,12 @@ export const Icon = {
   Bell: (p: Props) => (
     <svg viewBox="0 0 24 24" width="24" height="24" {...p}>
       <path d="M12 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 006 14h12a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm0 20a3 3 0 01-3-3h6a3 3 0 01-3 3z" stroke="currentColor" strokeWidth="2" fill="none"/>
+    </svg>
+  ),
+  Message: (p: Props) => (
+    <svg viewBox="0 0 24 24" width="24" height="24" {...p}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <path d="M8 9h8M8 13h6" stroke="currentColor" strokeWidth="2"/>
     </svg>
   ),
 };

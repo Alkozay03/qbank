@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { getGradientTextClasses } from "@/utils/gradients";
 
 interface DashboardStats {
   avgPercent: number;
   usedPercent: number;
   testsCompleted: number;
+  uniqueQuestionsCount: number;
+  totalQuestions: number;
+  isOffline?: boolean;
 }
 
 export default function DashboardStatsClient() {
@@ -30,7 +34,7 @@ export default function DashboardStatsClient() {
         const data = (await res.json()) as DashboardStats;
         if (!cancelled) {
           setStats(data);
-          setIsOffline(false);
+          setIsOffline(data.isOffline || false);
         }
       } catch (error) {
         console.warn("Failed to load stats", error);
@@ -60,11 +64,13 @@ export default function DashboardStatsClient() {
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] p-6 shadow-lg animate-pulse"
+            className="rounded-2xl bg-primary-light border-2 border-primary p-6 shadow-lg animate-pulse"
           >
-            <div className="h-4 bg-slate-200 rounded mb-4" />
-            <div className="h-12 bg-slate-200 rounded mb-2" />
-            <div className="h-3 bg-slate-200 rounded w-1/2" />
+            <div className="bg-white rounded-xl shadow-inner p-4">
+              <div className="h-4 bg-muted rounded mb-4" />
+              <div className="h-12 bg-muted rounded mb-2" />
+              <div className="h-3 bg-muted rounded w-1/2" />
+            </div>
           </div>
         ))}
       </div>
@@ -74,11 +80,13 @@ export default function DashboardStatsClient() {
   if (isOffline) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-        <div className="rounded-2xl bg-gradient-to-br from-white to-[#FEFBF0] border border-[#F5E6B3] p-6 shadow-lg">
-          <div className="text-sm font-medium text-[#B88300] mb-2">Statistics Unavailable</div>
-          <div className="text-base text-[#8B6D00]">
-            The database is currently offline, so performance statistics are unavailable. You can still review content
-            and use offline notes.
+        <div className="rounded-2xl bg-primary-light border-2 border-warning p-6 shadow-lg">
+          <div className="bg-white rounded-xl shadow-inner p-4">
+            <div className="text-sm font-semibold text-warning mb-2 tracking-wide">Statistics Unavailable</div>
+            <div className="text-base text-foreground font-medium">
+              The database is currently offline, so performance statistics are unavailable. You can still review content
+              and use offline notes.
+            </div>
           </div>
         </div>
       </div>
@@ -91,48 +99,37 @@ export default function DashboardStatsClient() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-      <StatCard title="Question Score" value={`${stats.avgPercent}%`} subtitle="Correct Answers" variant="primary" />
+      <StatCard title="Question Score" value={`${stats.avgPercent}%`} subtitle="Correct Answers" />
       <StatCard
         title="Qbank Usage"
         value={`${stats.usedPercent}%`}
-        subtitle="Questions Attempted"
-        variant="accent"
+        subtitle={`${stats.uniqueQuestionsCount}/${stats.totalQuestions} Questions Attempted`}
       />
       <StatCard
         title="Tests Completed"
         value={stats.testsCompleted}
         subtitle="Practice Sessions"
-        variant="primary"
       />
     </div>
   );
 }
 
-type StatCardVariant = "primary" | "accent";
-
 function StatCard({
   title,
   value,
   subtitle,
-  variant,
 }: {
   title: string;
   value: ReactNode;
   subtitle: string;
-  variant: StatCardVariant;
 }) {
-  const gradients: Record<StatCardVariant, string> = {
-    primary: "from-[#A5CDE4] to-[#56A2CD]",
-    accent: "from-[#56A2CD] to-[#2F6F8F]",
-  };
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-      <div className={`absolute top-0 right-0 w-20 h-20 bg-gradient-to-br ${gradients[variant]} opacity-10 rounded-full -mt-10 -mr-10`} />
-      <div className="relative">
-        <div className="text-sm font-medium text-slate-600 mb-2">{title}</div>
-        <div className="text-5xl font-extrabold text-[#2F6F8F] mb-1">{value}</div>
-        <div className="text-sm text-slate-500">{subtitle}</div>
+    <div className="group relative overflow-hidden rounded-2xl bg-primary-light border-2 border-primary p-6 shadow-lg transition-shadow duration-300">
+      <div className="relative bg-white rounded-xl shadow-inner p-6">
+        <div className="text-sm font-semibold text-primary mb-2 tracking-wide">{title}</div>
+        <div className={`text-5xl font-extrabold mb-1 drop-shadow-sm ${getGradientTextClasses()}`}>{value}</div>
+        <div className="text-sm text-primary font-medium">{subtitle}</div>
       </div>
     </div>
   );

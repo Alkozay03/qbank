@@ -4,7 +4,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
-import { setQuestionMode } from "@/lib/quiz/questionMode";
 
 export async function POST(
   _req: Request,
@@ -38,6 +37,7 @@ export async function POST(
     return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
   }
 
+  // Handle omitted questions (not answered and not marked)
   const omissionTargets = quiz.items.filter((item) => !item.marked && item.responses.length === 0);
 
   if (omissionTargets.length) {
@@ -53,11 +53,65 @@ export async function POST(
         })
       )
     );
+  }
 
-    await Promise.all(
-      omissionTargets.map((item) => setQuestionMode(item.questionId, "omitted"))
+  // Update USER-SPECIFIC question modes in the cached table
+  const modeUpdates = [];
+  
+  for (const item of quiz.items) {
+    // Get the latest response for this question from the CURRENT quiz
+    const currentQuizResponse = await prisma.response.findFirst({
+      where: { quizItemId: item.id },
+      select: { choiceId: true, isCorrect: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    // Determine the mode based on the quiz state
+    let mode: string;
+    
+    if (item.marked) {
+      // Priority 1: If marked, mode is "marked" regardless of answer
+      mode = "marked";
+    } else if (currentQuizResponse) {
+      if (currentQuizResponse.choiceId === null) {
+        mode = "omitted";
+      } else if (currentQuizResponse.isCorrect === true) {
+        mode = "correct";
+      } else if (currentQuizResponse.isCorrect === false) {
+        mode = "incorrect";
+      } else {
+        mode = "omitted";
+      }
+    } else {
+      // Not answered and not marked = omitted
+      mode = "omitted";
+    }
+    
+    // Update the cached mode in UserQuestionMode table
+    modeUpdates.push(
+      prisma.userQuestionMode.upsert({
+        where: {
+          userId_questionId: {
+            userId: quiz.userId,
+            questionId: item.questionId
+          }
+        },
+        update: {
+          mode,
+          updatedAt: new Date(),
+        },
+        create: {
+          userId: quiz.userId,
+          questionId: item.questionId,
+          mode,
+          updatedAt: new Date(),
+        },
+      })
     );
   }
+  
+  // Execute all mode updates in parallel
+  await Promise.all(modeUpdates);
 
   await prisma.quiz.update({
     where: { id: quiz.id },

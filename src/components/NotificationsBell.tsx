@@ -155,14 +155,15 @@ export default function NotificationsBell() {
           ref={buttonRef}
           onClick={toggle}
           aria-label="Notifications"
-          className="p-2 rounded-full transition active:scale-95 hover:bg-[#2F6F8F] text-[#3B82A0] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A5CDE4] icon-hover color-smooth"
+          className="p-2 rounded-full transition active:scale-95 hover:bg-primary text-primary hover:text-inverse focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {/* Bell icon styled to match other top-right icons */}
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 006 14h12a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm0 20a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+          <svg width="22" height="22" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
           {count > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-lg border-2 border-white z-10">
               {count}
             </span>
           )}
@@ -173,17 +174,17 @@ export default function NotificationsBell() {
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed z-[999] w-80 rounded-xl border border-[#E6F0F7] bg-white shadow-lg"
+            className="fixed z-[999] w-80 rounded-xl bg-primary-light shadow-lg"
             style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
           >
-          <div className="flex justify-between items-center px-3 py-2 border-b border-[#E6F0F7]">
-            <div className="text-sm font-semibold text-[#2F6F8F]">
+          <div className="flex justify-between items-center px-3 py-2 theme-gradient rounded-t-xl">
+            <div className="text-sm font-semibold text-white">
               Notifications
             </div>
             {items.some((item) => !item.isRead) && (
               <button 
                 onClick={markAllAsRead} 
-                className="text-xs text-[#2F6F8F] hover:text-[#1D4D66] font-medium btn-hover color-smooth"
+                className="text-xs text-white hover:opacity-80 font-medium transition-opacity"
               >
                 Mark all as read
               </button>
@@ -191,22 +192,22 @@ export default function NotificationsBell() {
           </div>
           <div className="max-h-80 overflow-auto">
             {items.length === 0 ? (
-              <div className="p-3 text-sm text-slate-500">No notifications</div>
+              <div className="p-3 text-sm text-gray-500">No notifications</div>
             ) : (
               items.map((n) => (
-                <div key={n.id} className={`border-b border-[#E6F0F7] p-2 ${!n.isRead ? "bg-[#F7FBFD]" : ""}`}>
+                <div key={n.id} className="border-b-2 border-primary bg-white p-3">
                   <div className="flex justify-between items-start">
                     <details className="cursor-pointer">
-                      <summary className="text-sm font-medium text-slate-800">
+                      <summary className="text-sm font-medium text-primary">
                         {n.title}
-                        {!n.isRead && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-blue-500"></span>}
+                        {!n.isRead && <span className="ml-2 inline-block h-2 w-2 rounded-full bg-primary shadow-sm"></span>}
                       </summary>
                       <NotifBody notification={n} />
                     </details>
                     {!n.isRead && (
                       <button
                         onClick={() => markAsRead(n.id)}
-                        className="text-xs text-slate-400 hover:text-[#2F6F8F] icon-hover color-smooth"
+                        className="text-xs text-gray-400 hover:text-primary transition-colors"
                         title="Mark as read"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -215,15 +216,15 @@ export default function NotificationsBell() {
                       </button>
                     )}
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-xs text-primary opacity-70 mt-1">
                     {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </div>
                 </div>
               ))
             )}
           </div>
-          <div className="px-3 py-2 text-center border-t border-[#E6F0F7]">
-            <a href="/notifications" className="text-xs text-[#2F6F8F] hover:text-[#1D4D66] font-medium">
+          <div className="px-3 py-2 text-center theme-gradient rounded-b-xl">
+            <a href="/notifications" className="text-xs text-white hover:opacity-80 font-medium transition-opacity">
               View all notifications
             </a>
           </div>
@@ -259,9 +260,9 @@ function NotifBody({ notification }: { notification: Notif }) {
   }, [notification.shortId, notification.body]);
   
   return (
-    <div className="mt-1 text-sm whitespace-pre-wrap text-slate-700">
+    <div className="mt-1 text-sm whitespace-pre-wrap text-primary">
       {loading ? (
-        <div className="animate-pulse h-3 bg-slate-200 rounded w-full mt-1 mb-2"></div>
+        <div className="animate-pulse h-3 bg-gray-200 rounded w-full mt-1 mb-2"></div>
       ) : (
         body
       )}

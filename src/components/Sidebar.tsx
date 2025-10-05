@@ -4,6 +4,8 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "./Icons";
+import SimpleHamburger from "./SimpleHamburger";
+import { getSelectedGradientClasses, getGradientTextClasses, getThemeGlow } from "@/utils/gradients";
 import clsx from "clsx";
 
 export type SidebarItem = {
@@ -44,37 +46,43 @@ export default function Sidebar({
       .catch(() => {});
   }, []);
 
-  const width = collapsed ? "w-16" : "w-72";
+  const widthPx = collapsed ? 64 : 288;
   const zIndex = isMobile ? "z-50" : "z-40"; // Higher z-index on mobile for overlay
   const items: SidebarItem[] = [...baseItems];
 
   return (
-    <aside
-      className={clsx(
-        "fixed left-0 top-0 bottom-0 border-r border-[#E6F0F7] bg-gradient-to-b from-white/95 to-[#F8FCFF]/95 backdrop-blur-md",
-        "transition-all duration-300 ease-in-out overflow-hidden shadow-xl",
-        width,
-        zIndex
-      )}
-    >
-      {/* Enhanced Header */}
-      <div className="flex items-center h-16 px-3 border-b border-[#E6F0F7] bg-gradient-to-r from-[#F8FCFF] to-white">
-        <button
+    <>
+      <aside
+        className={clsx(
+          "fixed left-0 top-0 bottom-0 sidebar-smooth-width",
+          zIndex
+        )}
+        style={{
+          backgroundColor: 'transparent', 
+          background: 'transparent',
+          width: `${widthPx}px`
+        }}
+      >
+      {/* Brand Header */}
+      <div className="flex items-center h-16 px-3" style={{backgroundColor: 'transparent'}}>
+        <SimpleHamburger 
           onClick={toggleSidebarAction}
-          aria-label="Toggle sidebar"
-          className="group relative p-2 rounded-full hover:bg-[#2F6F8F] focus:outline-none shrink-0 transition-all duration-200 transform hover:scale-105"
-        >
-          <Icon.Hamburger className="text-[#2F6F8F] group-hover:text-white w-6 h-6" />
-        </button>
+        />
 
         {/* Brand */}
-        <div className={clsx("ml-1 transition-opacity duration-300", collapsed ? "opacity-0" : "opacity-100")}>
-          <div className="brand-title select-none text-4xl font-bold tracking-tight transform -translate-y-0.5">Clerkship</div>
+        <div className={clsx("sidebar-brand-container ml-1 sidebar-brand", collapsed ? "sidebar-brand-collapsed" : "sidebar-brand-expanded")}>
+          <div className="flex items-baseline gap-2 whitespace-nowrap">
+            <div className={`brand-title select-none text-4xl font-extrabold tracking-tight ${getGradientTextClasses()}`}>Clerkship</div>
+            <div className={`brand-title select-none text-sm font-bold tracking-tight ${getGradientTextClasses()} opacity-90`}>Year 4</div>
+          </div>
         </div>
       </div>
+      
+      {/* Separating line between brand and navigation */}
+      <div className="border-b border-border mx-3"></div>
 
       {/* Enhanced Nav items */}
-      <nav className="mt-4 space-y-1 px-3">
+      <nav className="mt-4 space-y-2 px-3">
         {items.map((it) => {
           const ActiveIcon = Icon[it.icon];
           const active = pathname === it.href;
@@ -83,19 +91,29 @@ export default function Sidebar({
               key={it.key}
               onClick={() => router.push(it.href)}
               className={clsx(
-                "group w-full flex items-center justify-start rounded-xl text-left px-2 py-2.5 gap-2 transition-all duration-200 ease-out btn-hover",
+                "group w-full flex items-center justify-start rounded-xl text-left px-2 py-2.5 gap-2 transition-all duration-300 ease-out btn-hover",
                 active
-                  ? "bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white shadow-lg"
-                  : "text-[#2F6F8F] hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10"
+                  ? `${getSelectedGradientClasses()} shadow-lg`
+                  : "text-primary hover:shadow-md"
               )}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.boxShadow = getThemeGlow();
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
             >
               <ActiveIcon className={clsx(
-                "shrink-0 w-6 h-6 transition-colors duration-200",
-                active ? "text-white" : "text-[#56A2CD] group-hover:text-[#2F6F8F]"
+                "shrink-0 w-6 h-6 transition-colors duration-300",
+                active ? "text-inverse" : "text-primary/70 group-hover:text-primary"
               )} />
               <span className={clsx(
-                "font-medium text-lg whitespace-nowrap transition-opacity duration-300",
-                collapsed ? "opacity-0" : "opacity-100"
+                "font-medium text-lg whitespace-nowrap sidebar-text",
+                collapsed ? "sidebar-text-collapsed" : "sidebar-text-expanded"
               )}>
                 {it.label}
               </span>
@@ -107,12 +125,18 @@ export default function Sidebar({
         {role === "ADMIN" && (
           <button
             onClick={() => router.push("/year4/admin")}
-            className="group w-full flex items-center rounded-xl text-left text-[#2F6F8F] hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10 px-2 py-2.5 gap-2 transition-all duration-200 ease-out transform hover:scale-[1.02] hover:shadow-md"
+            className="group w-full flex items-center rounded-xl text-left text-primary px-2 py-2.5 gap-2 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:shadow-md"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = getThemeGlow();
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           >
-            <Icon.Settings className="text-[#56A2CD] shrink-0 w-6 h-6" />
+            <Icon.Settings className="text-primary/70 group-hover:text-primary shrink-0 w-6 h-6 transition-colors duration-300" />
             <span className={clsx(
-              "text-lg whitespace-nowrap transition-opacity duration-300",
-              collapsed ? "opacity-0" : "opacity-100"
+              "text-lg whitespace-nowrap sidebar-text",
+              collapsed ? "sidebar-text-collapsed" : "sidebar-text-expanded"
             )}>
               Year 4 Admin Settings
             </span>
@@ -123,42 +147,36 @@ export default function Sidebar({
         {role === "MASTER_ADMIN" && (
           <button
             onClick={() => router.push("/year4/master-admin")}
-            className="group w-full flex items-center rounded-xl text-left text-[#2F6F8F] hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10 px-2 py-2.5 gap-2 transition-all duration-200 ease-out transform hover:scale-[1.02] hover:shadow-md"
+            className="group w-full flex items-center rounded-xl text-left text-primary px-2 py-2.5 gap-2 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:shadow-md"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = getThemeGlow();
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           >
-            <Icon.Settings className="text-[#56A2CD] shrink-0 w-6 h-6" />
+            <Icon.Settings className="text-primary/70 group-hover:text-primary shrink-0 w-6 h-6 transition-colors duration-300" />
             <span className={clsx(
-              "text-lg whitespace-nowrap transition-opacity duration-300",
-              collapsed ? "opacity-0" : "opacity-100"
+              "text-lg whitespace-nowrap sidebar-text",
+              collapsed ? "sidebar-text-collapsed" : "sidebar-text-expanded"
             )}>
               Master Admin
             </span>
           </button>
         )}
       </nav>
-
-      {/* Bottom Home */}
-      <div className="absolute bottom-3 left-0 right-0 px-3">
-        <button
-          onClick={() => router.push("/years")}
-          className={clsx(
-            "group w-full flex items-center rounded-xl text-left px-2 py-2.5 gap-2 transition-all duration-200 ease-out btn-hover",
-            pathname === "/years"
-              ? "bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white shadow-lg"
-              : "text-[#2F6F8F] hover:bg-gradient-to-r hover:from-[#A5CDE4]/20 hover:to-[#56A2CD]/10"
-          )}
-        >
-          <Icon.Home className={clsx(
-            "shrink-0 w-6 h-6", 
-            pathname === "/years" ? "text-white" : "text-[#56A2CD] group-hover:text-[#2F6F8F]"
-          )} />
-          <span className={clsx(
-            "font-medium text-lg whitespace-nowrap transition-opacity duration-300",
-            collapsed ? "opacity-0" : "opacity-100"
-          )}>
-            Home
-          </span>
-        </button>
-      </div>
-    </aside>
+      </aside>
+      {/* Vertical separator line */}
+      <div 
+        className={clsx(
+          "fixed top-0 bottom-0 border-r border-border",
+          zIndex
+        )}
+        style={{
+          left: `${widthPx}px`,
+          transition: 'left 300ms ease-in-out'
+        }}
+      ></div>
+    </>
   );
 }

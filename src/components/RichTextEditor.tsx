@@ -300,6 +300,7 @@ export default function RichTextEditor({
       TableCell,
     ],
     content: processedContent,
+    immediatelyRender: false, // Fix SSR hydration mismatch
     onUpdate: ({ editor }: { editor: Editor }) => {
       let value = editor.getHTML();
       if (preserveLineBreaks) {
@@ -405,7 +406,7 @@ export default function RichTextEditor({
 
   return (
     <div className={`border border-gray-300 rounded-lg ${className}`}>
-      <div className="flex flex-wrap gap-2 p-3 border-b border-gray-300 bg-gray-50">
+      <div className="flex flex-wrap gap-2 p-3 border-b border-border bg-muted">
         {allowBold && (
           <button
             type="button"
@@ -413,8 +414,8 @@ export default function RichTextEditor({
             disabled={!editor.can().chain().focus().toggleBold().run()}
             className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
               editor.isActive("bold")
-                ? "bg-blue-500 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100"
+                ? "bg-primary text-inverse"
+                : "bg-theme-background text-readable hover:bg-hover"
             }`}
           >
             Bold
@@ -427,8 +428,8 @@ export default function RichTextEditor({
           disabled={!editor.can().chain().focus().toggleItalic().run()}
           className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
             editor.isActive("italic")
-              ? "bg-blue-500 text-white"
-              : "bg-white text-gray-700 hover:bg-gray-100"
+              ? "bg-primary text-inverse"
+              : "bg-theme-background text-readable hover:bg-hover"
           }`}
         >
           Italic
@@ -439,8 +440,8 @@ export default function RichTextEditor({
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
             editor.isActive("bulletList")
-              ? "bg-blue-500 text-white"
-              : "bg-white text-gray-700 hover:bg-gray-100"
+              ? "bg-primary text-inverse"
+              : "bg-theme-background text-readable hover:bg-hover"
           }`}
         >
           Bullets
@@ -451,8 +452,8 @@ export default function RichTextEditor({
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
             editor.isActive("orderedList")
-              ? "bg-blue-500 text-white"
-              : "bg-white text-gray-700 hover:bg-gray-100"
+              ? "bg-primary text-inverse"
+              : "bg-theme-background text-readable hover:bg-hover"
           }`}
         >
           1. Numbers

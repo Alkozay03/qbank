@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import { Role } from "@prisma/client";
 import { databaseUnavailableResponse, isDatabaseUnavailableError } from "@/server/db/errors";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
   const session = await auth();
@@ -23,6 +24,7 @@ export async function GET() {
         email: true,
         role: true,
         timezone: true,
+        rotation: true,
       },
     });
 
@@ -42,6 +44,7 @@ export async function GET() {
           role: true,
           timezone: true,
           rotation: true,
+          theme: true,
         },
       });
       return NextResponse.json(created);
@@ -64,18 +67,21 @@ export async function POST(req: NextRequest) {
   }
 
   const form = await req.formData();
-  const firstName = (form.get("firstName") || "") as string;
-  const lastName = (form.get("lastName") || "") as string;
+  const firstNameRaw = form.get("firstName") as string | null;
+  const lastNameRaw = form.get("lastName") as string | null;
+  const firstName = firstNameRaw?.trim() || null;
+  const lastName = lastNameRaw?.trim() || null;
   const gradYearRaw = form.get("gradYear") as string | null;
   const gradYear = gradYearRaw ? Number(gradYearRaw) : null;
   const timezone = (form.get("timezone") || null) as string | null;
   const rotation = (form.get("rotation") || null) as string | null;
+  const theme = (form.get("theme") || null) as string | null;
 
   let updated;
   try {
     updated = await prisma.user.upsert({
       where: { email: session.user.email },
-      update: { firstName, lastName, gradYear, timezone, rotation },
+      update: { firstName, lastName, gradYear, timezone, rotation, theme },
       create: {
         email: session.user.email,
         role: Role.MEMBER, // ✅ use enum, not string
@@ -84,6 +90,7 @@ export async function POST(req: NextRequest) {
         gradYear,
         timezone,
         rotation,
+        theme,
       },
       select: {
         firstName: true,
@@ -93,6 +100,7 @@ export async function POST(req: NextRequest) {
         role: true,
         timezone: true,
         rotation: true,
+        theme: true,
       },
     });
   } catch (error) {
@@ -101,6 +109,14 @@ export async function POST(req: NextRequest) {
       return databaseUnavailableResponse();
     }
     throw error;
+  }
+
+  // Revalidate the dashboard page to ensure fresh data
+  try {
+    revalidatePath("/year4");
+    revalidatePath("/profile");
+  } catch (error) {
+    console.warn("[profile] Failed to revalidate paths", error);
   }
 
   // Handle redirect vs JSON response

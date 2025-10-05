@@ -20,7 +20,7 @@ export default async function NotificationsPage() {
   return (
     <Shell title="Stay Updated!" pageName="Notifications">
       <div className="container px-4 py-6 mx-auto max-w-6xl">
-        <div className="bg-white rounded-xl shadow-sm border border-[#E6F0F7] overflow-hidden">
+        <div className="bg-primary-light rounded-xl shadow-sm overflow-hidden">
           <Suspense fallback={<NotificationsTableSkeleton />}>
             <NotificationsTable />
           </Suspense>
@@ -34,15 +34,15 @@ function NotificationsTableSkeleton() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <div className="animate-pulse h-8 w-48 bg-slate-200 rounded"></div>
-        <div className="animate-pulse h-10 w-32 bg-slate-200 rounded"></div>
+        <div className="animate-pulse h-8 w-48 bg-gray-200 rounded"></div>
+        <div className="animate-pulse h-10 w-32 bg-gray-200 rounded"></div>
       </div>
       
       <div className="space-y-4">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="animate-pulse">
-            <div className="h-6 w-full bg-slate-200 rounded mb-2"></div>
-            <div className="h-4 w-3/4 bg-slate-200 rounded"></div>
+            <div className="h-6 w-full bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 w-3/4 bg-gray-200 rounded"></div>
           </div>
         ))}
       </div>

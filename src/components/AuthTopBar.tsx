@@ -15,7 +15,7 @@ export default function AuthTopBar() {
       <div
         className="
           text-2xl font-extrabold tracking-tight
-          text-[#0E4362]
+          text-primary
         "
       >
         Clerkship

@@ -96,8 +96,8 @@ export default function TagManagementPage() {
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Tag Management</h1>
-        <p className="text-gray-600">Manage question tags and categories</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Tag Management</h1>
+        <p className="text-secondary">Manage question tags and categories</p>
       </div>
 
       {/* Add New Tag */}
@@ -107,7 +107,7 @@ export default function TagManagementPage() {
           <select
             value={newTag.type}
             onChange={(e) => setNewTag({ ...newTag, type: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           >
             {tagTypes.map((type) => (
               <option key={type} value={type}>
@@ -120,7 +120,7 @@ export default function TagManagementPage() {
             value={newTag.value}
             onChange={(e) => setNewTag({ ...newTag, value: e.target.value })}
             placeholder="Tag value..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           <button
             onClick={addTag}
@@ -136,7 +136,7 @@ export default function TagManagementPage() {
         <h2 className="text-xl font-semibold mb-4">Existing Tags</h2>
         
         {tags.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No tags found</p>
+          <p className="text-muted-foreground text-center py-8">No tags found</p>
         ) : (
           <div className="space-y-4">
             {tagTypes.map((type) => {
@@ -150,12 +150,12 @@ export default function TagManagementPage() {
                     {typeTags.map((tag) => (
                       <div
                         key={tag.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        className="flex items-center justify-between p-3 bg-accent rounded-lg"
                       >
                         <div>
-                          <span className="font-medium">{tag.value}</span>
+                          <span className="font-medium text-foreground">{tag.value}</span>
                           {typeof tag._count?.questions === "number" && (
-                            <span className="text-sm text-gray-500 ml-2">
+                            <span className="text-sm text-muted-foreground ml-2">
                               ({tag._count.questions} questions)
                             </span>
                           )}

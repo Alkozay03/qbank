@@ -25,11 +25,22 @@ export async function GET(req: Request) {
   const take = Number.isFinite(takeParam) ? Math.max(1, Math.min(50, takeParam)) : 20;
   const showOnlyUnread = searchParams.get("unreadOnly") === "true";
 
+  // Get user's current rotation for filtering
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { rotation: true },
+  });
+  const userRotation = user?.rotation || null;
+
   try {
-    // Get notifications with read status
+    // Get notifications with read status, filtered by rotation
     const rows = await prisma.notification.findMany({
       where: {
         isDeleted: false,
+        OR: [
+          { targetRotation: null }, // Global notifications
+          { targetRotation: userRotation }, // Match user's rotation
+        ],
         ...(showOnlyUnread
           ? {
               readReceipts: {

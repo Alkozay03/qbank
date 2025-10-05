@@ -4,7 +4,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { auth } from "@/auth";
-import { deriveModeFromHistory, setQuestionMode } from "@/lib/quiz/questionMode";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -56,15 +55,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       select: { id: true, marked: true, questionId: true },
     });
 
+    // Update the USER-SPECIFIC mode in the cached UserQuestionMode table
     try {
       if (marked) {
-        await setQuestionMode(updatedItem.questionId, "marked");
+        // Setting marked = mode becomes "marked"
+        await prisma.userQuestionMode.upsert({
+          where: { userId_questionId: { userId, questionId: updatedItem.questionId } },
+          update: { mode: "marked", updatedAt: new Date() },
+          create: { userId, questionId: updatedItem.questionId, mode: "marked", updatedAt: new Date() },
+        });
       } else {
-        const derived = await deriveModeFromHistory(updatedItem.questionId);
-        await setQuestionMode(updatedItem.questionId, derived);
+        // Unmarking - derive mode from latest response
+        const latestResponse = await prisma.response.findFirst({
+          where: { userId, quizItem: { questionId: updatedItem.questionId } },
+          orderBy: { createdAt: 'desc' },
+          select: { choiceId: true, isCorrect: true }
+        });
+        
+        let mode = "unused";
+        if (latestResponse) {
+          if (!latestResponse.choiceId) mode = "omitted";
+          else if (latestResponse.isCorrect === true) mode = "correct";
+          else if (latestResponse.isCorrect === false) mode = "incorrect";
+          else mode = "omitted";
+        }
+        
+        await prisma.userQuestionMode.upsert({
+          where: { userId_questionId: { userId, questionId: updatedItem.questionId } },
+          update: { mode, updatedAt: new Date() },
+          create: { userId, questionId: updatedItem.questionId, mode, updatedAt: new Date() },
+        });
       }
     } catch (modeError) {
-      console.warn("Failed to adjust mode tag after flag toggle", updatedItem.questionId, modeError);
+      console.warn("Failed to update mode after flag toggle", updatedItem.questionId, modeError);
     }
 
     return NextResponse.json({

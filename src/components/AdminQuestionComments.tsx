@@ -325,10 +325,10 @@ export default function AdminQuestionComments({ questionId }: Props) {
   const uploadLimitMb = Math.round(COMMENT_IMAGE_MAX_BYTES / (1024 * 1024));
 
   return (
-    <div className="rounded-2xl border border-[#E6F0F7] bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold text-[#2F6F8F]">Student Comments</h3>
+          <h3 className="text-lg font-semibold text-primary">Student Comments</h3>
           <p className="text-xs text-slate-500">
             {commentCount} {commentCount === 1 ? "comment" : "comments"} for this question.
           </p>
