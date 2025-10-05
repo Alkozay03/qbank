@@ -18,7 +18,12 @@ const nextConfig = {
   serverComponentsExternalPackages: ['@prisma/client', '@prisma/engines'],
   
   // Basic optimizations only
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, isServer }) => {
+    // Prisma configuration for proper bundling
+    if (isServer) {
+      config.externals.push('@prisma/engines', '@prisma/client');
+    }
+    
     // Basic client-side optimizations
     if (!dev) {
       config.optimization.splitChunks = {
