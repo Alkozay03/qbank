@@ -13,16 +13,14 @@ try {
   
   // Set environment variables for proper engine generation
   process.env.PRISMA_GENERATE_SKIP_DOWNLOAD = 'false';
-  process.env.PRISMA_CLI_QUERY_ENGINE_TYPE = 'library';
   
-  // Generate Prisma client
+  // Generate Prisma client - let it auto-detect engine type
   execSync('npx prisma generate', {
     cwd: projectRoot,
     stdio: 'inherit',
     env: {
       ...process.env,
-      PRISMA_GENERATE_SKIP_DOWNLOAD: 'false',
-      PRISMA_CLI_QUERY_ENGINE_TYPE: 'library'
+      PRISMA_GENERATE_SKIP_DOWNLOAD: 'false'
     }
   });
   
