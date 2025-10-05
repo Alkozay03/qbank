@@ -21,12 +21,16 @@ function isPromise<T>(v: unknown): v is Promise<T> {
 }
 
 export function ClerkshipAdapter(): Adapter {
+  console.error(`🏗️ [PROD] ClerkshipAdapter initialized`);
   const base = PrismaAdapter(prisma);
+  console.error(`🏗️ [PROD] Base PrismaAdapter created`);
 
-  return {
+  const adapter = {
     ...base,
 
     async createVerificationToken(data) {
+      console.error(`🔐🔐🔐 [PROD] CUSTOM createVerificationToken CALLED!`);
+      console.error(`🔐 [PROD] Raw data:`, JSON.stringify(data, null, 2));
       // CRITICAL: Normalize identifier to lowercase when creating token
       const normalizedIdentifier = data.identifier.toLowerCase().trim();
       
@@ -47,6 +51,9 @@ export function ClerkshipAdapter(): Adapter {
     },
 
     async useVerificationToken(params) {
+      console.error(`🔍🔍🔍 [PROD] CUSTOM useVerificationToken CALLED!`);
+      console.error(`🔍 [PROD] Raw params:`, JSON.stringify(params, null, 2));
+      
       try {
         // Normalize the identifier (email) to lowercase
         const normalizedIdentifier = params.identifier.toLowerCase().trim();
@@ -205,4 +212,10 @@ export function ClerkshipAdapter(): Adapter {
       });
     },
   };
+  
+  console.error(`🏗️ [PROD] ClerkshipAdapter returning custom adapter with ${Object.keys(adapter).length} methods`);
+  console.error(`🏗️ [PROD] Has createVerificationToken: ${!!adapter.createVerificationToken}`);
+  console.error(`🏗️ [PROD] Has useVerificationToken: ${!!adapter.useVerificationToken}`);
+  
+  return adapter;
 }
