@@ -15,7 +15,7 @@ const nextConfig = {
   serverExternalPackages: [],
 
   // Basic optimizations only
-  webpack: (config, { isServer }) => {
+  webpack: (config, { dev, isServer }) => {
     if (isServer) {
       // Force Prisma to be bundled, not externalized
       config.externals = config.externals || [];
