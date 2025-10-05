@@ -35,14 +35,17 @@ export function ClerkshipAdapter(): Adapter {
     async createVerificationToken(data) {
       if (typeof process !== 'undefined' && process.stderr) {
         process.stderr.write(`🔐🔐🔐 [PROD] CUSTOM createVerificationToken CALLED!\n`);
-        process.stderr.write(`🔐 [PROD] Raw data: ${JSON.stringify(data, null, 2)}\n`);
+        process.stderr.write(`🔐 [PROD] Original identifier: ${data.identifier}\n`);
       }
+      
       // CRITICAL: Normalize identifier to lowercase when creating token
       const normalizedIdentifier = data.identifier.toLowerCase().trim();
       
-      console.error(`🔐 [PROD] Creating token for: ${data.identifier} -> normalized: ${normalizedIdentifier}`);
-      console.error(`🔐 [PROD] Token: ${data.token.substring(0, 10)}...`);
-      console.error(`🔐 [PROD] Expires: ${data.expires}`);
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`🔐 [PROD] Normalized identifier: ${normalizedIdentifier}\n`);
+        process.stderr.write(`🔐 [PROD] Token prefix: ${data.token.substring(0, 10)}...\n`);
+        process.stderr.write(`🔐 [PROD] Expires: ${data.expires}\n`);
+      }
       
       const token = await prisma.verificationToken.create({
         data: {
@@ -52,22 +55,27 @@ export function ClerkshipAdapter(): Adapter {
         },
       });
       
-      console.error(`✅ [PROD] Token created successfully in database`);
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`✅ [PROD] Token created successfully in database\n`);
+      }
       return token;
     },
 
     async useVerificationToken(params) {
       if (typeof process !== 'undefined' && process.stderr) {
         process.stderr.write(`🔍🔍🔍 [PROD] CUSTOM useVerificationToken CALLED!\n`);
-        process.stderr.write(`🔍 [PROD] Raw params: ${JSON.stringify(params, null, 2)}\n`);
+        process.stderr.write(`🔍 [PROD] Original identifier: ${params.identifier}\n`);
+        process.stderr.write(`🔍 [PROD] Token prefix: ${params.token.substring(0, 10)}...\n`);
       }
       
       try {
         // Normalize the identifier (email) to lowercase
         const normalizedIdentifier = params.identifier.toLowerCase().trim();
         
-        console.error(`🔍 [PROD] Looking for token with identifier: ${params.identifier} -> normalized: ${normalizedIdentifier}`);
-        console.error(`🔍 [PROD] Token to find: ${params.token.substring(0, 10)}...`);
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`🔍 [PROD] Normalized identifier: ${normalizedIdentifier}\n`);
+          process.stderr.write(`🔍 [PROD] Searching database...\n`);
+        }
         
         // Try to find and delete the token
         const token = await prisma.verificationToken.delete({
@@ -79,17 +87,32 @@ export function ClerkshipAdapter(): Adapter {
           },
         });
         
-        console.error(`✅ [PROD] Token found and deleted for: ${normalizedIdentifier}`);
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`✅ [PROD] Token found and deleted successfully!\n`);
+        }
         return token;
       } catch (error) {
-        console.error(`❌ [PROD] Token not found for identifier: ${params.identifier}, token: ${params.token.substring(0, 10)}...`);
-        console.error(`❌ [PROD] Error:`, error);
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`❌ [PROD] Token lookup FAILED\n`);
+          process.stderr.write(`❌ [PROD] Error: ${error}\n`);
+        }
         
         // Check what tokens exist for this identifier
-        const existingTokens = await prisma.verificationToken.findMany({
-          where: { identifier: { contains: params.identifier, mode: 'insensitive' } },
-        });
-        console.error(`❌ [PROD] Found ${existingTokens.length} token(s) for similar identifier:`, existingTokens);
+        try {
+          const existingTokens = await prisma.verificationToken.findMany({
+            where: { identifier: { contains: params.identifier, mode: 'insensitive' } },
+          });
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`❌ [PROD] Found ${existingTokens.length} similar token(s) in DB:\n`);
+            existingTokens.forEach(t => {
+              process.stderr.write(`   - identifier: "${t.identifier}", token prefix: ${t.token.substring(0, 10)}...\n`);
+            });
+          }
+        } catch (searchError) {
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`❌ [PROD] Could not search for existing tokens: ${searchError}\n`);
+          }
+        }
         
         return null;
       }
