@@ -58,21 +58,11 @@ export const authOptions: NextAuthConfig = {
   pages: { signIn: "/login" },
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   
-  // Explicit cookie configuration for production
-  cookies: {
-    sessionToken: {
-      name: `authjs.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: true, // HTTPS only in production
-      }
-    }
-  },
-  
-  // Trust proxy for Vercel
+  // Trust proxy for Vercel - critical for HTTPS cookie handling
   trustHost: true,
+  
+  // Ensure cookies work in production
+  useSecureCookies: process.env.NODE_ENV === "production",
 
   callbacks: {
     /**
@@ -171,6 +161,12 @@ export const authOptions: NextAuthConfig = {
     },
 
     async session({ session, token }) {
+      if (typeof process !== 'undefined' && process.stderr) {
+        const tokenData = token as { sub?: string; email?: string; approvalStatus?: string; role?: string };
+        process.stderr.write(`📋 [SESSION] Building session for token: ${token?.email}\n`);
+        process.stderr.write(`📋 [SESSION] Token data: ${JSON.stringify({ sub: tokenData.sub, email: tokenData.email, approvalStatus: tokenData.approvalStatus, role: tokenData.role })}\n`);
+      }
+      
       if (session.user) {
         // add id without using `any`
         (session.user as { id?: string | null }).id = token?.sub ?? null;
@@ -181,6 +177,11 @@ export const authOptions: NextAuthConfig = {
           session.user.name = [token.firstName, token.lastName].filter(Boolean).join(' ') || null;
         }
       }
+      
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`📋 [SESSION] Final session: ${JSON.stringify(session)}\n`);
+      }
+      
       return session;
     },
 
