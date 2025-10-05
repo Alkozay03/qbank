@@ -65,9 +65,15 @@ export const authOptions: NextAuthConfig = {
      * - When consuming the link (user exists), enforce allowed domain AND approval status.
      */
     async signIn({ user, account }) {
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`🔑 [SIGNIN] Called with user: ${user?.email}, provider: ${account?.provider}\n`);
+      }
+      
       // 1) Requesting the token (no user yet) -> allow so the token can be created/sent/logged
       if (account?.provider === "email" && !user) {
-        console.warn(`📧 Magic link requested for email provider`);
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`� [SIGNIN] Magic link request - allowing\n`);
+        }
         return true;
       }
 
@@ -75,28 +81,59 @@ export const authOptions: NextAuthConfig = {
       const addr = user?.email;
       const allowAny = process.env.AUTH_ALLOW_ANY_EMAIL === "true";
       const emailAllowed = allowAny || isAllowedEmail(addr);
+      
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`🔑 [SIGNIN] Email ${addr}, allowed: ${emailAllowed}, allowAny: ${allowAny}\n`);
+      }
+      
       if (!emailAllowed) {
-        console.warn(`❌ Email not allowed: ${addr}`);
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`🔑 [SIGNIN] ❌ Email not in allowlist - BLOCKING\n`);
+        }
         return false;
       }
 
       // 3) Check approval status
       if (user?.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
-          select: { approvalStatus: true },
-        });
-        
-        console.warn(`🔐 User ${user.email} signing in with status: ${dbUser?.approvalStatus}`);
-        
-        // BLOCKED users cannot sign in at all
-        if (dbUser?.approvalStatus === "BLOCKED") {
-          console.warn(`❌ BLOCKED user cannot sign in: ${user.email}`);
-          return false;
-        }
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email },
+            select: { approvalStatus: true, role: true },
+          });
+          
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`� [SIGNIN] DB lookup: ${dbUser ? `Found - ${dbUser.approvalStatus}/${dbUser.role}` : 'NOT FOUND'}\n`);
+          }
+          
+          // If user not found in DB, that's an error but let them through
+          // (they'll be created by the adapter)
+          if (!dbUser) {
+            if (typeof process !== 'undefined' && process.stderr) {
+              process.stderr.write(`🔑 [SIGNIN] ⚠️ User not in DB - allowing (will be created)\n`);
+            }
+            return true;
+          }
+          
+          // BLOCKED users cannot sign in at all
+          if (dbUser.approvalStatus === "BLOCKED") {
+            if (typeof process !== 'undefined' && process.stderr) {
+              process.stderr.write(`🔑 [SIGNIN] ❌ User is BLOCKED - denying\n`);
+            }
+            return false;
+          }
 
-        // PENDING and APPROVED users can sign in
-        // (middleware will redirect PENDING users to /pending-approval)
+          // PENDING and APPROVED users can sign in
+          // (middleware will redirect PENDING users to /pending-approval)
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`🔑 [SIGNIN] ✅ Allowing sign in\n`);
+          }
+        } catch (error) {
+          if (typeof process !== 'undefined' && process.stderr) {
+            process.stderr.write(`🔑 [SIGNIN] ❌ DB ERROR: ${error}\n`);
+          }
+          // On DB error, allow signin (fail open for better UX)
+          return true;
+        }
       }
 
       return true;
