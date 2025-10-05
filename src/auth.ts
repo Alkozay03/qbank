@@ -57,6 +57,22 @@ export const authOptions: NextAuthConfig = {
   providers: [emailProvider],
   pages: { signIn: "/login" },
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  
+  // Explicit cookie configuration for production
+  cookies: {
+    sessionToken: {
+      name: `authjs.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true, // HTTPS only in production
+      }
+    }
+  },
+  
+  // Trust proxy for Vercel
+  trustHost: true,
 
   callbacks: {
     /**
