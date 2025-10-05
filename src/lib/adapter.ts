@@ -62,16 +62,16 @@ export function ClerkshipAdapter(): Adapter {
         process.stderr.write(`🔍 [PROD] Token prefix: ${params.token.substring(0, 10)}...\n`);
       }
       
+      // Normalize the identifier (email) to lowercase
+      const normalizedIdentifier = params.identifier.toLowerCase().trim();
+      
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`🔍 [PROD] Normalized identifier: ${normalizedIdentifier}\n`);
+        process.stderr.write(`🔍 [PROD] Searching database...\n`);
+      }
+      
       try {
-        // Normalize the identifier (email) to lowercase
-        const normalizedIdentifier = params.identifier.toLowerCase().trim();
-        
-        if (typeof process !== 'undefined' && process.stderr) {
-          process.stderr.write(`🔍 [PROD] Normalized identifier: ${normalizedIdentifier}\n`);
-          process.stderr.write(`🔍 [PROD] Searching database...\n`);
-        }
-        
-        // Try to find and delete the token
+        // Try to find and delete the token in one operation
         const token = await prisma.verificationToken.delete({
           where: {
             identifier_token: {
