@@ -252,7 +252,7 @@ function MultipleReferencesEditor({ references, onChange }: MultipleReferencesEd
       <button
         type="button"
         onClick={addReference}
-        className="flex items-center gap-2 px-3 py-2 text-primary hover:text-primary-hover hover:bg-hover rounded-lg transition-colors duration-200 text-sm"
+        className="flex items-center gap-2 px-3 py-2 text-[#0ea5e9] hover:text-[#0284c7] hover:bg-sky-50 rounded-lg transition-colors duration-200 text-sm"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -746,7 +746,7 @@ ${formattedList}`);
           </div>
           <button
             onClick={handleGoBack}
-            className="flex items-center gap-2 px-6 py-3 bg-primary text-inverse rounded-xl font-medium hover:opacity-90 transition-all duration-300 btn-hover shadow-lg"
+            className="flex items-center gap-2 px-6 py-3 bg-[#0ea5e9] text-white rounded-xl font-medium hover:bg-[#0284c7] transition-all duration-300 shadow-lg"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -756,11 +756,11 @@ ${formattedList}`);
         </div>
 
         {/* Upload Section */}
-        <div className="bg-theme-background rounded-xl border border-theme p-6 mb-8 shadow-theme">
-          <h2 className="text-xl font-semibold text-primary mb-4">Upload PDF</h2>
+        <div className="bg-white rounded-xl border border-sky-200 p-6 mb-8 shadow-lg">
+          <h2 className="text-xl font-semibold text-[#0ea5e9] mb-4">Upload PDF</h2>
           
           <div className="space-y-4">
-            <div className="border-2 border-dashed border-theme rounded-lg p-8 text-center">
+            <div className="border-2 border-dashed border-sky-300 rounded-lg p-8 text-center bg-sky-50/50">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -790,11 +790,11 @@ ${formattedList}`);
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-secondary">{state.message}</span>
-                  <span className="text-primary font-medium">{state.progress}%</span>
+                  <span className="text-[#0ea5e9] font-medium">{state.progress}%</span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                <div className="w-full bg-sky-100 rounded-full h-2">
+                  <div
+                    className="bg-[#0ea5e9] h-2 rounded-full transition-all duration-300"
                     style={{ width: `${state.progress}%` }}
                   ></div>
                 </div>
@@ -804,7 +804,7 @@ ${formattedList}`);
           <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-end">
             <button
               onClick={handleAddManualQuestion}
-              className="inline-flex items-center justify-center px-6 py-3 bg-primary text-inverse rounded-xl font-medium shadow-lg hover:opacity-90 transition-all duration-300 btn-hover"
+              className="inline-flex items-center justify-center px-6 py-3 bg-[#0ea5e9] text-white rounded-xl font-medium shadow-lg hover:bg-[#0284c7] transition-all duration-300"
             >
               Add Individual Question
             </button>
@@ -819,12 +819,12 @@ ${formattedList}`);
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={handleSearchInputKeyDown}
                   placeholder="Enter question ID"
-                  className="flex-1 px-3 py-2 border border-theme rounded-lg focus-theme outline-none theme-transition text-readable bg-theme-background"
+                  className="flex-1 px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none transition-all text-slate-700 bg-white"
                 />
                 <button
                   onClick={handleSearchExistingQuestion}
                   disabled={searchStatus === 'loading' || !searchInput.trim()}
-                  className="w-full sm:w-auto px-6 py-2 bg-primary text-inverse rounded-lg font-medium hover:opacity-90 transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-6 py-2 bg-[#0ea5e9] text-white rounded-lg font-medium hover:bg-[#0284c7] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {searchStatus === 'loading' ? 'Searching...' : 'Search'}
                 </button>
@@ -847,15 +847,15 @@ ${formattedList}`);
         </div>
         {/* Questions Table */}
         {state.questions.length > 0 && (
-          <div className="bg-theme-background rounded-xl border border-theme shadow-theme overflow-hidden">
-            <div className="px-6 py-4 border-b border-theme flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-primary">
+          <div className="bg-white rounded-xl border border-sky-200 shadow-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-sky-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-[#0ea5e9]">
                 Extracted Questions ({state.questions.length})
               </h2>
               <button
                 onClick={handleSaveAllQuestions}
                 disabled={state.status === 'saving'}
-                className="px-6 py-2 bg-primary text-inverse rounded-lg font-medium hover:opacity-90 transition-all duration-300 btn-hover disabled:opacity-50"
+                className="px-6 py-2 bg-[#0ea5e9] text-white rounded-lg font-medium hover:bg-[#0284c7] transition-all duration-300 disabled:opacity-50"
               >
                 {state.status === 'saving' ? 'Saving...' : 'Save All Questions'}
               </button>
@@ -863,26 +863,26 @@ ${formattedList}`);
 
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-theme-secondary">
+                <thead className="bg-sky-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">#</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">Question Preview</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">Correct Answer</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">References</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">Tags</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-primary">Actions</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#0284c7]">#</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#0284c7]">Question Preview</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#0284c7]">Correct Answer</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#0284c7]">References</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#0284c7]">Tags</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-[#0284c7]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {state.questions.map((question, index) => (
-                    <tr key={question.id} className="border-b border-theme hover:bg-hover transition-colors duration-200">
-                      <td className="px-4 py-3 text-sm font-medium text-primary">{index + 1}</td>
+                    <tr key={question.id} className="border-b border-sky-100 hover:bg-sky-50 transition-colors duration-200">
+                      <td className="px-4 py-3 text-sm font-medium text-[#0ea5e9]">{index + 1}</td>
                       <td className="px-4 py-3 text-sm text-foreground max-w-xs">
                         <div className="truncate" title={question.questionText}>
                           {question.questionText.substring(0, 100)}...
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-primary">{question.correctAnswer}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-[#0ea5e9]">{question.correctAnswer}</td>
                       <td className="px-4 py-3 text-sm">
                         <input
                           type="text"
@@ -893,7 +893,7 @@ ${formattedList}`);
                             setState(prev => ({ ...prev, questions: newQuestions }));
                           }}
                           placeholder="Enter references"
-                          className="w-full px-2 py-1 text-xs border border-theme rounded focus-theme outline-none theme-transition text-readable bg-theme-background"
+                          className="w-full px-2 py-1 text-xs border border-sky-200 rounded focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none transition-all text-slate-700 bg-white"
                         />
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -911,7 +911,7 @@ ${formattedList}`);
                                 {shown.map((label) => (
                                   <span
                                     key={label}
-                                    className="inline-block px-2 py-1 bg-theme-secondary text-primary rounded-full text-xs"
+                                    className="inline-block px-2 py-1 bg-sky-100 text-[#0284c7] rounded-full text-xs"
                                   >
                                     {label}
                                   </span>
@@ -927,7 +927,7 @@ ${formattedList}`);
                       <td className="px-4 py-3 text-sm">
                         <button
                           onClick={() => handleEditQuestion(index)}
-                          className="px-3 py-1 text-xs bg-gradient-secondary text-white rounded hover:opacity-90 transition-all duration-200 btn-hover"
+                          className="px-3 py-1 text-xs bg-[#0ea5e9] text-white rounded hover:bg-[#0284c7] transition-all duration-200"
                         >
                           Edit
                         </button>
@@ -1250,9 +1250,9 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-theme-background px-6 py-4 border-b border-theme flex justify-between items-center z-20">
-          <h2 className="text-xl font-semibold text-primary">Edit Question</h2>
+      <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-sky-200 flex justify-between items-center z-20">
+          <h2 className="text-xl font-semibold text-[#0ea5e9]">Edit Question</h2>
           <button
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground icon-hover"
@@ -1266,8 +1266,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         <div className="p-6 space-y-6" style={{ paddingTop: '1.5rem' }}>{/* Added padding to prevent text clipping */}
           {/* Question Text with Rich Text Editor */}
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">Question Text</label>
-            <div className="max-h-[400px] overflow-y-auto border border-border rounded-lg">
+            <label className="block text-sm font-medium text-[#0284c7] mb-2">Question Text</label>
+            <div className="max-h-[400px] overflow-y-auto border border-sky-200 rounded-lg">
               <RichTextEditor
                 content={editedQuestion.questionText}
                 onChange={(content) => setEditedQuestion(prev => ({ ...prev, questionText: content }))}
