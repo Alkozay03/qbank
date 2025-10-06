@@ -21,8 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 try {
                   // Check if we're on forced theme pages first
                   const path = window.location.pathname;
-                  const isForcedThemePage = path === '/' || path === '/years' || path === '/login' || path === '/pending-approval' || path === '/login-check' || 
-                    path.includes('/admin/') || path.includes('/master-admin/');
+                  const isForcedThemePage = path === '/' || path === '/years' || path === '/login' || path === '/pending-approval' || path === '/login-check';
                   
                   if (isForcedThemePage) {
                     // Force skyblue theme for these pages
@@ -30,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     return;
                   }
 
-                  // For all other pages, load user's saved theme
+                  // For all other pages (including admin pages with hardcoded colors), load user's saved theme
                   const savedTheme = localStorage.getItem('qbank-theme') || 'blue';
                   applyTheme(savedTheme);
 
