@@ -2,11 +2,12 @@
 "use client";
 
 import BackgroundWrapper from "@/components/BackgroundWrapper";
+import ForceBlueTheme from "@/components/ForceBlueTheme";
 import { getGradientTextClasses } from "@/utils/gradients";
 
 export default function CheckEmail() {
   return (
-    <>
+    <ForceBlueTheme>
       <BackgroundWrapper />
       <main className="min-h-screen flex items-center justify-center px-4 relative z-20">
         {/* Top left brand - same as login page */}
@@ -26,6 +27,6 @@ export default function CheckEmail() {
           </p>
         </div>
       </main>
-    </>
+    </ForceBlueTheme>
   );
 }
