@@ -733,13 +733,13 @@ ${formattedList}`);
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
         
         {/* Header with Back Button */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2 text-primary">Bulk Question Manager</h1>
+            <h1 className="text-3xl font-bold mb-2 text-[#0ea5e9]">Bulk Question Manager</h1>
             <p className="text-slate-600">
               Upload PDF files containing 90-100 questions to extract and manage them with references and tags.
             </p>
@@ -774,8 +774,8 @@ ${formattedList}`);
                 htmlFor="pdf-upload"
                 className={`cursor-pointer inline-flex items-center gap-3 px-6 py-3 rounded-xl font-medium transition-all duration-300 btn-hover ${
                   state.status === 'uploading' || state.status === 'extracting'
-                    ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                    : 'bg-primary text-inverse hover:opacity-90'
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-[#0ea5e9] text-white hover:bg-[#0284c7]'
                 }`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -809,7 +809,7 @@ ${formattedList}`);
               Add Individual Question
             </button>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-[#2F6F8F] mb-2">
+              <label className="block text-sm font-medium text-[#0284c7] mb-2">
                 Find Existing Question
               </label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1255,7 +1255,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           <h2 className="text-xl font-semibold text-[#0ea5e9]">Edit Question</h2>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground icon-hover"
+            className="text-gray-500 hover:text-gray-700 icon-hover"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1280,9 +1280,9 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           </div>
 
           {/* Question Image Upload */}
-          <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-sky-200 bg-white p-4">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-primary uppercase tracking-wide">Question Image</label>
+              <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">Question Image</label>
               <p className="text-xs text-muted-foreground">
                 Upload an image to display below the question stem. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
               </p>
@@ -1305,7 +1305,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               <button
                 type="button"
                 onClick={() => questionImageInputRef.current?.click()}
-                className="rounded-lg border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-accent"
+                className="rounded-lg border border-[#0ea5e9] px-4 py-1.5 text-sm font-semibold text-[#0ea5e9] transition hover:bg-sky-50"
               >
                 {questionImageUploading ? 'Uploading…' : 'Select image'}
               </button>
@@ -1355,7 +1355,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {['A', 'B', 'C', 'D', 'E'].map((option) => (
               <div key={option}>
-                <label className="block text-sm font-medium text-primary mb-2">Option {option}</label>
+                <label className="block text-sm font-medium text-[#0284c7] mb-2">Option {option}</label>
                 <textarea
                   value={editedQuestion[`option${option}` as keyof ExtractedQuestion] as string || ''}
                   onChange={(e) => setEditedQuestion(prev => ({ 
@@ -1372,7 +1372,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
           {/* Correct Answer */}
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">Correct Answer</label>
+            <label className="block text-sm font-medium text-[#0284c7] mb-2">Correct Answer</label>
             <select
               value={editedQuestion.correctAnswer}
               onChange={(e) => setEditedQuestion(prev => ({ ...prev, correctAnswer: e.target.value }))}
@@ -1389,7 +1389,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
           {/* Explanation with Rich Text Editor */}
           <div>
-            <label className="block text-sm font-medium text-primary mb-2">Explanation</label>
+            <label className="block text-sm font-medium text-[#0284c7] mb-2">Explanation</label>
             <div className="max-h-[400px] overflow-y-auto border border-border rounded-lg">
               <RichTextEditor
                 content={editedQuestion.explanation}
@@ -1403,9 +1403,9 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           </div>
 
           {/* Explanation Image Upload */}
-          <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-sky-200 bg-white p-4">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-primary uppercase tracking-wide">Explanation Image</label>
+              <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">Explanation Image</label>
               <p className="text-xs text-muted-foreground">
                 Upload an image to display above the explanation text. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
               </p>
@@ -1428,7 +1428,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               <button
                 type="button"
                 onClick={() => explanationImageInputRef.current?.click()}
-                className="rounded-lg border border-primary px-4 py-1.5 text-sm font-semibold text-primary transition hover:bg-accent"
+                className="rounded-lg border border-[#0ea5e9] px-4 py-1.5 text-sm font-semibold text-[#0ea5e9] transition hover:bg-sky-50"
               >
                 {explanationImageUploading ? 'Uploading…' : 'Select image'}
               </button>
@@ -1476,7 +1476,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
           {/* Educational Objective with Rich Text Editor */}
           <div>
-            <label className="block text-sm font-medium text-[#2F6F8F] mb-2">Educational Objective</label>
+            <label className="block text-sm font-medium text-[#0284c7] mb-2">Educational Objective</label>
             <div className="max-h-[300px] overflow-y-auto border border-border rounded-lg">
               <RichTextEditor
                 content={editedQuestion.educationalObjective}
@@ -1491,17 +1491,17 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
           {/* References */}
           <div>
-            <label className="block text-sm font-medium text-[#2F6F8F] mb-2">References</label>
+            <label className="block text-sm font-medium text-[#0284c7] mb-2">References</label>
             <MultipleReferencesEditor 
               references={editedQuestion.references}
               onChange={(newRefs) => setEditedQuestion(prev => ({ ...prev, references: newRefs }))}
             />
           </div>
 
-          <div className="rounded-2xl border border-[#E6F0F7] bg-[#F9FCFF] p-4 space-y-4">
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 space-y-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-[#2F6F8F] uppercase tracking-wide">Question Appearances</h3>
+                <h3 className="text-sm font-semibold text-[#0284c7] uppercase tracking-wide">Question Appearances</h3>
                 <p className="mt-1 text-xs text-slate-500">
                   Track every year and rotation combination where this question appeared so we can surface its history to students.
                 </p>
@@ -1509,7 +1509,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               <button
                 type="button"
                 onClick={handleAddOccurrence}
-                className="inline-flex items-center gap-2 rounded-lg border border-[#2F6F8F] px-3 py-1.5 text-xs font-semibold text-[#2F6F8F] transition hover:bg-[#2F6F8F]/10"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#0ea5e9] px-3 py-1.5 text-xs font-semibold text-[#0ea5e9] transition hover:bg-sky-100"
               >
                 <span className="text-lg leading-none">＋</span>
                 Add occurrence
@@ -1562,9 +1562,9 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#E6F0F7] bg-[#F9FCFF] p-4">
+          <div className="rounded-2xl border border-sky-200 bg-white p-4">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-[#2F6F8F] uppercase tracking-wide">IDU Screenshot</label>
+              <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">IDU Screenshot</label>
               <p className="text-xs text-slate-500">
                 Drop an image or upload a new screenshot of the question. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
               </p>
@@ -1587,7 +1587,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               <button
                 type="button"
                 onClick={() => screenshotInputRef.current?.click()}
-                className="rounded-lg border border-[#2F6F8F] px-4 py-1.5 text-sm font-semibold text-[#2F6F8F] transition hover:bg-[#2F6F8F]/10"
+                className="rounded-lg border border-[#0ea5e9] px-4 py-1.5 text-sm font-semibold text-[#0ea5e9] transition hover:bg-sky-50"
               >
                 {screenshotUploading ? 'Uploading…' : 'Select image'}
               </button>
@@ -1655,17 +1655,17 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           )}
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-4 pt-4 border-t border-[#E6F0F7]">
+          <div className="flex justify-end gap-4 pt-4 border-t border-sky-200">
             <button
               onClick={onClose}
-              className="px-6 py-2 border border-[#E6F0F7] text-[#2F6F8F] rounded-lg hover:bg-[#F8FCFF] transition-colors duration-200 btn-hover"
+              className="px-6 py-2 border border-sky-200 text-[#0284c7] rounded-lg hover:bg-sky-50 transition-colors duration-200 btn-hover"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white rounded-lg hover:from-[#56A2CD] hover:to-[#A5CDE4] transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-[#0ea5e9] text-white rounded-lg hover:bg-[#0284c7] transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -1678,7 +1678,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 export default function BulkQuestionManager() {
   return (
     <ForceBlueTheme>
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-[#2F6F8F]">Loading...</div>}>
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-[#0ea5e9]">Loading...</div>}>
         <BulkQuestionManagerContent />
       </Suspense>
     </ForceBlueTheme>
