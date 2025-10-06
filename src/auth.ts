@@ -38,6 +38,157 @@ const emailProvider = Email({
       setDevMagic(identifier, url);
     },
   }),
+  // Add comprehensive logging for production email sending
+  ...(!useDevNoSmtp && {
+    async sendVerificationRequest(params: { identifier: string; url: string; provider: { server?: object; from?: string } }) {
+      const { identifier, url, provider } = params;
+      
+      // Log the start of email sending process
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`\n📧 ========== EMAIL SEND REQUEST ==========\n`);
+        process.stderr.write(`📧 [EMAIL] Timestamp: ${new Date().toISOString()}\n`);
+        process.stderr.write(`📧 [EMAIL] Recipient: ${identifier}\n`);
+        process.stderr.write(`📧 [EMAIL] From: ${provider.from}\n`);
+        process.stderr.write(`📧 [EMAIL] URL Host: ${new URL(url).host}\n`);
+        process.stderr.write(`📧 [EMAIL] Server Config: ${JSON.stringify({
+          host: process.env.EMAIL_SERVER_HOST,
+          port: process.env.EMAIL_SERVER_PORT,
+          user: process.env.EMAIL_SERVER_USER?.slice(0, 5) + '***',
+          secure: port === 465
+        })}\n`);
+      }
+
+      try {
+        // Import nodemailer for default email sending
+        const nodemailer = await import('nodemailer');
+        
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`📧 [EMAIL] Creating transport...\n`);
+        }
+
+        const transport = nodemailer.default.createTransport({
+          host: process.env.EMAIL_SERVER_HOST,
+          port,
+          secure,
+          auth: {
+            user: process.env.EMAIL_SERVER_USER,
+            pass: process.env.EMAIL_SERVER_PASSWORD,
+          },
+        });
+
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`📧 [EMAIL] Verifying transport connection...\n`);
+        }
+
+        // Verify connection
+        await transport.verify();
+        
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`📧 [EMAIL] ✅ Transport verified successfully\n`);
+        }
+
+        // Send the email using NextAuth's default template
+        const { host } = new URL(url);
+        const escapedHost = host.replace(/\./g, "&#8203;.");
+
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`📧 [EMAIL] Sending email...\n`);
+        }
+
+        const result = await transport.sendMail({
+          to: identifier,
+          from: provider.from,
+          subject: `Sign in to ${escapedHost}`,
+          text: `Sign in to ${escapedHost}\n${url}\n\n`,
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <table width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #2F6F8F, #56A2CD); padding: 30px; text-align: center;">
+                          <h1 style="color: white; margin: 0; font-size: 28px;">Sign in to ${escapedHost}</h1>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 40px 30px;">
+                          <p style="font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 30px;">
+                            Click the button below to sign in:
+                          </p>
+                          <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td align="center">
+                                <a href="${url}" style="display: inline-block; background: #2F6F8F; color: white; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">Sign In</a>
+                              </td>
+                            </tr>
+                          </table>
+                          <p style="font-size: 14px; color: #666; margin-top: 30px; line-height: 1.6;">
+                            Or copy and paste this link:<br>
+                            <a href="${url}" style="color: #2F6F8F; word-break: break-all;">${url}</a>
+                          </p>
+                          <p style="font-size: 13px; color: #999; margin-top: 30px;">
+                            This link expires in 24 hours. If you didn't request this email, you can safely ignore it.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+          `,
+        });
+
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`📧 [EMAIL] ✅ Email sent successfully!\n`);
+          process.stderr.write(`📧 [EMAIL] Message ID: ${result.messageId}\n`);
+          process.stderr.write(`📧 [EMAIL] Response: ${result.response}\n`);
+          process.stderr.write(`📧 [EMAIL] Accepted: ${JSON.stringify(result.accepted)}\n`);
+          process.stderr.write(`📧 [EMAIL] Rejected: ${JSON.stringify(result.rejected)}\n`);
+          process.stderr.write(`📧 ==========================================\n\n`);
+        }
+
+        return result;
+      } catch (error) {
+        if (typeof process !== 'undefined' && process.stderr) {
+          process.stderr.write(`📧 [EMAIL] ❌ ERROR occurred!\n`);
+          process.stderr.write(`📧 [EMAIL] Error type: ${error instanceof Error ? error.constructor.name : typeof error}\n`);
+          process.stderr.write(`📧 [EMAIL] Error message: ${error instanceof Error ? error.message : String(error)}\n`);
+          
+          if (error instanceof Error && error.stack) {
+            process.stderr.write(`📧 [EMAIL] Stack trace:\n${error.stack}\n`);
+          }
+          
+          // Log additional error details if available
+          if (error && typeof error === 'object') {
+            const errorObj = error as Record<string, unknown>;
+            if (errorObj.code) {
+              process.stderr.write(`📧 [EMAIL] Error code: ${errorObj.code}\n`);
+            }
+            if (errorObj.command) {
+              process.stderr.write(`📧 [EMAIL] SMTP command: ${errorObj.command}\n`);
+            }
+            if (errorObj.responseCode) {
+              process.stderr.write(`📧 [EMAIL] Response code: ${errorObj.responseCode}\n`);
+            }
+          }
+          
+          process.stderr.write(`📧 ==========================================\n\n`);
+        }
+        
+        // Re-throw to let NextAuth handle the error
+        throw error;
+      }
+    },
+  }),
 });
 
 const adapterInstance = ClerkshipAdapter();
