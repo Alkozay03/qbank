@@ -185,7 +185,8 @@
 }
 
 /* Enhanced dark mode support */
-[data-theme-type="dark"] .bg-white {
+/* Exclude admin pages from aggressive bg-white override to preserve sky blue branding */
+[data-theme-type="dark"]:not([data-admin-page]) .bg-white {
   background-color: #000000 !important;
 }
 

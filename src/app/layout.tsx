@@ -23,6 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   const path = window.location.pathname;
                   const isForcedThemePage = path === '/' || path === '/years' || path === '/login' || path === '/pending-approval' || path === '/login-check';
                   
+                  // Check if we're on admin pages (to prevent dark mode from overriding sky blue)
+                  const isAdminPage = path.includes('/admin/') || path.includes('/master-admin/');
+                  
                   if (isForcedThemePage) {
                     // Force skyblue theme for these pages
                     applyTheme('blue');
@@ -31,9 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
                   // For all other pages (including admin pages with hardcoded colors), load user's saved theme
                   const savedTheme = localStorage.getItem('qbank-theme') || 'blue';
-                  applyTheme(savedTheme);
+                  applyTheme(savedTheme, isAdminPage);
 
-                  function applyTheme(themeName) {
+                  function applyTheme(themeName, isAdminPage = false) {
                     const themes = {
                       blue: { primary: '#0ea5e9', isDark: false },
                       red: { primary: '#dc2626', isDark: false },
@@ -53,6 +56,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     root.setAttribute('data-theme-type', theme.isDark ? 'dark' : 'light');
                     root.setAttribute('data-theme-name', themeName);
                     root.classList.toggle('dark', theme.isDark);
+                    
+                    // Mark admin pages to exclude from dark mode bg-white overrides
+                    if (isAdminPage) {
+                      root.setAttribute('data-admin-page', 'true');
+                    } else {
+                      root.removeAttribute('data-admin-page');
+                    }
 
                     // Apply primary color immediately to prevent color flash
                     root.style.setProperty('--color-primary', theme.primary);
