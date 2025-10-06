@@ -187,18 +187,18 @@ export default function UserListClient({ users }: Props) {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-3 sm:px-4 py-6">
+    <div className="mx-auto max-w-7xl px-3 sm:px-4 py-6 min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-primary">User Management</h1>
-        <a href="/year4/master-admin" className="text-primary hover:underline">
+        <h1 className="text-3xl font-bold text-[#0ea5e9]">User Management</h1>
+        <a href="/year4/master-admin" className="text-[#0ea5e9] hover:text-[#0284c7] hover:underline font-medium transition-colors">
           Back to Master Admin
         </a>
       </div>
 
       {message && (
         <div
-          className={`mb-6 p-4 rounded-lg ${
-            message.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+          className={`mb-6 p-4 rounded-lg font-medium ${
+            message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
           }`}
         >
           {message.text}
@@ -206,14 +206,14 @@ export default function UserListClient({ users }: Props) {
       )}
 
       <div className="mb-6 flex items-center gap-4">
-        <label htmlFor="filter" className="font-medium text-gray-700">
+        <label htmlFor="filter" className="font-semibold text-[#0284c7]">
           Filter by Status:
         </label>
         <select
           id="filter"
           value={filter}
           onChange={(e) => setFilter(e.target.value as typeof filter)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+          className="px-4 py-2 border border-sky-200 rounded-lg focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-all"
         >
           <option value="ALL">All Users ({users.length})</option>
           <option value="APPROVED">
@@ -228,10 +228,10 @@ export default function UserListClient({ users }: Props) {
         </select>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-xl shadow-lg border border-sky-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-sky-100">
+            <thead className="bg-sky-50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Name
@@ -253,34 +253,34 @@ export default function UserListClient({ users }: Props) {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-sky-100">
               {filteredUsers.map((user) => {
                 const isProcessing = processing.has(user.id);
                 return (
                   <tr key={user.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-foreground">
+                      <div className="text-sm font-medium text-slate-800">
                         {user.firstName ?? "Unknown"} {user.lastName ?? "User"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-secondary">{user.email}</div>
+                      <div className="text-sm text-slate-600">{user.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           user.role === "MASTER_ADMIN"
-                            ? "bg-primary/20 text-primary"
+                            ? "bg-sky-100 text-[#0284c7]"
                             : user.role === "ADMIN"
-                            ? "bg-warning/20 text-warning"
-                            : "bg-accent text-secondary"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-slate-100 text-slate-600"
                         }`}
                       >
                         {user.role}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(user.approvalStatus)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -289,14 +289,14 @@ export default function UserListClient({ users }: Props) {
                           <button
                             onClick={() => handleApprove(user.id, user.email)}
                             disabled={isProcessing}
-                            className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-green-600 hover:text-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             {isProcessing ? "..." : "Approve"}
                           </button>
                           <button
                             onClick={() => handleBlock(user.id)}
                             disabled={isProcessing}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             {isProcessing ? "..." : "Block"}
                           </button>
@@ -307,14 +307,14 @@ export default function UserListClient({ users }: Props) {
                           <button
                             onClick={() => handleUnapprove(user.id, user.email)}
                             disabled={isProcessing}
-                            className="text-orange-600 hover:text-orange-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-orange-600 hover:text-orange-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             {isProcessing ? "..." : "Unapprove"}
                           </button>
                           <button
                             onClick={() => handleBlock(user.id)}
                             disabled={isProcessing}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             {isProcessing ? "..." : "Block"}
                           </button>
@@ -324,7 +324,7 @@ export default function UserListClient({ users }: Props) {
                         <button
                           onClick={() => handleUnblock(user.id)}
                           disabled={isProcessing}
-                          className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-[#0ea5e9] hover:text-[#0284c7] font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {isProcessing ? "..." : "Unblock"}
                         </button>
@@ -338,7 +338,7 @@ export default function UserListClient({ users }: Props) {
         </div>
 
         {filteredUsers.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-slate-500">
             No users found with the selected filter.
           </div>
         )}
