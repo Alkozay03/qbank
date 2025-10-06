@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Users, ExternalLink, Plus, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import ForceBlueTheme from '@/components/ForceBlueTheme';
 
 interface ScheduleItem {
@@ -38,9 +39,25 @@ const typeIcons = {
 };
 
 export default function ScheduleManagerPage() {
+  const router = useRouter();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWeek, setSelectedWeek] = useState<string>('');
+  const [userRole, setUserRole] = useState<"ADMIN" | "MASTER_ADMIN" | null>(null);
+
+  // Fetch user role on component mount
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch('/api/me/role', { cache: 'no-store' });
+        const data = await response.json();
+        setUserRole(data?.role);
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    fetchUserRole();
+  }, []);
 
   useEffect(() => {
     fetchSchedules();
@@ -94,7 +111,7 @@ export default function ScheduleManagerPage() {
   if (loading) {
     return (
       <ForceBlueTheme>
-        <div className="min-h-screen bg-gradient-background">
+        <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
           <div className="container px-4 py-6 mx-auto max-w-7xl">
             <div className="animate-pulse space-y-4">
               <div className="h-8 w-64 bg-slate-200 rounded"></div>
@@ -108,27 +125,33 @@ export default function ScheduleManagerPage() {
 
   return (
     <ForceBlueTheme>
-      <div className="min-h-screen bg-gradient-background">
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
         <div className="container px-4 py-6 mx-auto max-w-7xl">
           {/* Back Button */}
           <div className="mb-6">
-            <Link 
-              href="/year4/admin" 
-              className="inline-flex items-center gap-2 text-primary hover:text-primary-hover transition-colors font-medium"
+            <button
+              onClick={() => {
+                if (userRole === "MASTER_ADMIN") {
+                  router.push("/year4/master-admin");
+                } else {
+                  router.push("/year4/admin");
+                }
+              }}
+              className="inline-flex items-center gap-2 text-[#0284c7] hover:text-[#0ea5e9] transition-colors font-medium"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to Year 4 Admin Portal
-            </Link>
+              {userRole === "MASTER_ADMIN" ? "Back to Master Admin" : "Back to Admin"}
+            </button>
           </div>
 
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-primary">Schedule Manager</h1>
-              <p className="text-secondary mt-1">Manage weekly schedules for Year 4 students</p>
+              <h1 className="text-3xl font-bold text-[#0ea5e9]">Schedule Manager</h1>
+              <p className="text-slate-600 mt-1">Manage weekly schedules for Year 4 students</p>
             </div>
           <div className="flex gap-3">
             <Link href="/year4/admin/schedule-editor">
-              <button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all">
+              <button className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all">
                 <Plus className="w-4 h-4" />
                 Create Schedule
               </button>
@@ -137,15 +160,15 @@ export default function ScheduleManagerPage() {
         </div>
 
         {schedules.length === 0 ? (
-          <div className="border-dashed border-2 border-slate-300 rounded-xl bg-white shadow-sm">
+          <div className="border-dashed border-2 border-sky-200 rounded-xl bg-white shadow-sm">
             <div className="flex flex-col items-center justify-center py-12 px-6">
-              <Calendar className="w-12 h-12 text-slate-400 mb-4" />
+              <Calendar className="w-12 h-12 text-sky-400 mb-4" />
               <h3 className="text-lg font-semibold text-slate-600 mb-2">No schedules created yet</h3>
               <p className="text-slate-500 text-center mb-4">
                 Create your first weekly schedule to get started
               </p>
               <Link href="/year4/admin/schedule-editor">
-                <button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all">
+                <button className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all">
                   <Plus className="w-4 h-4" />
                   Create First Schedule
                 </button>
@@ -155,9 +178,9 @@ export default function ScheduleManagerPage() {
         ) : (
           <div className="space-y-6">
             {/* Week Selector */}
-            <div className="border border-slate-200 rounded-xl bg-gradient-to-r from-slate-50 to-slate-100 shadow-sm">
+            <div className="border border-sky-200 rounded-xl bg-white shadow-lg">
               <div className="p-6">
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">Select Week</h3>
+                <h3 className="text-lg font-semibold text-[#0284c7] mb-2">Select Week</h3>
                 <p className="text-slate-600 mb-4">Choose a week to view and manage its schedule</p>
                 <div className="flex flex-wrap gap-2">
                   {schedules.map(schedule => (
@@ -166,8 +189,8 @@ export default function ScheduleManagerPage() {
                       onClick={() => setSelectedWeek(schedule.id)}
                       className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all ${
                         selectedWeek === schedule.id 
-                          ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg" 
-                          : "border border-slate-300 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50"
+                          ? "bg-[#0ea5e9] text-white shadow-lg" 
+                          : "border border-sky-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50"
                       }`}
                     >
                       <Calendar className="w-4 h-4" />
@@ -185,9 +208,9 @@ export default function ScheduleManagerPage() {
                   const dayItems = groupedItems[dayIndex] || [];
                   
                   return (
-                    <div key={dayIndex} className="border border-slate-200 rounded-xl bg-white shadow-sm">
-                      <div className="p-4 border-b border-slate-100">
-                        <h4 className="text-sm font-semibold text-slate-700 text-center">
+                    <div key={dayIndex} className="border border-sky-200 rounded-xl bg-white shadow-sm">
+                      <div className="p-4 border-b border-sky-100">
+                        <h4 className="text-sm font-semibold text-[#0284c7] text-center">
                           {day}
                         </h4>
                       </div>
