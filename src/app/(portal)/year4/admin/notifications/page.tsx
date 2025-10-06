@@ -40,12 +40,17 @@ export default function NotificationsAdminPage() {
     setLoading(true);
     setError(null);
     try {
+      console.warn("🔵 CLIENT: Fetching admin notifications...");
       const r = await fetch("/api/admin/notifications/list", { cache: "no-store" });
+      console.warn("🔵 CLIENT: Response status:", r.status);
       if (!r.ok) throw new Error(`Failed: ${r.status}`);
       const data = (await r.json()) as { notifications: NotificationRow[] };
+      console.warn("🔵 CLIENT: Received data:", JSON.stringify(data));
+      console.warn("🔵 CLIENT: Number of notifications:", data.notifications?.length || 0);
       setRows(data.notifications || []);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to load notifications";
+      console.error("🔴 CLIENT: Error loading notifications:", msg, e);
       setError(msg);
     } finally {
       setLoading(false);

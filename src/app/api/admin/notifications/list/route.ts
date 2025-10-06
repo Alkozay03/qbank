@@ -66,6 +66,11 @@ export async function GET() {
       },
     });
 
+    console.warn(`📢 Admin notifications endpoint: Found ${notifications.length} notifications`);
+    if (notifications.length > 0) {
+      console.warn(`📢 First notification:`, JSON.stringify(notifications[0]));
+    }
+
     // Return wrapped response to match client expectations
     return NextResponse.json({ notifications });
   } catch (error) {
