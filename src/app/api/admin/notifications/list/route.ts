@@ -31,8 +31,11 @@ export async function GET() {
       );
     }
 
-    // Get ALL notifications (including deleted ones) for admin view
+    // Get all non-deleted notifications for admin view
     const notifications = await db.notification.findMany({
+      where: {
+        isDeleted: false,
+      },
       select: {
         id: true,
         shortId: true,
@@ -45,7 +48,8 @@ export async function GET() {
         createdById: true,
         createdBy: {
           select: {
-            name: true,
+            firstName: true,
+            lastName: true,
             email: true,
           },
         },
