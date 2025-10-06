@@ -413,7 +413,7 @@ export default function ViewQuestionsPage() {
     <ForceBlueTheme>
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50 flex flex-col">
 
-      <header className="bg-white/90 backdrop-blur border-b border-[#E6F0F7]">
+      <header className="bg-white/90 backdrop-blur border-b border-sky-200">
 
         <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-6 py-4">
 
@@ -423,7 +423,7 @@ export default function ViewQuestionsPage() {
 
             onClick={handleBack}
 
-            className="flex items-center gap-2 rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm font-medium text-[#2F6F8F] transition-colors hover:bg-[#F3F9FC] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#56A2CD]"
+            className="flex items-center gap-2 rounded-lg border border-sky-200 px-3 py-2 text-sm font-medium text-[#0284c7] transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ea5e9]"
 
           >
 
@@ -439,7 +439,7 @@ export default function ViewQuestionsPage() {
 
           <div className="flex flex-col gap-1">
 
-            <h1 className="text-2xl font-bold text-[#2F6F8F]">View Questions</h1>
+            <h1 className="text-2xl font-bold text-[#0ea5e9]">View Questions</h1>
 
             <p className="text-sm text-slate-600">
 
@@ -463,13 +463,13 @@ export default function ViewQuestionsPage() {
 
           <div className="flex items-center justify-between">
 
-            <h2 className="text-xl font-semibold text-[#2F6F8F]">Filter Options</h2>
+            <h2 className="text-xl font-semibold text-[#0ea5e9]">Filter Options</h2>
 
             <button
 
               onClick={resetFilters}
 
-              className="text-sm text-[#2F6F8F] hover:text-[#56A2CD] transition-colors"
+              className="text-sm text-[#0284c7] hover:text-[#0ea5e9] transition-colors"
 
             >
 
@@ -486,7 +486,7 @@ export default function ViewQuestionsPage() {
 
               <div>
 
-                <label className="block text-sm font-medium text-[#2F6F8F]">Question ID</label>
+                <label className="block text-sm font-medium text-[#0284c7]">Question ID</label>
 
                 <input
 
@@ -500,7 +500,7 @@ export default function ViewQuestionsPage() {
 
                   placeholder="e.g. 142 or ck6dke4dwn"
 
-                  className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+                  className="mt-1 w-full rounded-lg border border-sky-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
 
                   autoComplete="off"
 
@@ -512,7 +512,7 @@ export default function ViewQuestionsPage() {
 
               <div>
 
-                <label className="block text-sm font-medium text-[#2F6F8F]">Keyword search</label>
+                <label className="block text-sm font-medium text-[#0284c7]">Keyword search</label>
 
                 <input
 
@@ -604,7 +604,7 @@ export default function ViewQuestionsPage() {
 
               disabled={loading}
 
-              className="px-6 py-3 bg-gradient-to-r from-[#2F6F8F] to-[#56A2CD] text-white rounded-lg font-medium hover:from-[#56A2CD] hover:to-[#A5CDE4] transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-[#0ea5e9] text-white rounded-lg font-medium hover:bg-[#0284c7] transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
 
             >
 
@@ -626,11 +626,11 @@ export default function ViewQuestionsPage() {
 
         <Card>
 
-          <h2 className="text-xl font-semibold text-[#2F6F8F] mb-4">Results</h2>
+          <h2 className="text-xl font-semibold text-[#0ea5e9] mb-4">Results</h2>
 
           {questions.length === 0 ? (
 
-            <div className="rounded-lg border border-dashed border-[#E6F0F7] p-8 text-center text-slate-500">
+            <div className="rounded-lg border border-dashed border-sky-200 p-8 text-center text-slate-500">
 
               Select your filters and load questions to preview the data.
 
@@ -642,21 +642,21 @@ export default function ViewQuestionsPage() {
 
               <table className="w-full text-sm">
 
-                <thead className="bg-gradient-to-r from-[#F3F9FC] to-[#E6F0F7]">
+                <thead className="bg-sky-50">
 
                   <tr>
 
-                    <th className="px-4 py-3 text-left font-medium text-[#2F6F8F]">ID</th>
+                    <th className="px-4 py-3 text-left font-medium text-[#0284c7]">ID</th>
 
-                    <th className="px-4 py-3 text-left font-medium text-[#2F6F8F]">Question</th>
+                    <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Question</th>
 
-                    <th className="px-4 py-3 text-left font-medium text-[#2F6F8F]">Correct Answer</th>
+                    <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Correct Answer</th>
 
-                    <th className="px-4 py-3 text-left font-medium text-[#2F6F8F]">Tags</th>
+                    <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Tags</th>
 
-                    <th className="px-4 py-3 text-left font-medium text-[#2F6F8F]">Updated</th>
+                    <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Updated</th>
 
-                    <th className="px-4 py-3 text-left font-medium text-[#2F6F8F]">Actions</th>
+                    <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Actions</th>
 
                   </tr>
 
@@ -793,7 +793,7 @@ function HeaderRow({ title }: { title: string }) {
 
     <div className="flex items-center justify-between">
 
-      <div className="text-lg font-semibold text-[#2F6F8F]">{title}</div>
+      <div className="text-lg font-semibold text-[#0284c7]">{title}</div>
 
     </div>
 
@@ -873,7 +873,7 @@ function Card({ children }: { children: ReactNode }) {
 
   return (
 
-    <div className="rounded-2xl bg-gradient-to-br from-white to-[#F8FCFF] border border-[#E6F0F7] p-6 shadow-lg space-y-4">
+    <div className="rounded-2xl bg-white border border-sky-200 p-6 shadow-lg space-y-4">
 
       {children}
 
