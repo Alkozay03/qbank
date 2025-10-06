@@ -49,6 +49,8 @@ export default async function QuizPage({
               yearCaptured: true,
               rotationNumber: true,
               iduScreenshotUrl: true,
+              questionImageUrl: true,
+              explanationImageUrl: true,
               references: true,
               occurrences: {
                 select: {
@@ -130,8 +132,8 @@ export default async function QuizPage({
         return raw
           .replace(/\r/g, "")
           .split(/\n+/)
-          .flatMap((segment) => segment.split(/\s*[;,]\s*/))
-          .map((value) => value.trim())
+          .flatMap((segment: string) => segment.split(/\s*[;,]\s*/))
+          .map((value: string) => value.trim())
           .filter(Boolean);
       })();
 
@@ -149,6 +151,8 @@ export default async function QuizPage({
           questionYear: it.question.yearCaptured ?? null,
           rotationNumber: it.question.rotationNumber ?? null,
           iduScreenshotUrl: it.question.iduScreenshotUrl ?? null,
+          questionImageUrl: it.question.questionImageUrl ?? null,
+          explanationImageUrl: it.question.explanationImageUrl ?? null,
           occurrences: (it.question.occurrences ?? []).map((occ: { year: string | null; rotation: string | null; orderIndex: number | null }) => ({
             year: occ.year ?? null,
             rotation: occ.rotation ?? null,

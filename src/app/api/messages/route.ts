@@ -43,7 +43,13 @@ export async function GET(req: NextRequest) {
     // Get messages
     const messages = await prisma.message.findMany({
       where: { conversationId },
-      include: {
+      select: {
+        id: true,
+        conversationId: true,
+        senderId: true,
+        content: true,
+        imageUrl: true,
+        createdAt: true,
         sender: {
           select: {
             id: true,

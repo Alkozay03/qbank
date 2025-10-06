@@ -1322,6 +1322,23 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             />
           </div>
 
+          {/* IDU Screenshot */}
+          {currentItem?.question.iduScreenshotUrl && (
+            <div className="mt-4">
+              <div className="text-sm font-semibold mb-2" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)' }}>
+                IDU Screenshot:
+              </div>
+              <Image
+                src={currentItem.question.iduScreenshotUrl}
+                alt="IDU Screenshot"
+                width={1280}
+                height={720}
+                className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
+                unoptimized
+              />
+            </div>
+          )}
+
           {/* Question Image */}
           {currentItem?.question.questionImageUrl && (
             <div className="mt-4">
