@@ -876,7 +876,7 @@ ${formattedList}`);
                   {state.questions.map((question, index) => (
                     <tr key={question.id} className="border-b border-sky-100 hover:bg-sky-50 transition-colors duration-200">
                       <td className="px-4 py-3 text-sm font-medium text-[#0ea5e9]">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm text-foreground max-w-xs">
+                      <td className="px-4 py-3 text-sm text-slate-800 max-w-xs">
                         <div className="truncate" title={question.questionText}>
                           {question.questionText.substring(0, 100)}...
                         </div>
@@ -902,7 +902,7 @@ ${formattedList}`);
                               .map((tag) => tagLabelFromPair(tag))
                               .filter((label): label is string => Boolean(label));
                             if (!displayTags.length) {
-                              return <span className="text-muted-foreground text-xs">No tags</span>;
+                              return <span className="text-slate-500 text-xs">No tags</span>;
                             }
                             const shown = displayTags.slice(0, 2);
                             return (
@@ -916,7 +916,7 @@ ${formattedList}`);
                                   </span>
                                 ))}
                                 {displayTags.length > shown.length ? (
-                                  <span className="text-muted-foreground text-xs">+{displayTags.length - shown.length} more</span>
+                                  <span className="text-slate-500 text-xs">+{displayTags.length - shown.length} more</span>
                                 ) : null}
                               </>
                             );
@@ -1282,7 +1282,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           <div className="rounded-2xl border border-sky-200 bg-white p-4">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">Question Image</label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500">
                 Upload an image to display below the question stem. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
               </p>
             </div>
@@ -1299,7 +1299,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 event.dataTransfer.dropEffect = 'copy';
               }}
               onDrop={handleQuestionImageDrop}
-              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-4 py-6 text-center transition hover:border-primary hover:bg-accent"
+              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-sky-200 bg-white px-4 py-6 text-center transition hover:border-[#0ea5e9] hover:bg-sky-50"
             >
               <button
                 type="button"
@@ -1362,7 +1362,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                     [`option${option}`]: e.target.value 
                   }))}
                   placeholder={`Enter option ${option}...`}
-                  className="w-full min-h-[80px] px-3 py-2 border border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-vertical"
+                  className="w-full min-h-[80px] px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none resize-vertical"
                   rows={3}
                 />
               </div>
@@ -1375,7 +1375,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             <select
               value={editedQuestion.correctAnswer}
               onChange={(e) => setEditedQuestion(prev => ({ ...prev, correctAnswer: e.target.value }))}
-              className="w-full px-3 py-2 border border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              className="w-full px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
             >
               <option value="">Select correct answer</option>
               <option value="A">A</option>
@@ -1389,7 +1389,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           {/* Explanation with Rich Text Editor */}
           <div>
             <label className="block text-sm font-medium text-[#0284c7] mb-2">Explanation</label>
-            <div className="max-h-[400px] overflow-y-auto border border-border rounded-lg">
+            <div className="max-h-[400px] overflow-y-auto border border-sky-200 rounded-lg">
               <RichTextEditor
                 content={editedQuestion.explanation}
                 onChange={(content) => setEditedQuestion(prev => ({ ...prev, explanation: content }))}
@@ -1405,7 +1405,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           <div className="rounded-2xl border border-sky-200 bg-white p-4">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">Explanation Image</label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500">
                 Upload an image to display above the explanation text. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
               </p>
             </div>
@@ -1422,7 +1422,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 event.dataTransfer.dropEffect = 'copy';
               }}
               onDrop={handleExplanationImageDrop}
-              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-4 py-6 text-center transition hover:border-primary hover:bg-accent"
+              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-sky-200 bg-white px-4 py-6 text-center transition hover:border-[#0ea5e9] hover:bg-sky-50"
             >
               <button
                 type="button"
@@ -1476,7 +1476,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           {/* Educational Objective with Rich Text Editor */}
           <div>
             <label className="block text-sm font-medium text-[#0284c7] mb-2">Educational Objective</label>
-            <div className="max-h-[300px] overflow-y-auto border border-border rounded-lg">
+            <div className="max-h-[300px] overflow-y-auto border border-sky-200 rounded-lg">
               <RichTextEditor
                 content={editedQuestion.educationalObjective}
                 onChange={(content) => setEditedQuestion(prev => ({ ...prev, educationalObjective: content }))}
