@@ -14,7 +14,7 @@ export default async function Year4AdminHub() {
         <Card href="/year4/admin/schedule-editor" label="Schedule Editor" description="Create and manage weekly schedules" />
         {/* Manual Question Builder removed; use AI builder for bulk import */}
         <Card href="/year4/admin/notifications" label="Notifications Editor" description="Create and manage system notifications" />
-        <Card href="/year4/admin/tags" label="Tag Manager" description="Manage question tags and categories" />
+        {/* Tag Manager hidden from Year 4 Admin - only accessible from Master Admin */}
         <Card href="/year4" label="Year 4 Portal" description="Return to main Year 4 portal" />
       </div>
       </div>

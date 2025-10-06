@@ -67,8 +67,8 @@ export default function Years() {
         </div>
 
         {/* Brand title - bigger and centered */}
-        <div className="bg-white rounded-2xl px-8 py-4 shadow-lg mb-12">
-          <h1 className={`brand-title text-5xl font-extrabold tracking-tight ${getGradientTextClasses()}`}>
+        <div className="bg-white rounded-3xl px-16 py-8 shadow-2xl mb-12">
+          <h1 className={`brand-title text-7xl font-extrabold tracking-tight ${getGradientTextClasses()}`}>
             Clerkship
           </h1>
         </div>

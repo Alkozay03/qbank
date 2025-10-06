@@ -194,27 +194,60 @@ export default function NotificationsAdminPage() {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-600">
-                  <th className="px-4 py-3">Short ID</th>
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Created</th>
-                  <th className="px-4 py-3">Actions</th>
+                <tr className="text-left text-slate-600 bg-[#F3F9FC]">
+                  <th className="px-4 py-3 font-semibold">Notification ID</th>
+                  <th className="px-4 py-3 font-semibold">Date</th>
+                  <th className="px-4 py-3 font-semibold">Time</th>
+                  <th className="px-4 py-3 font-semibold">Title</th>
+                  <th className="px-4 py-3 font-semibold">Message</th>
+                  <th className="px-4 py-3 font-semibold text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((n) => (
-                  <tr key={n.id} className="border-t border-[#E6F0F7]">
-                    <td className="px-4 py-3 font-mono">{n.shortId}</td>
-                    <td className="px-4 py-3">{n.title}</td>
-                    <td className="px-4 py-3">{new Date(n.createdAt).toLocaleString()}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button onClick={() => onModify(n.id)} className="rounded-lg border border-[#E6F0F7] px-2 py-1 hover:bg-[#F3F9FC]" title="Modify">Modify</button>
-                        <button onClick={() => onDelete(n.id)} className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-red-600 hover:bg-red-50" title="Delete">Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((n) => {
+                  const createdDate = new Date(n.createdAt);
+                  const dateStr = createdDate.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  });
+                  const timeStr = createdDate.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true
+                  });
+                  return (
+                    <tr key={n.id} className="border-t border-[#E6F0F7] hover:bg-[#F8FCFF] transition-colors">
+                      <td className="px-4 py-3 font-mono text-[#2F6F8F] font-semibold">{n.shortId}</td>
+                      <td className="px-4 py-3 text-slate-700">{dateStr}</td>
+                      <td className="px-4 py-3 text-slate-600">{timeStr}</td>
+                      <td className="px-4 py-3 font-medium text-slate-800">{n.title}</td>
+                      <td className="px-4 py-3 text-slate-600">
+                        <div className="max-w-xs truncate" title={n.body}>
+                          {n.body}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2 justify-center">
+                          <button 
+                            onClick={() => onModify(n.id)} 
+                            className="rounded-lg border border-[#2F6F8F] bg-white px-3 py-1.5 text-[#2F6F8F] font-medium hover:bg-[#2F6F8F] hover:text-white transition-colors" 
+                            title="Edit notification"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => onDelete(n.id)} 
+                            className="rounded-lg border border-red-500 bg-white px-3 py-1.5 text-red-600 font-medium hover:bg-red-500 hover:text-white transition-colors" 
+                            title="Delete notification"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
