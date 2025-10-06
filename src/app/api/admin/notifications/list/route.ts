@@ -24,7 +24,7 @@ export async function GET() {
       select: { role: true },
     });
 
-    if (user?.role !== "master_admin" && user?.role !== "admin") {
+    if (user?.role !== "MASTER_ADMIN" && user?.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Unauthorized - Admin access required" },
         { status: 403 }
