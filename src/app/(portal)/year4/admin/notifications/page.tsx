@@ -26,6 +26,7 @@ export default function NotificationsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<"ADMIN" | "MASTER_ADMIN" | null>(null);
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -56,6 +57,20 @@ export default function NotificationsAdminPage() {
       setLoading(false);
     }
   }
+
+  // Fetch user role on component mount
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch('/api/me/role', { cache: 'no-store' });
+        const data = await response.json();
+        setUserRole(data?.role);
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    fetchUserRole();
+  }, []);
 
   useEffect(() => { loadList(); }, []);
 
@@ -125,50 +140,62 @@ export default function NotificationsAdminPage() {
 
   return (
     <ForceBlueTheme>
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
     <div className="mx-auto max-w-6xl px-3 sm:px-4 py-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[#2F6F8F]">Notifications Editor</h1>
-        <button onClick={() => router.push("/year4")} className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-[#F3F9FC]">← Year 4 Portal</button>
+        <h1 className="text-2xl font-bold text-[#0ea5e9]">Notifications Editor</h1>
+        <button
+          onClick={() => {
+            if (userRole === "MASTER_ADMIN") {
+              router.push("/year4/master-admin");
+            } else {
+              router.push("/year4/admin");
+            }
+          }}
+          className="rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-[#0284c7] hover:bg-sky-50"
+        >
+          ← {userRole === "MASTER_ADMIN" ? "Master Admin" : "Admin"}
+        </button>
       </div>
 
-      <div className="rounded-2xl border border-[#E6F0F7] bg-white shadow p-4 mb-8">
+      <div className="rounded-2xl border border-sky-200 bg-white shadow-lg p-4 mb-8">
         <div className="flex items-center justify-between">
-          <div className="text-lg font-semibold text-[#2F6F8F]">{pageTitle}</div>
-          {editCuid ? (<button onClick={resetToAdd} className="text-sm rounded-lg px-2 py-1 border border-[#E6F0F7] hover:bg-[#F3F9FC]">+ New</button>) : null}
+          <div className="text-lg font-semibold text-[#0ea5e9]">{pageTitle}</div>
+          {editCuid ? (<button onClick={resetToAdd} className="text-sm rounded-lg px-2 py-1 border border-sky-200 hover:bg-sky-50">+ New</button>) : null}
         </div>
 
         <div className="mt-4">
-          <label className="text-sm font-medium text-slate-700">Search by Notification ID</label>
+          <label className="text-sm font-medium text-[#0284c7]">Search by Notification ID</label>
           <div className="mt-1 flex gap-2">
-            <input value={searchId} onChange={(e) => setSearchId(e.target.value)} placeholder="Enter short numeric ID" className="w-full rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]" />
-            <button onClick={onSearch} className="rounded-xl bg-[#2F6F8F] px-3 py-2 text-white hover:opacity-90">Search</button>
+            <input value={searchId} onChange={(e) => setSearchId(e.target.value)} placeholder="Enter short numeric ID" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-200" />
+            <button onClick={onSearch} className="rounded-xl bg-[#0ea5e9] px-3 py-2 text-white hover:bg-[#0284c7]">Search</button>
           </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium text-slate-700">Custom Notification ID</label>
-            <input value={customId} readOnly className="mt-1 w-full rounded-xl border border-[#E6F0F7] bg-slate-50 px-3 py-2 text-slate-800" />
+            <label className="text-sm font-medium text-[#0284c7]">Custom Notification ID</label>
+            <input value={customId} readOnly className="mt-1 w-full rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-slate-800" />
             <p className="mt-1 text-xs text-slate-500">Generated automatically. Immutable.</p>
           </div>
         </div>
 
         <div className="mt-4">
-          <label className="text-sm font-medium text-slate-700">Notification Title</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short headline shown in the bell dropdown" className="mt-1 w-full rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]" />
+          <label className="text-sm font-medium text-[#0284c7]">Notification Title</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short headline shown in the bell dropdown" className="mt-1 w-full rounded-xl border border-sky-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-200" />
         </div>
 
         <div className="mt-4">
-          <label className="text-sm font-medium text-slate-700">Notification Details</label>
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder="Full notification text shown in the popup" className="mt-1 w-full rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]" />
+          <label className="text-sm font-medium text-[#0284c7]">Notification Details</label>
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} placeholder="Full notification text shown in the popup" className="mt-1 w-full rounded-xl border border-sky-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-200" />
         </div>
 
         <div className="mt-4">
-          <label className="text-sm font-medium text-slate-700">Target Rotation</label>
+          <label className="text-sm font-medium text-[#0284c7]">Target Rotation</label>
           <select 
             value={targetRotation} 
             onChange={(e) => setTargetRotation(e.target.value)} 
-            className="mt-1 w-full rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-[#A5CDE4]"
+            className="mt-1 w-full rounded-xl border border-sky-200 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-200"
           >
             <option value="">All Rotations (Global)</option>
             <option value="Pediatrics">Pediatrics</option>
@@ -180,14 +207,14 @@ export default function NotificationsAdminPage() {
         </div>
 
         <div className="mt-5 flex items-center justify-end">
-          <button onClick={onSubmit} className="rounded-xl bg-[#2F6F8F] px-4 py-2 font-semibold text-white hover:opacity-90">{editCuid ? "Save Changes" : "Push Notification!"}</button>
+          <button onClick={onSubmit} className="rounded-xl bg-[#0ea5e9] px-4 py-2 font-semibold text-white hover:bg-[#0284c7]">{editCuid ? "Save Changes" : "Push Notification!"}</button>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[#E6F0F7] bg-white shadow">
-        <div className="px-4 py-3 border-b border-[#E6F0F7] flex items-center justify-between">
-          <div className="font-semibold text-[#2F6F8F]">Recent Notifications</div>
-          <button onClick={loadList} className="text-sm rounded-lg px-2 py-1 border border-[#E6F0F7] hover:bg-[#F3F9FC]">Refresh</button>
+      <div className="rounded-2xl border border-sky-200 bg-white shadow-lg">
+        <div className="px-4 py-3 border-b border-sky-200 flex items-center justify-between">
+          <div className="font-semibold text-[#0ea5e9]">Recent Notifications</div>
+          <button onClick={loadList} className="text-sm rounded-lg px-2 py-1 border border-sky-200 hover:bg-sky-50">Refresh</button>
         </div>
 
         {error && <div className="px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -199,7 +226,7 @@ export default function NotificationsAdminPage() {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left text-slate-600 bg-[#F3F9FC]">
+                <tr className="text-left text-[#0284c7] bg-sky-50">
                   <th className="px-4 py-3 font-semibold">Notification ID</th>
                   <th className="px-4 py-3 font-semibold">Date</th>
                   <th className="px-4 py-3 font-semibold">Time</th>
@@ -222,8 +249,8 @@ export default function NotificationsAdminPage() {
                     hour12: true
                   });
                   return (
-                    <tr key={n.id} className="border-t border-[#E6F0F7] hover:bg-[#F8FCFF] transition-colors">
-                      <td className="px-4 py-3 font-mono text-[#2F6F8F] font-semibold">{n.shortId}</td>
+                    <tr key={n.id} className="border-t border-sky-100 hover:bg-sky-50/50 transition-colors">
+                      <td className="px-4 py-3 font-mono text-[#0ea5e9] font-semibold">{n.shortId}</td>
                       <td className="px-4 py-3 text-slate-700">{dateStr}</td>
                       <td className="px-4 py-3 text-slate-600">{timeStr}</td>
                       <td className="px-4 py-3 font-medium text-slate-800">{n.title}</td>
@@ -236,7 +263,7 @@ export default function NotificationsAdminPage() {
                         <div className="flex gap-2 justify-center">
                           <button 
                             onClick={() => onModify(n.id)} 
-                            className="rounded-lg border border-[#2F6F8F] bg-white px-3 py-1.5 text-[#2F6F8F] font-medium hover:bg-[#2F6F8F] hover:text-white transition-colors" 
+                            className="rounded-lg border border-[#0ea5e9] bg-white px-3 py-1.5 text-[#0ea5e9] font-medium hover:bg-[#0ea5e9] hover:text-white transition-colors" 
                             title="Edit notification"
                           >
                             Edit
@@ -258,6 +285,7 @@ export default function NotificationsAdminPage() {
           </div>
         )}
       </div>
+    </div>
     </div>
     </ForceBlueTheme>
   );
