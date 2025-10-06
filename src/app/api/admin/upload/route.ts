@@ -10,6 +10,16 @@ function ensureDir(p: string) { if (!fs.existsSync(p)) fs.mkdirSync(p, { recursi
 
 export async function POST(req: Request) {
   await requireRole(["ADMIN", "MASTER_ADMIN"]);
+  
+  // Check if we're in a serverless environment (Vercel)
+  const isServerless = process.env.VERCEL === '1' || !fs.existsSync(path.join(process.cwd(), "public"));
+  
+  if (isServerless) {
+    return NextResponse.json({ 
+      error: "File uploads are not supported in serverless environments. Please set up Vercel Blob Storage or Supabase Storage. For now, you can use external image URLs instead of uploading files directly."
+    }, { status: 501 });
+  }
+  
   try {
     const form = await req.formData();
     const f = form.get("file") as File | null;

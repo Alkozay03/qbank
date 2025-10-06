@@ -499,6 +499,7 @@ export default function RichTextEditor({
             overflowWrap: "break-word",
             hyphens: "auto",
             lineHeight: "1.6",
+            whiteSpace: "pre-wrap"
           }}
         />
       </div>

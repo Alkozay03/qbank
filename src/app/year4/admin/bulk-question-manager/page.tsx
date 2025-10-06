@@ -1267,14 +1267,16 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           {/* Question Text with Rich Text Editor */}
           <div>
             <label className="block text-sm font-medium text-primary mb-2">Question Text</label>
-            <RichTextEditor
-              content={editedQuestion.questionText}
-              onChange={(content) => setEditedQuestion(prev => ({ ...prev, questionText: content }))}
-              placeholder="Enter the question text..."
-              className="min-h-[120px]"
-              allowBold={false} // Don't allow bold in question text
-              preserveLineBreaks={true}
-            />
+            <div className="max-h-[400px] overflow-y-auto border border-border rounded-lg">
+              <RichTextEditor
+                content={editedQuestion.questionText}
+                onChange={(content) => setEditedQuestion(prev => ({ ...prev, questionText: content }))}
+                placeholder="Enter the question text..."
+                className="min-h-[120px]"
+                allowBold={false} // Don't allow bold in question text
+                preserveLineBreaks={true}
+              />
+            </div>
           </div>
 
           {/* Question Image Upload */}
@@ -1388,14 +1390,16 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           {/* Explanation with Rich Text Editor */}
           <div>
             <label className="block text-sm font-medium text-primary mb-2">Explanation</label>
-            <RichTextEditor
-              content={editedQuestion.explanation}
-              onChange={(content) => setEditedQuestion(prev => ({ ...prev, explanation: content }))}
-              placeholder="Enter the explanation..."
-              className="min-h-[100px]"
-              allowBold={true} // Allow bold in explanations
-              preserveLineBreaks={true}
-            />
+            <div className="max-h-[400px] overflow-y-auto border border-border rounded-lg">
+              <RichTextEditor
+                content={editedQuestion.explanation}
+                onChange={(content) => setEditedQuestion(prev => ({ ...prev, explanation: content }))}
+                placeholder="Enter the explanation..."
+                className="min-h-[100px]"
+                allowBold={true} // Allow bold in explanations
+                preserveLineBreaks={true}
+              />
+            </div>
           </div>
 
           {/* Explanation Image Upload */}
@@ -1473,14 +1477,16 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           {/* Educational Objective with Rich Text Editor */}
           <div>
             <label className="block text-sm font-medium text-[#2F6F8F] mb-2">Educational Objective</label>
-            <RichTextEditor
-              content={editedQuestion.educationalObjective}
-              onChange={(content) => setEditedQuestion(prev => ({ ...prev, educationalObjective: content }))}
-              placeholder="Enter the educational objective..."
-              className="min-h-[80px]"
-              allowBold={true} // Allow bold in educational objectives
-              preserveLineBreaks={true}
-            />
+            <div className="max-h-[300px] overflow-y-auto border border-border rounded-lg">
+              <RichTextEditor
+                content={editedQuestion.educationalObjective}
+                onChange={(content) => setEditedQuestion(prev => ({ ...prev, educationalObjective: content }))}
+                placeholder="Enter the educational objective..."
+                className="min-h-[80px]"
+                allowBold={true} // Allow bold in educational objectives
+                preserveLineBreaks={true}
+              />
+            </div>
           </div>
 
           {/* References */}

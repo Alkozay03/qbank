@@ -366,15 +366,26 @@ export default function QuestionDiscussion({ questionId }: Props) {
   const commentCount = comments.length;
   const uploadLimitMb = Math.round(COMMENT_IMAGE_MAX_BYTES / (1024 * 1024));
 
+  // Helper to check if dark mode is active
+  const isDark = typeof window !== 'undefined' && document.documentElement.getAttribute('data-theme-type') === 'dark';
+
   return (
     <>
-      <section className="rounded-2xl border border-[#E6F0F7] bg-white p-4 shadow-sm">
+      <section 
+        className="rounded-2xl border p-4 shadow-sm"
+        style={{
+          borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+          background: isDark 
+            ? '#000000' 
+            : 'linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.05) 0%, rgba(var(--color-primary-rgb), 0.02) 50%, rgba(var(--color-primary-rgb), 0.05) 100%)'
+        }}
+      >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h3 
             className="text-lg font-semibold"
             style={{
-              color: '#ffffff'
+              color: isDark ? '#ffffff' : 'var(--color-primary)'
             }}
           >
             Question Discussion
