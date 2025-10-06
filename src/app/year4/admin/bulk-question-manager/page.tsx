@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import RichTextEditor from "@/components/RichTextEditor";
 import TagSelector from "@/components/TagSelector";
 import AdminQuestionComments from "@/components/AdminQuestionComments";
-import ForceBlueTheme from "@/components/ForceBlueTheme";
 import Image from "next/image";
 import { getTagLabel, type TagCategory } from "@/lib/tags/catalog";
 
@@ -1677,11 +1676,9 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 }
 export default function BulkQuestionManager() {
   return (
-    <ForceBlueTheme>
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-[#0ea5e9]">Loading...</div>}>
-        <BulkQuestionManagerContent />
-      </Suspense>
-    </ForceBlueTheme>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-[#0ea5e9]">Loading...</div>}>
+      <BulkQuestionManagerContent />
+    </Suspense>
   );
 }
 

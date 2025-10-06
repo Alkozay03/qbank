@@ -1,11 +1,9 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
-import ForceBlueTheme from "@/components/ForceBlueTheme";
 
 export default async function Year4AdminHub() {
   return (
-    <ForceBlueTheme>
-      <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
         <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6">
           <h1 className="text-2xl font-bold text-[#0ea5e9]">Year 4 Admin Portal</h1>
           <p className="mt-2 text-[#0284c7]">Manage schedules, questions, and notifications for Year 4.</p>
@@ -20,7 +18,6 @@ export default async function Year4AdminHub() {
           </div>
         </div>
       </div>
-    </ForceBlueTheme>
   );
 }
 

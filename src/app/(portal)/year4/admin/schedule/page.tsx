@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Users, ExternalLink, Plus, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import ForceBlueTheme from '@/components/ForceBlueTheme';
 
 interface ScheduleItem {
   id: string;
@@ -110,22 +109,19 @@ export default function ScheduleManagerPage() {
 
   if (loading) {
     return (
-      <ForceBlueTheme>
-        <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
-          <div className="container px-4 py-6 mx-auto max-w-7xl">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 w-64 bg-slate-200 rounded"></div>
-              <div className="h-32 w-full bg-slate-200 rounded"></div>
-            </div>
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
+        <div className="container px-4 py-6 mx-auto max-w-7xl">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 w-64 bg-slate-200 rounded"></div>
+            <div className="h-32 w-full bg-slate-200 rounded"></div>
           </div>
         </div>
-      </ForceBlueTheme>
+      </div>
     );
   }
 
   return (
-    <ForceBlueTheme>
-      <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
         <div className="container px-4 py-6 mx-auto max-w-7xl">
           {/* Back Button */}
           <div className="mb-6">
@@ -288,6 +284,5 @@ export default function ScheduleManagerPage() {
         )}
         </div>
       </div>
-    </ForceBlueTheme>
   );
 }
