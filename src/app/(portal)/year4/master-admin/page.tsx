@@ -3,9 +3,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
-import ForceBlueTheme from "@/components/ForceBlueTheme";
-
-
 
 export default async function MasterAdminHub() {
   // Only allow access to MASTER_ADMIN
@@ -27,8 +24,8 @@ export default async function MasterAdminHub() {
   }
 
   return (
-    <ForceBlueTheme>
-      <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6 min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
+      <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6">
       <h1 className="text-3xl font-bold text-[#0ea5e9]">Master Admin Settings</h1>
       <p className="mt-2 text-slate-600">Manage user roles, system administration, and advanced settings.</p>
       
@@ -56,7 +53,7 @@ export default async function MasterAdminHub() {
         </div>
       </div>
       </div>
-    </ForceBlueTheme>
+    </div>
   );
 }
 

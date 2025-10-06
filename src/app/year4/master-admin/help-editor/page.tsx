@@ -1,6 +1,6 @@
 "use client";
 
-import ForceBlueTheme from "@/components/ForceBlueTheme";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import FormattedText from "@/components/FormattedText";
@@ -190,17 +190,17 @@ export default function HelpEditor() {
   }
 
   return (
-    <ForceBlueTheme>
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
     <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-primary">Help Page Editor</h1>
+          <h1 className="text-2xl font-bold text-[#0ea5e9]">Help Page Editor</h1>
           <p className="mt-2 text-slate-600">Manage help content for users</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => router.back()}
-            className="px-4 py-2 border border-border rounded-lg text-primary hover:bg-accent transition-colors"
+            className="px-4 py-2 border border-sky-200 rounded-lg text-[#0ea5e9] hover:bg-sky-50 transition-colors"
           >
             ← Back
           </button>
@@ -215,21 +215,21 @@ export default function HelpEditor() {
 
       {/* Editor Form */}
       {(isCreating || editingItem) && (
-        <div className="bg-card rounded-lg border border-border shadow-sm mb-6 p-6">
-          <h2 className="text-lg font-semibold text-primary mb-4">
+        <div className="bg-white rounded-lg border border-sky-200 shadow-sm mb-6 p-6">
+          <h2 className="text-lg font-semibold text-[#0ea5e9] mb-4">
             {editingItem ? "Edit Help Item" : "Create New Help Item"}
           </h2>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-primary mb-2">
+              <label className="block text-sm font-medium text-[#0ea5e9] mb-2">
                 Title
               </label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                className="w-full px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
                 placeholder="Enter help item title..."
               />
             </div>
@@ -372,6 +372,6 @@ Use double line breaks for new paragraphs"
         </div>
       </div>
     </div>
-    </ForceBlueTheme>
+    </div>
   );
 }

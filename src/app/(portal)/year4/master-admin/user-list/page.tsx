@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import UserListClient from "./client";
-import ForceBlueTheme from "@/components/ForceBlueTheme";
 
 export default async function UserList() {
   // Only allow access to MASTER_ADMIN with specific email
@@ -39,9 +38,5 @@ export default async function UserList() {
     },
   });
 
-  return (
-    <ForceBlueTheme>
-      <UserListClient users={users} />
-    </ForceBlueTheme>
-  );
+  return <UserListClient users={users} />;
 }
