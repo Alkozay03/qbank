@@ -231,7 +231,7 @@ function MultipleReferencesEditor({ references, onChange }: MultipleReferencesEd
             type="text"
             value={ref}
             onChange={(e) => updateReference(index, e.target.value)}
-            className="flex-1 px-3 py-2 border border-theme rounded-lg focus-theme outline-none theme-transition text-readable bg-theme-background"
+            className="flex-1 px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none transition-colors text-slate-800 bg-white"
             placeholder={`Reference ${index + 1}`}
           />
           {referenceList.length > 1 && (
@@ -788,7 +788,7 @@ ${formattedList}`);
             {state.progress > 0 && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-secondary">{state.message}</span>
+                  <span className="text-[#0284c7]">{state.message}</span>
                   <span className="text-[#0ea5e9] font-medium">{state.progress}%</span>
                 </div>
                 <div className="w-full bg-sky-100 rounded-full h-2">
@@ -835,7 +835,7 @@ ${formattedList}`);
                       ? 'text-red-600'
                       : searchStatus === 'success'
                       ? 'text-emerald-600'
-                      : 'text-secondary'
+                      : 'text-[#0284c7]'
                   }`}
                 >
                   {searchMessage}
@@ -1315,10 +1315,10 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             </div>
 
             {editedQuestion.questionImageUrl ? (
-              <div className="mt-4 rounded-xl border border-border bg-card p-3">
+              <div className="mt-4 rounded-xl border border-sky-200 bg-white p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-primary">Current question image</p>
+                    <p className="text-sm font-semibold text-[#0ea5e9]">Current question image</p>
                     <a
                       href={editedQuestion.questionImageUrl}
                       target="_blank"
