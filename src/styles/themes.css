@@ -190,6 +190,30 @@
   background-color: #000000 !important;
 }
 
+/* CRITICAL: Force admin pages to use proper sky blue colors even in dark mode */
+/* Override ALL dark mode theme rules for admin pages */
+[data-theme-type="dark"][data-admin-page] .bg-white,
+[data-theme-type="dark"][data-admin-page] .bg-sky-50,
+[data-theme-type="dark"][data-admin-page] .bg-sky-100,
+[data-theme-type="dark"][data-admin-page] .bg-gray-50,
+[data-theme-type="dark"][data-admin-page] .bg-gray-100 {
+  background-color: initial !important;
+}
+
+/* Ensure text colors stay natural on admin pages */
+[data-theme-type="dark"][data-admin-page] h1,
+[data-theme-type="dark"][data-admin-page] h2,
+[data-theme-type="dark"][data-admin-page] h3,
+[data-theme-type="dark"][data-admin-page] h4,
+[data-theme-type="dark"][data-admin-page] h5,
+[data-theme-type="dark"][data-admin-page] h6,
+[data-theme-type="dark"][data-admin-page] p,
+[data-theme-type="dark"][data-admin-page] span,
+[data-theme-type="dark"][data-admin-page] div,
+[data-theme-type="dark"][data-admin-page] label {
+  color: initial !important;
+}
+
 [data-theme-type="dark"] .text-gray-700 {
   color: var(--color-text-primary);
 }
