@@ -308,7 +308,7 @@
 }
 
 /* Input daughter container - the bg-gray-50 box - MATCHES parent - DARKER */
-[data-theme-type="dark"] .bg-gray-50 {
+[data-theme-type="dark"]:not([data-admin-page]) .bg-gray-50 {
   background-color: #0a0a0a !important;
 }
 
@@ -318,21 +318,21 @@
 }
 
 /* Message bubbles from admin in UserMessagesPage */
-[data-theme-type="dark"] .bg-gray-100 {
+[data-theme-type="dark"]:not([data-admin-page]) .bg-gray-100 {
   background-color: #0a0a0a !important;
 }
 
-[data-theme-type="dark"] .bg-gradient-primary {
+[data-theme-type="dark"]:not([data-admin-page]) .bg-gradient-primary {
   background: var(--color-primary) !important;
   color: var(--color-text-primary) !important;
 }
 
-[data-theme-type="dark"] .bg-gradient-secondary {
+[data-theme-type="dark"]:not([data-admin-page]) .bg-gradient-secondary {
   background: var(--color-secondary) !important;
   color: var(--color-text-primary) !important;
 }
 
-[data-theme-type="dark"] .bg-gradient-background {
+[data-theme-type="dark"]:not([data-admin-page]) .bg-gradient-background {
   background: var(--color-background) !important;
 }
 
@@ -369,24 +369,24 @@
 /* Removed - this was forcing dark backgrounds on all bg-card elements */
 
 /* Targeted dark mode text colors - specific elements only */
-[data-theme-type="dark"] h1,
-[data-theme-type="dark"] h2,
-[data-theme-type="dark"] h3,
-[data-theme-type="dark"] h4,
-[data-theme-type="dark"] h5,
-[data-theme-type="dark"] h6,
-[data-theme-type="dark"] p,
-[data-theme-type="dark"] span,
-[data-theme-type="dark"] div,
-[data-theme-type="dark"] label,
-[data-theme-type="dark"] .text-center,
-[data-theme-type="dark"] .font-bold,
-[data-theme-type="dark"] .text-primary,
-[data-theme-type="dark"] .text-secondary,
-[data-theme-type="dark"] .font-black,
-[data-theme-type="dark"] .text-4xl,
-[data-theme-type="dark"] .text-sm,
-[data-theme-type="dark"] .text-lg {
+[data-theme-type="dark"]:not([data-admin-page]) h1,
+[data-theme-type="dark"]:not([data-admin-page]) h2,
+[data-theme-type="dark"]:not([data-admin-page]) h3,
+[data-theme-type="dark"]:not([data-admin-page]) h4,
+[data-theme-type="dark"]:not([data-admin-page]) h5,
+[data-theme-type="dark"]:not([data-admin-page]) h6,
+[data-theme-type="dark"]:not([data-admin-page]) p,
+[data-theme-type="dark"]:not([data-admin-page]) span,
+[data-theme-type="dark"]:not([data-admin-page]) div,
+[data-theme-type="dark"]:not([data-admin-page]) label,
+[data-theme-type="dark"]:not([data-admin-page]) .text-center,
+[data-theme-type="dark"]:not([data-admin-page]) .font-bold,
+[data-theme-type="dark"]:not([data-admin-page]) .text-primary,
+[data-theme-type="dark"]:not([data-admin-page]) .text-secondary,
+[data-theme-type="dark"]:not([data-admin-page]) .font-black,
+[data-theme-type="dark"]:not([data-admin-page]) .text-4xl,
+[data-theme-type="dark"]:not([data-admin-page]) .text-sm,
+[data-theme-type="dark"]:not([data-admin-page]) .text-lg {
   color: #FFFFFF !important;
 }
 
@@ -411,7 +411,7 @@
 }
 
 /* Primary button override */
-[data-theme-type="dark"] .bg-primary {
+[data-theme-type="dark"]:not([data-admin-page]) .bg-primary {
   background-color: #222222 !important;
   color: #FFFFFF !important;
 }
