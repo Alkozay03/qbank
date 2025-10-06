@@ -39,16 +39,16 @@ export default function RoleManagerClient() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-3 sm:px-4 py-6">
-      <h1 className="text-2xl font-bold text-[#2F6F8F]">Role Manager</h1>
+    <div className="mx-auto max-w-3xl px-3 sm:px-4 py-6 min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
+      <h1 className="text-3xl font-bold text-[#0ea5e9]">Role Manager</h1>
       <p className="mt-2 text-slate-600 mb-6">
         Assign roles to users by email address.
       </p>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl shadow-lg border border-sky-200 p-6">
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-[#0284c7] mb-2">
               University Email
             </label>
             <input
@@ -56,21 +56,21 @@ export default function RoleManagerClient() {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#2F6F8F] focus:border-[#2F6F8F]"
+              className="w-full px-3 py-2 border border-sky-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-all"
               placeholder="user@sharjah.ac.ae"
               required
             />
           </div>
 
           <div className="mb-6">
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="role" className="block text-sm font-medium text-[#0284c7] mb-2">
               Role
             </label>
             <select
               id="role"
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#2F6F8F] focus:border-[#2F6F8F]"
+              className="w-full px-3 py-2 border border-sky-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-all"
               required
             >
               <option value="MEMBER">Member</option>
@@ -83,13 +83,13 @@ export default function RoleManagerClient() {
             <button
               type="submit"
               disabled={isLoading}
-              className="bg-[#2F6F8F] text-white px-4 py-2 rounded-md hover:bg-[#265C75] focus:outline-none focus:ring-2 focus:ring-[#2F6F8F] focus:ring-offset-2 disabled:opacity-50"
+              className="bg-[#0ea5e9] text-white px-6 py-2.5 rounded-lg hover:bg-[#0284c7] focus:outline-none focus:ring-2 focus:ring-sky-300 focus:ring-offset-2 disabled:opacity-50 transition-all font-medium shadow-md"
             >
               {isLoading ? "Updating..." : "Update Role"}
             </button>
             <a 
               href="/year4/master-admin" 
-              className="text-[#2F6F8F] hover:underline"
+              className="text-[#0ea5e9] hover:text-[#0284c7] hover:underline font-medium transition-colors"
             >
               Back to Master Admin
             </a>
@@ -97,7 +97,7 @@ export default function RoleManagerClient() {
         </form>
 
         {message && (
-          <div className={`mt-4 p-3 rounded ${message.startsWith("Error") ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+          <div className={`mt-4 p-4 rounded-lg font-medium ${message.startsWith("Error") ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>
             {message}
           </div>
         )}
