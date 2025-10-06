@@ -4,6 +4,7 @@ import { ClerkshipAdapter } from "@/lib/adapter";
 import Email from "next-auth/providers/email";
 import { setDevMagic } from "@/lib/dev-magic";
 import { prisma } from "@/server/db";
+import nodemailer from "nodemailer";
 
 // allow only u########@sharjah.ac.ae
 function isAllowedEmail(email?: string | null) {
@@ -31,13 +32,133 @@ const emailProvider = Email({
           pass: process.env.EMAIL_SERVER_PASSWORD, // e.g. Gmail App Password
         },
       },
-  // DEV: capture the magic link instead of emailing
-  ...(useDevNoSmtp && {
-    async sendVerificationRequest({ identifier, url }: { identifier: string; url: string }) {
+  // Custom email template for Outlook compatibility
+  async sendVerificationRequest({ identifier, url, provider }: { identifier: string; url: string; provider: { from?: string; server?: object } }) {
+    // DEV mode: log instead of sending
+    if (useDevNoSmtp) {
       console.warn(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
       setDevMagic(identifier, url);
-    },
-  }),
+      return;
+    }
+
+    const { host } = new URL(url);
+    const escapedHost = host.replace(/\./g, "&#8203;.");
+    
+    // Outlook-compatible HTML email template
+    const html = `
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign in to Clerkship QBank</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td {font-family: Arial, sans-serif !important;}
+  </style>
+  <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td align="center" style="padding: 40px 40px 20px 40px;">
+              <h1 style="margin: 0; color: #2F6F8F; font-size: 28px; font-weight: 600;">Clerkship QBank</h1>
+            </td>
+          </tr>
+          
+          <!-- Body -->
+          <tr>
+            <td style="padding: 20px 40px;">
+              <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px; line-height: 1.6;">
+                Hello,
+              </p>
+              <p style="margin: 0 0 30px 0; color: #333333; font-size: 16px; line-height: 1.6;">
+                Click the button below to sign in to your account at <strong>${escapedHost}</strong>:
+              </p>
+              
+              <!-- Button -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color: #2F6F8F; border-radius: 6px;">
+                          <a href="${url}" target="_blank" style="display: inline-block; padding: 16px 40px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600;">
+                            Sign In to QBank
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 30px 0 20px 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                Or copy and paste this link into your browser:
+              </p>
+              <p style="margin: 0 0 30px 0; word-break: break-all;">
+                <a href="${url}" style="color: #2F6F8F; text-decoration: underline; font-size: 14px;">${url}</a>
+              </p>
+              
+              <p style="margin: 0 0 10px 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                <strong>Important:</strong> This link will expire in 24 hours and can only be used once.
+              </p>
+              
+              <p style="margin: 0; color: #999999; font-size: 13px; line-height: 1.6;">
+                If you did not request this email, you can safely ignore it.
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px 40px; background-color: #f9f9f9; border-radius: 0 0 8px 8px;">
+              <p style="margin: 0; color: #999999; font-size: 12px; line-height: 1.6; text-align: center;">
+                © ${new Date().getFullYear()} Clerkship QBank. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+
+    // Plain text version for clients that don't support HTML
+    const text = `Sign in to Clerkship QBank\n\nClick the link below to sign in:\n${url}\n\nThis link will expire in 24 hours and can only be used once.\n\nIf you did not request this email, you can safely ignore it.`;
+
+    // Use nodemailer directly for better control
+    const transport = nodemailer.createTransport({
+      host: process.env.EMAIL_SERVER_HOST,
+      port,
+      secure,
+      auth: {
+        user: process.env.EMAIL_SERVER_USER,
+        pass: process.env.EMAIL_SERVER_PASSWORD,
+      },
+    });
+
+    await transport.sendMail({
+      from: provider.from,
+      to: identifier,
+      subject: `Sign in to Clerkship QBank`,
+      text,
+      html,
+      // Outlook-specific headers
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high',
+        'X-Mailer': 'Clerkship QBank',
+      },
+    });
+  },
 });
 
 const adapterInstance = ClerkshipAdapter();
