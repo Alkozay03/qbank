@@ -227,14 +227,25 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
           <div className="text-lg font-bold" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)' }}>IDU Screenshot:</div>
           <div className={`mt-3 overflow-hidden rounded-2xl border ${!isDark ? 'border-[#E6F0F7] bg-[#F8FBFD]' : 'border-[#333333]'}`}
                style={{ backgroundColor: isDark ? '#000000' : '' }}>
-            <Image
-              src={screenshotUrl}
-              alt="IDU Screenshot"
-              width={1280}
-              height={720}
-              className={`h-auto w-full max-h-[480px] object-contain ${!isDark ? 'bg-[#F8FBFD]' : ''}`}
-              style={{ backgroundColor: isDark ? '#000000' : '' }}
-            />
+            {screenshotUrl.startsWith('/uploads/') ? (
+              <div className="p-6 text-center" style={{ color: isDark ? '#ffffff' : 'var(--color-text)' }}>
+                <div className="text-lg font-semibold mb-2">📸 IDU Screenshot Not Available</div>
+                <div className="text-sm opacity-70">
+                  This screenshot was uploaded locally and is not available in production.
+                  <br />
+                  Please re-upload using a cloud storage solution.
+                </div>
+              </div>
+            ) : (
+              <Image
+                src={screenshotUrl}
+                alt="IDU Screenshot"
+                width={1280}
+                height={720}
+                className={`h-auto w-full max-h-[480px] object-contain ${!isDark ? 'bg-[#F8FBFD]' : ''}`}
+                style={{ backgroundColor: isDark ? '#000000' : '' }}
+              />
+            )}
           </div>
         </div>
       ) : null}

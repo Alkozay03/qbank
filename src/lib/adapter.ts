@@ -45,7 +45,7 @@ export function ClerkshipAdapter(): Adapter {
               { 
                 AND: [
                   { usedAt: { not: null } },
-                  { usedAt: { lt: new Date(Date.now() - 300000) } } // Used more than 300s ago
+                  { usedAt: { lt: new Date(Date.now() - 600000) } } // Used more than 600s ago
                 ]
               }
             ]
@@ -75,7 +75,7 @@ export function ClerkshipAdapter(): Adapter {
       if (typeof process !== 'undefined' && process.stderr) {
         process.stderr.write(`✅ [PROD] Token created successfully in database\n`);
         process.stderr.write(`✅ [PROD] Token valid for ${minutesUntilExpiry} minutes (until ${data.expires.toISOString()})\n`);
-        process.stderr.write(`✅ [PROD] ⚠️ Token can be reused within 300 seconds (5 minutes - email scanner tolerance)\n`);
+        process.stderr.write(`✅ [PROD] ⚠️ Token can be reused within 600 seconds (10 minutes - email scanner tolerance)\n`);
       }
       return token;
     },
@@ -130,23 +130,23 @@ export function ClerkshipAdapter(): Adapter {
         }
 
         const now = new Date();
-        const reusWindowMs = 300000; // 300 seconds (5 minutes)
+        const reusWindowMs = 600000; // 600 seconds (10 minutes)
         const windowStartTime = new Date(now.getTime() - reusWindowMs);
 
-        // If usedAt exists and was within last 300 seconds, allow reuse (email scanner tolerance)
+        // If usedAt exists and was within last 600 seconds, allow reuse (email scanner tolerance)
         if (token.usedAt && token.usedAt > windowStartTime) {
           if (typeof process !== 'undefined' && process.stderr) {
             const secondsAgo = Math.round((now.getTime() - token.usedAt.getTime()) / 1000);
-            process.stderr.write(`🔄 [PROD] Token reused within 300s window (${secondsAgo}s ago) - Email scanner tolerance\n`);
+            process.stderr.write(`🔄 [PROD] Token reused within 600s window (${secondsAgo}s ago) - Email scanner tolerance\n`);
           }
           return token; // Don't delete, allow multiple uses within window
         }
 
-        // If usedAt exists but is outside 300s window, token expired for reuse
+        // If usedAt exists but is outside 600s window, token expired for reuse
         if (token.usedAt && token.usedAt <= windowStartTime) {
           if (typeof process !== 'undefined' && process.stderr) {
             const secondsAgo = Math.round((now.getTime() - token.usedAt.getTime()) / 1000);
-            process.stderr.write(`❌ [PROD] Token reuse window expired (first used ${secondsAgo}s ago, limit is 300s)\n`);
+            process.stderr.write(`❌ [PROD] Token reuse window expired (first used ${secondsAgo}s ago, limit is 600s)\n`);
           }
           await prisma.verificationToken.delete({
             where: {
@@ -162,7 +162,7 @@ export function ClerkshipAdapter(): Adapter {
         // First use - mark usedAt timestamp
         if (!token.usedAt) {
           if (typeof process !== 'undefined' && process.stderr) {
-            process.stderr.write(`✅ [PROD] Token first use - marking timestamp (300s reuse window starts)\n`);
+            process.stderr.write(`✅ [PROD] Token first use - marking timestamp (600s reuse window starts)\n`);
           }
           await prisma.verificationToken.update({
             where: {
