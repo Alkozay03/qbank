@@ -194,7 +194,23 @@ export default function ViewQuestionsPage() {
 
   const [error, setError] = useState<string | null>(null);
 
+  const [userRole, setUserRole] = useState<"ADMIN" | "MASTER_ADMIN" | null>(null);
 
+
+
+  // Fetch user role on component mount
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch('/api/me/role', { cache: 'no-store' });
+        const data = await response.json();
+        setUserRole(data?.role);
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    fetchUserRole();
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -330,81 +346,12 @@ export default function ViewQuestionsPage() {
 
 
   const handleBack = () => {
-
-    if (typeof window !== 'undefined') {
-
-      const { origin, pathname } = window.location;
-
-      try {
-        const storedDest = sessionStorage.getItem(RETURN_DEST_KEY);
-        if (storedDest && storedDest !== pathname) {
-          router.push(storedDest);
-          return;
-        }
-      } catch {
-        // ignore sessionStorage errors
-      }
-
-      const referrer = document.referrer;
-
-      if (referrer) {
-
-        try {
-
-          const url = new URL(referrer);
-
-          if (url.origin === origin && url.pathname !== pathname) {
-
-            router.push(url.pathname + url.search + url.hash);
-
-            return;
-
-          }
-
-        } catch {
-
-          // ignore invalid URLs
-
-        }
-
-      }
-
-
-
-      try {
-
-        const lastPage = localStorage.getItem('last-page');
-
-        if (lastPage && lastPage !== pathname) {
-
-          router.push(lastPage);
-
-          return;
-
-        }
-
-      } catch {
-
-        // localStorage not available
-
-      }
-
-
-
-      if (window.history.length > 1) {
-
-        router.back();
-
-        return;
-
-      }
-
+    // Navigate based on user role
+    if (userRole === "MASTER_ADMIN") {
+      router.push("/year4/master-admin");
+    } else {
+      router.push("/year4/admin");
     }
-
-
-
-    router.push('/year4/admin');
-
   };
 
 
