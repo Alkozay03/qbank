@@ -40,7 +40,11 @@ const emailProvider = Email({
   }),
   // Add comprehensive logging for production email sending
   ...(!useDevNoSmtp && {
-    async sendVerificationRequest(params: { identifier: string; url: string; provider: { server?: object; from?: string } }) {
+    async sendVerificationRequest(params: { 
+      identifier: string; 
+      url: string; 
+      provider: { server?: unknown; from?: string }; 
+    }): Promise<void> {
       const { identifier, url, provider } = params;
       
       // Log the start of email sending process
@@ -156,7 +160,7 @@ const emailProvider = Email({
           process.stderr.write(`📧 ==========================================\n\n`);
         }
 
-        return result;
+        // Don't return anything - function signature is Promise<void>
       } catch (error) {
         if (typeof process !== 'undefined' && process.stderr) {
           process.stderr.write(`📧 [EMAIL] ❌ ERROR occurred!\n`);
