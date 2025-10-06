@@ -1,5 +1,6 @@
 "use client";
 
+import ForceBlueTheme from "@/components/ForceBlueTheme";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -76,6 +77,7 @@ export default function ScheduleEditorPage() {
   }
 
   return (
+    <ForceBlueTheme>
     <div className="mx-auto max-w-6xl px-3 sm:px-4 py-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-primary">Schedule Editor</h1>
@@ -154,6 +156,7 @@ export default function ScheduleEditorPage() {
         </div>
       </div>
     </div>
+    </ForceBlueTheme>
   );
 }
 

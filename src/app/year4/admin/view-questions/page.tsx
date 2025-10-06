@@ -1,7 +1,6 @@
 "use client";
 
-
-
+import ForceBlueTheme from "@/components/ForceBlueTheme";
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction, type KeyboardEvent, type ReactNode } from "react";
 
 import { useRouter } from "next/navigation";
@@ -411,7 +410,7 @@ export default function ViewQuestionsPage() {
 
 
   return (
-
+    <ForceBlueTheme>
     <div className="min-h-screen gradient-background-subtle flex flex-col">
 
       <header className="bg-white/90 backdrop-blur border-b border-[#E6F0F7]">
@@ -764,7 +763,7 @@ export default function ViewQuestionsPage() {
       </main>
 
     </div>
-
+    </ForceBlueTheme>
   );
 
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import ForceBlueTheme from "@/components/ForceBlueTheme";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import FormattedText from "@/components/FormattedText";
@@ -189,6 +190,7 @@ export default function HelpEditor() {
   }
 
   return (
+    <ForceBlueTheme>
     <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6">
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -370,5 +372,6 @@ Use double line breaks for new paragraphs"
         </div>
       </div>
     </div>
+    </ForceBlueTheme>
   );
 }

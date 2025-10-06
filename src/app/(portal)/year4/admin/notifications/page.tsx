@@ -1,5 +1,6 @@
 "use client";
 
+import ForceBlueTheme from "@/components/ForceBlueTheme";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -118,6 +119,7 @@ export default function NotificationsAdminPage() {
   }
 
   return (
+    <ForceBlueTheme>
     <div className="mx-auto max-w-6xl px-3 sm:px-4 py-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[#2F6F8F]">Notifications Editor</h1>
@@ -219,5 +221,6 @@ export default function NotificationsAdminPage() {
         )}
       </div>
     </div>
+    </ForceBlueTheme>
   );
 }
