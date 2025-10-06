@@ -411,7 +411,7 @@ export default function ViewQuestionsPage() {
 
   return (
     <ForceBlueTheme>
-    <div className="min-h-screen gradient-background-subtle flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50 flex flex-col">
 
       <header className="bg-white/90 backdrop-blur border-b border-[#E6F0F7]">
 
@@ -526,7 +526,7 @@ export default function ViewQuestionsPage() {
 
                   placeholder="Terms from the stem, answers, explanation, objective, or tags"
 
-                  className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+                  className="mt-1 w-full rounded-lg border border-sky-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
 
                   autoComplete="off"
 
@@ -665,8 +665,7 @@ export default function ViewQuestionsPage() {
                 <tbody>
 
                   {questions.map((question) => (
-
-                    <tr key={question.id} className="border-b border-[#E6F0F7] hover:bg-[#F8FCFF] transition-colors">
+                    <tr key={question.id} className="border-b border-sky-100 hover:bg-sky-50/50 transition-colors">
 
                       <td className="px-4 py-3 text-xs text-slate-600">
 
@@ -684,7 +683,7 @@ export default function ViewQuestionsPage() {
 
                       </td>
 
-                      <td className="px-4 py-3 font-medium text-[#2F6F8F]">{question.correctAnswer}</td>
+                      <td className="px-4 py-3 font-medium text-[#0284c7]">{question.correctAnswer}</td>
 
                       <td className="px-4 py-3">
 
@@ -706,7 +705,7 @@ export default function ViewQuestionsPage() {
                                 {shown.map((label) => (
                                   <span
                                     key={label}
-                                    className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-[11px]"
+                                    className="inline-block px-2 py-1 bg-sky-100 text-[#0284c7] rounded-full text-[11px]"
                                   >
                                     {label}
                                   </span>
@@ -734,7 +733,7 @@ export default function ViewQuestionsPage() {
 
                           onClick={() => handleEdit(question.id, question.customId)}
 
-                          className="px-3 py-1 text-xs bg-gradient-to-r from-[#A5CDE4] to-[#56A2CD] text-white rounded hover:from-[#56A2CD] hover:to-[#2F6F8F] transition-all btn-hover"
+                          className="px-3 py-1 text-xs bg-[#0ea5e9] text-white rounded hover:bg-[#0284c7] transition-all btn-hover"
 
                         >
 
@@ -842,7 +841,7 @@ function CheckGrid({ list, selected, onToggle }: { list: Option[]; selected: str
 
               className={`text-xs rounded-full px-3 py-1 min-w-8 text-center font-semibold transition-colors ${
 
-                isSelected ? 'bg-white text-[#2F6F8F]' : 'bg-gradient-to-r from-[#A5CDE4] to-[#56A2CD] text-white'
+                isSelected ? 'bg-white text-[#0284c7]' : 'bg-sky-100 text-[#0284c7]'
 
               }`}
 
@@ -853,9 +852,7 @@ function CheckGrid({ list, selected, onToggle }: { list: Option[]; selected: str
             </span>
 
             {isSelected && (
-
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#2F6F8F]/10 to-[#56A2CD]/10 animate-pulse"></div>
-
+              <div className="absolute inset-0 rounded-xl bg-sky-100/30 animate-pulse"></div>
             )}
 
           </button>
