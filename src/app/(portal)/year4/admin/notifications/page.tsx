@@ -40,7 +40,7 @@ export default function NotificationsAdminPage() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch("/api/notifications/list", { cache: "no-store" });
+      const r = await fetch("/api/admin/notifications/list", { cache: "no-store" });
       if (!r.ok) throw new Error(`Failed: ${r.status}`);
       const data = (await r.json()) as { notifications: NotificationRow[] };
       setRows(data.notifications || []);

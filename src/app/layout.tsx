@@ -21,7 +21,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 try {
                   // Check if we're on forced theme pages first
                   const path = window.location.pathname;
-                  const isForcedThemePage = path === '/' || path === '/years' || path === '/login' || path === '/pending-approval' || path === '/login-check';
+                  const isForcedThemePage = path === '/' || path === '/years' || path === '/login' || path === '/pending-approval' || path === '/login-check' || 
+                    path.includes('/admin/') || path.includes('/master-admin/');
                   
                   if (isForcedThemePage) {
                     // Force skyblue theme for these pages
