@@ -28,9 +28,9 @@ export default async function MasterAdminHub() {
 
   return (
     <ForceBlueTheme>
-      <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6">
-      <h1 className="text-2xl font-bold text-primary">Master Admin Settings</h1>
-      <p className="mt-2 text-secondary">Manage user roles, system administration, and advanced settings.</p>
+      <div className="mx-auto max-w-5xl px-3 sm:px-4 py-6 min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
+      <h1 className="text-3xl font-bold text-[#0ea5e9]">Master Admin Settings</h1>
+      <p className="mt-2 text-slate-600">Manage user roles, system administration, and advanced settings.</p>
       
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card href="/year4/master-admin/role-manager" label="Role Manager" description="Manage user roles and permissions" />
@@ -46,8 +46,8 @@ export default async function MasterAdminHub() {
       </div>
 
       <div className="mt-8">
-        <h2 className="text-xl font-bold text-primary">System Status</h2>
-        <div className="mt-3 bg-card p-4 rounded-lg border border-border shadow-sm">
+        <h2 className="text-2xl font-bold text-[#0ea5e9]">System Status</h2>
+        <div className="mt-3 bg-white p-6 rounded-xl border border-sky-200 shadow-lg">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatusCard title="Database" status="Healthy" />
             <StatusCard title="Storage" status="Healthy" />
@@ -73,17 +73,17 @@ function Card({
 }) {
   if (disabled) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-5 opacity-60">
-        <div className="text-lg font-semibold text-primary">{label}</div>
-        <div className="mt-1 text-sm text-secondary">{description}</div>
+      <div className="rounded-2xl border border-sky-200 bg-white p-5 opacity-60 shadow">
+        <div className="text-lg font-semibold text-[#0ea5e9]">{label}</div>
+        <div className="mt-1 text-sm text-slate-600">{description}</div>
       </div>
     );
   }
 
   return (
-    <Link href={href} className="rounded-2xl border border-border bg-card p-5 shadow hover:bg-accent">
-      <div className="text-lg font-semibold text-primary">{label}</div>
-      <div className="mt-1 text-sm text-secondary">{description}</div>
+    <Link href={href} className="rounded-2xl border border-sky-200 bg-white p-5 shadow-md hover:shadow-xl hover:border-sky-300 hover:bg-sky-50 transition-all duration-200">
+      <div className="text-lg font-semibold text-[#0ea5e9]">{label}</div>
+      <div className="mt-1 text-sm text-slate-600">{description}</div>
     </Link>
   );
 }
@@ -93,8 +93,8 @@ function StatusCard({ title, status }: { title: string; status: string }) {
   
   return (
     <div className="flex justify-between items-center">
-      <div className="font-medium">{title}</div>
-      <div className={`px-2 py-1 rounded text-sm ${isHealthy ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+      <div className="font-semibold text-[#0284c7]">{title}</div>
+      <div className={`px-3 py-1.5 rounded-lg text-sm font-medium ${isHealthy ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
         {status}
       </div>
     </div>
