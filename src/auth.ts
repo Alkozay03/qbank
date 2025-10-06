@@ -34,18 +34,23 @@ const emailProvider = Email({
       },
   // Custom email template for Outlook compatibility
   async sendVerificationRequest({ identifier, url, provider }: { identifier: string; url: string; provider: { from?: string; server?: object } }) {
-    // DEV mode: log instead of sending
-    if (useDevNoSmtp) {
-      console.warn(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
-      setDevMagic(identifier, url);
-      return;
-    }
+    try {
+      // DEV mode: log instead of sending
+      if (useDevNoSmtp) {
+        console.warn(`[DEV EMAIL LOGIN] Magic link for ${identifier}: ${url}`);
+        setDevMagic(identifier, url);
+        return;
+      }
 
-    const { host } = new URL(url);
-    const escapedHost = host.replace(/\./g, "&#8203;.");
-    
-    // Outlook-compatible HTML email template
-    const html = `
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`📧 [EMAIL] Sending magic link to: ${identifier}\n`);
+      }
+
+      const { host } = new URL(url);
+      const escapedHost = host.replace(/\./g, "&#8203;.");
+      
+      // Outlook-compatible HTML email template
+      const html = `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -130,34 +135,48 @@ const emailProvider = Email({
 </html>
 `;
 
-    // Plain text version for clients that don't support HTML
-    const text = `Sign in to Clerkship QBank\n\nClick the link below to sign in:\n${url}\n\nThis link will expire in 24 hours and can only be used once.\n\nIf you did not request this email, you can safely ignore it.`;
+      // Plain text version for clients that don't support HTML
+      const text = `Sign in to Clerkship QBank\n\nClick the link below to sign in:\n${url}\n\nThis link will expire in 24 hours and can only be used once.\n\nIf you did not request this email, you can safely ignore it.`;
 
-    // Use nodemailer directly for better control
-    const transport = nodemailer.createTransport({
-      host: process.env.EMAIL_SERVER_HOST,
-      port,
-      secure,
-      auth: {
-        user: process.env.EMAIL_SERVER_USER,
-        pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
-    });
+      // Use nodemailer directly for better control
+      const transport = nodemailer.createTransport({
+        host: process.env.EMAIL_SERVER_HOST,
+        port,
+        secure,
+        auth: {
+          user: process.env.EMAIL_SERVER_USER,
+          pass: process.env.EMAIL_SERVER_PASSWORD,
+        },
+      });
 
-    await transport.sendMail({
-      from: provider.from,
-      to: identifier,
-      subject: `Sign in to Clerkship QBank`,
-      text,
-      html,
-      // Outlook-specific headers
-      headers: {
-        'X-Priority': '1',
-        'X-MSMail-Priority': 'High',
-        'Importance': 'high',
-        'X-Mailer': 'Clerkship QBank',
-      },
-    });
+      const result = await transport.sendMail({
+        from: provider.from,
+        to: identifier,
+        subject: `Sign in to Clerkship QBank`,
+        text,
+        html,
+        // Outlook-specific headers
+        headers: {
+          'X-Priority': '1',
+          'X-MSMail-Priority': 'High',
+          'Importance': 'high',
+          'X-Mailer': 'Clerkship QBank',
+        },
+      });
+
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`📧 [EMAIL] ✅ Email sent successfully. MessageID: ${result.messageId}\n`);
+      }
+    } catch (error) {
+      if (typeof process !== 'undefined' && process.stderr) {
+        process.stderr.write(`📧 [EMAIL] ❌ ERROR sending email: ${error}\n`);
+        if (error instanceof Error) {
+          process.stderr.write(`📧 [EMAIL] Error details: ${error.message}\n`);
+          process.stderr.write(`📧 [EMAIL] Stack: ${error.stack}\n`);
+        }
+      }
+      throw error; // Re-throw so NextAuth knows there was an error
+    }
   },
 });
 
