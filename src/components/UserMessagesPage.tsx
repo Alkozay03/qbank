@@ -88,12 +88,13 @@ export default function UserMessagesPage() {
     }
   };
 
-  const startConversation = async () => {
+  const startConversation = async (messageType: "HELP_CREATOR" | "CONTACT_ADMIN") => {
     try {
       setIsLoading(true);
       const res = await fetch("/api/messages/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageType }),
       });
       
       if (!res.ok) throw new Error("Failed to start conversation");
@@ -259,24 +260,60 @@ export default function UserMessagesPage() {
       {/* Content */}
       <div className="max-w-4xl mx-auto p-6">
         {!conversation ? (
-          /* Start Conversation */
-          <div className="bg-white rounded-2xl shadow-xl p-8 text-center border-2 border-primary">
-            <div className="mb-6">
-              <div className="w-20 h-20 theme-gradient rounded-full flex items-center justify-center mx-auto mb-4">
-                <Send className="w-10 h-10 text-white" />
+          /* Start Conversation - Choose recipient type */
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-xl p-8 text-center border-2 border-primary">
+              <div className="mb-6">
+                <div className="w-20 h-20 theme-gradient rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Send className="w-10 h-10 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-primary mb-2">Start a New Conversation</h2>
+                <p className="text-primary opacity-80">
+                  Choose who you&apos;d like to contact. They will be notified and can respond to your messages.
+                </p>
               </div>
-              <h2 className="text-2xl font-bold text-primary mb-2">Start a New Conversation</h2>
-              <p className="text-primary opacity-80">
-                Click below to start a conversation with the website creator. 
-                They will be notified and can respond to your messages.
-              </p>
+
+              {/* Two options: Help Creator or Contact Admin */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                {/* Help Creator Button */}
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-6 border-2 border-blue-200 hover:border-blue-400 transition-all duration-200 hover:shadow-lg">
+                  <div className="mb-4">
+                    <svg className="w-12 h-12 mx-auto text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-blue-900 mb-2">Help Creator</h3>
+                  <p className="text-sm text-blue-700 mb-4">
+                    Contact the website creator directly for questions about the platform, features, or any technical issues.
+                  </p>
+                  <button
+                    onClick={() => startConversation("HELP_CREATOR")}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:shadow-lg hover:opacity-90 transition-all duration-200 transform hover:scale-105"
+                  >
+                    Contact Creator
+                  </button>
+                </div>
+
+                {/* Contact Admin Button */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border-2 border-purple-200 hover:border-purple-400 transition-all duration-200 hover:shadow-lg">
+                  <div className="mb-4">
+                    <svg className="w-12 h-12 mx-auto text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-purple-900 mb-2">Contact Admin</h3>
+                  <p className="text-sm text-purple-700 mb-4">
+                    Get help from one of our admins for questions about content, quizzes, or study materials.
+                  </p>
+                  <button
+                    onClick={() => startConversation("CONTACT_ADMIN")}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:shadow-lg hover:opacity-90 transition-all duration-200 transform hover:scale-105"
+                  >
+                    Contact Admin
+                  </button>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={startConversation}
-              className="px-8 py-3 theme-gradient text-white rounded-xl font-semibold hover:shadow-lg hover:opacity-90 transition-all duration-200 transform hover:scale-105"
-            >
-              Start Conversation
-            </button>
           </div>
         ) : (
           /* Chat Interface */

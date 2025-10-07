@@ -97,16 +97,27 @@ export default function Years() {
             Year 4
           </Link>
 
-          {/* Year 5 button - unclickable with tooltip */}
-          <div className="relative group">
-            <div className="bg-white text-sky-500 font-semibold text-2xl px-12 py-5 w-56 text-center rounded-full shadow-lg opacity-60 cursor-not-allowed">
-              Year 5
-            </div>
-            {/* Tooltip - same style as Year 4 tooltips, bigger */}
-            <span className="pointer-events-none absolute -bottom-12 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium bg-white text-sky-500 shadow-lg opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 border border-sky-200">
-              Coming Soon!
-            </span>
-          </div>
+          {/* Year 5 button - white background, sky blue text, pill-shaped */}
+          <Link
+            href="/year5"
+            className="bg-white text-sky-500 font-semibold text-2xl px-12 py-5 w-56 text-center rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out"
+            style={{ transform: 'scale(1)', transition: 'all 0.3s ease-in-out' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'scale(0.95)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            title="Enter Year 5 content"
+          >
+            Year 5
+          </Link>
         </div>
       </main>
     </ForceBlueTheme>

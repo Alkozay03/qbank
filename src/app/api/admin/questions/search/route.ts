@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    // Extract year filter
+    const yearFilter = typeof body?.year === "string" && body.year.trim() ? body.year.trim() : null;
+
     const rotationValues = canonicalise(
       normaliseList(Array.isArray(body?.rotations) ? body.rotations : []),
       TagType.ROTATION
@@ -183,6 +186,17 @@ export async function POST(request: NextRequest) {
             },
           ],
         })),
+      });
+    }
+
+    // Add year filter if specified
+    if (yearFilter) {
+      whereFilters.push({
+        occurrences: {
+          some: {
+            year: yearFilter,
+          },
+        },
       });
     }
 

@@ -281,6 +281,12 @@ export default function RichTextEditor({
     return toHtml(content);
   }, [content, preserveLineBreaks]);
 
+  // Store onChange in a ref to avoid recreating editor on every parent re-render
+  const onChangeRef = React.useRef(onChange);
+  React.useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -301,6 +307,11 @@ export default function RichTextEditor({
     ],
     content: processedContent,
     immediatelyRender: false, // Fix SSR hydration mismatch
+    editorProps: {
+      attributes: {
+        class: 'prose max-w-none focus:outline-none min-h-[120px] leading-relaxed',
+      },
+    },
     onUpdate: ({ editor }: { editor: Editor }) => {
       let value = editor.getHTML();
       if (preserveLineBreaks) {
@@ -309,9 +320,20 @@ export default function RichTextEditor({
       if (!allowBold) {
         value = value.replace(/<\/?strong>/gi, "").replace(/<\/?b>/gi, "");
       }
-      onChange(value);
+      // Use ref to avoid recreation on every onChange change
+      onChangeRef.current(value);
     },
-  }, [allowBold, onChange, preserveLineBreaks, processedContent]);
+  }, [allowBold, preserveLineBreaks, processedContent]);
+
+  // Update editor content when external content changes (but not from typing)
+  React.useEffect(() => {
+    if (editor && !editor.isFocused) {
+      const currentContent = preserveLineBreaks ? fromHtml(editor.getHTML()) : editor.getHTML();
+      if (currentContent !== content) {
+        editor.commands.setContent(toHtml(content));
+      }
+    }
+  }, [editor, content, preserveLineBreaks]);
 
   const uploadImage = useCallback(async (file: File): Promise<string | null> => {
     try {
@@ -489,18 +511,15 @@ export default function RichTextEditor({
         onPaste={handlePaste}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
+        style={{
+          wordWrap: "break-word",
+          overflowWrap: "break-word",
+          whiteSpace: "pre-wrap"
+        }}
       >
         <EditorContent
           editor={editor}
-          className="prose max-w-none focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[120px] [&_.ProseMirror]:leading-relaxed"
           placeholder={placeholder}
-          style={{
-            wordWrap: "break-word",
-            overflowWrap: "break-word",
-            hyphens: "auto",
-            lineHeight: "1.6",
-            whiteSpace: "pre-wrap"
-          }}
         />
       </div>
     </div>

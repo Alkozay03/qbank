@@ -32,6 +32,7 @@ function buildTagFilter(type: TagType, rawValues: string[]): Prisma.QuestionWher
 
 export async function selectQuestions(opts: {
   userId: string;
+  year?: string;
   rotationKeys: string[];
   resourceValues?: string[];
   disciplineValues?: string[];
@@ -41,6 +42,7 @@ export async function selectQuestions(opts: {
 }): Promise<string[]> {
   const {
     rotationKeys,
+    year,
     resourceValues = [],
     disciplineValues = [],
     systemValues = [],
@@ -72,6 +74,17 @@ export async function selectQuestions(opts: {
   }
 
   const whereClauses: Prisma.QuestionWhereInput[] = [...tagFilters];
+
+  // Filter by year if provided (Year 5 vs Year 4)
+  if (year) {
+    whereClauses.push({
+      occurrences: {
+        some: {
+          year: year,
+        },
+      },
+    });
+  }
 
   if (types.length > 0) {
     const answeredQuestions = await prisma.response.findMany({

@@ -21,9 +21,41 @@ export async function GET() {
     let conversations;
 
     if (user.role === "MASTER_ADMIN") {
-      // For master admin, get all active conversations with user info
+      // For master admin, get all HELP_CREATOR conversations
       conversations = await prisma.conversation.findMany({
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          messageType: "HELP_CREATOR",
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          messages: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              content: true,
+              createdAt: true,
+              senderId: true,
+            },
+          },
+        },
+        orderBy: { lastMessageAt: "desc" },
+      });
+    } else if (user.role === "ADMIN") {
+      // For regular admin, get only conversations assigned to them
+      conversations = await prisma.conversation.findMany({
+        where: {
+          isActive: true,
+          recipientId: user.id,
+          messageType: "CONTACT_ADMIN",
+        },
         include: {
           user: {
             select: {
@@ -74,7 +106,7 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.email) {
@@ -91,9 +123,12 @@ export async function POST() {
     }
 
     // Only regular users can start new conversations
-    if (user.role === "MASTER_ADMIN") {
-      return NextResponse.json({ error: "Master admin cannot start conversations" }, { status: 403 });
+    if (user.role === "MASTER_ADMIN" || user.role === "ADMIN") {
+      return NextResponse.json({ error: "Admins cannot start conversations" }, { status: 403 });
     }
+
+    const body = await req.json();
+    const messageType = body.messageType || "HELP_CREATOR";
 
     // Check if user already has an active conversation
     const existingConversation = await prisma.conversation.findFirst({
@@ -107,10 +142,46 @@ export async function POST() {
       return NextResponse.json({ conversation: existingConversation });
     }
 
+    // Determine recipient based on message type
+    let recipientId: string | null = null;
+    
+    if (messageType === "CONTACT_ADMIN") {
+      // Find all active admins (not master admin, just regular admins)
+      const admins = await prisma.user.findMany({
+        where: {
+          role: "ADMIN",
+          approvalStatus: "APPROVED",
+        },
+        select: { id: true },
+      });
+
+      if (admins.length > 0) {
+        // Randomly select an admin
+        const randomAdmin = admins[Math.floor(Math.random() * admins.length)];
+        recipientId = randomAdmin.id;
+      } else {
+        // If no regular admins, fall back to master admin
+        const masterAdmin = await prisma.user.findFirst({
+          where: { role: "MASTER_ADMIN" },
+          select: { id: true },
+        });
+        recipientId = masterAdmin?.id || null;
+      }
+    } else {
+      // HELP_CREATOR - assign to master admin
+      const masterAdmin = await prisma.user.findFirst({
+        where: { role: "MASTER_ADMIN" },
+        select: { id: true },
+      });
+      recipientId = masterAdmin?.id || null;
+    }
+
     // Create new conversation
     const conversation = await prisma.conversation.create({
       data: {
         userId: user.id,
+        recipientId,
+        messageType,
       },
     });
 

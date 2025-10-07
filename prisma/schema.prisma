@@ -27,15 +27,16 @@ model User {
   timezone          String?
   accounts          Account[]
   notifications     Notification[]     @relation("NotificationCreator")
-  notificationReads NotificationRead[]
-  questionComments  QuestionComment[]  @relation("QuestionCommentAuthor")
-  quizzes           Quiz[]
-  responses         Response[]         @relation("UserResponses")
-  schedules         Schedule[]         @relation("ScheduleCreator")
-  sessions          Session[]
-  conversations     Conversation[]
-  messages          Message[]
-  questionModes     UserQuestionMode[]
+  notificationReads     NotificationRead[]
+  questionComments      QuestionComment[]  @relation("QuestionCommentAuthor")
+  quizzes               Quiz[]
+  responses             Response[]         @relation("UserResponses")
+  schedules             Schedule[]         @relation("ScheduleCreator")
+  sessions              Session[]
+  conversations         Conversation[]
+  messages              Message[]
+  questionModes         UserQuestionMode[]
+  assignedConversations Conversation[]     @relation("AssignedConversations")
 
   @@index([approvalStatus], map: "idx_user_approval_status")
 }
@@ -378,6 +379,13 @@ model Conversation {
   updatedAt   DateTime  @updatedAt
   messages    Message[]
   
+  // Track which admin is assigned to this conversation (for CONTACT_ADMIN type)
+  recipientId String?
+  recipient   User?     @relation("AssignedConversations", fields: [recipientId], references: [id], onDelete: SetNull)
+  
+  // Type of message: HELP_CREATOR (master admin) or CONTACT_ADMIN (random admin)
+  messageType String    @default("HELP_CREATOR")
+  
   // Track unread messages for both user and admin
   userUnreadCount  Int @default(0)
   adminUnreadCount Int @default(0)
@@ -385,6 +393,8 @@ model Conversation {
   // Track last message for ordering
   lastMessageAt DateTime @default(now())
 
+  @@index([recipientId])
+  @@index([messageType])
   @@map("Conversation")
 }
 

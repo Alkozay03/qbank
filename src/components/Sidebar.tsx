@@ -15,17 +15,6 @@ export type SidebarItem = {
   icon: keyof typeof Icon;
 };
 
-const baseItems: SidebarItem[] = [
-  { key: "dashboard",     label: "Dashboard",       href: "/year4",                 icon: "Dashboard" },
-  { key: "performance",   label: "Performance",     href: "/year4/performance",     icon: "Performance" },
-  { key: "create",        label: "Create Test",     href: "/year4/create-test",     icon: "Create" },
-  { key: "previous",      label: "Previous Tests",  href: "/year4/previous-tests",  icon: "Tests" },
-  { key: "schedule",      label: "Schedule",        href: "/year4/schedule",        icon: "Calendar" },
-  { key: "notifications", label: "Notifications",   href: "/notifications",         icon: "Bell" },
-  { key: "help",          label: "Help",            href: "/year4/help",            icon: "Help" },
-  { key: "reset",         label: "Reset",           href: "/year4/reset",           icon: "Reset" },
-];
-
 export default function Sidebar({
   collapsed,
   toggleSidebarAction,
@@ -39,6 +28,10 @@ export default function Sidebar({
   const router = useRouter();
   const [role, setRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | "">("");
 
+  // Detect which year we're in based on the URL
+  const currentYear = pathname?.startsWith('/year5') ? 'year5' : 'year4';
+  const yearLabel = currentYear === 'year5' ? 'Year 5' : 'Year 4';
+
   useEffect(() => {
     fetch("/api/me/role", { cache: "no-store" })
       .then((r) => r.json())
@@ -48,7 +41,18 @@ export default function Sidebar({
 
   const widthPx = collapsed ? 64 : 288;
   const zIndex = isMobile ? "z-50" : "z-40"; // Higher z-index on mobile for overlay
-  const items: SidebarItem[] = [...baseItems];
+  
+  // Dynamic items based on current year
+  const items: SidebarItem[] = [
+    { key: "dashboard",     label: "Dashboard",       href: `/${currentYear}`,                 icon: "Dashboard" },
+    { key: "performance",   label: "Performance",     href: `/${currentYear}/performance`,     icon: "Performance" },
+    { key: "create",        label: "Create Test",     href: `/${currentYear}/create-test`,     icon: "Create" },
+    { key: "previous",      label: "Previous Tests",  href: `/${currentYear}/previous-tests`,  icon: "Tests" },
+    { key: "schedule",      label: "Schedule",        href: `/${currentYear}/schedule`,        icon: "Calendar" },
+    { key: "notifications", label: "Notifications",   href: "/notifications",                  icon: "Bell" },
+    { key: "help",          label: "Help",            href: `/${currentYear}/help`,            icon: "Help" },
+    { key: "reset",         label: "Reset",           href: `/${currentYear}/reset`,           icon: "Reset" },
+  ];
 
   return (
     <>
@@ -73,7 +77,7 @@ export default function Sidebar({
         <div className={clsx("sidebar-brand-container ml-1 sidebar-brand", collapsed ? "sidebar-brand-collapsed" : "sidebar-brand-expanded")}>
           <div className="flex items-baseline gap-2 whitespace-nowrap">
             <div className={`brand-title select-none text-4xl font-extrabold tracking-tight ${getGradientTextClasses()}`}>Clerkship</div>
-            <div className={`brand-title select-none text-sm font-bold tracking-tight ${getGradientTextClasses()} opacity-90`}>Year 4</div>
+            <div className={`brand-title select-none text-sm font-bold tracking-tight ${getGradientTextClasses()} opacity-90`}>{yearLabel}</div>
           </div>
         </div>
       </div>
@@ -124,7 +128,7 @@ export default function Sidebar({
         {/* Admin Settings (role-gated) - Only for ADMIN role, not MASTER_ADMIN */}
         {role === "ADMIN" && (
           <button
-            onClick={() => router.push("/year4/admin")}
+            onClick={() => router.push(`/${currentYear}/admin`)}
             className="group w-full flex items-center rounded-xl text-left text-primary px-2 py-2.5 gap-2 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:shadow-md"
             onMouseEnter={(e) => {
               e.currentTarget.style.boxShadow = getThemeGlow();
@@ -138,7 +142,7 @@ export default function Sidebar({
               "text-lg whitespace-nowrap sidebar-text",
               collapsed ? "sidebar-text-collapsed" : "sidebar-text-expanded"
             )}>
-              Year 4 Admin Settings
+              {yearLabel} Admin Settings
             </span>
           </button>
         )}
@@ -146,7 +150,7 @@ export default function Sidebar({
         {/* Master Admin Settings (only for MASTER_ADMIN) */}
         {role === "MASTER_ADMIN" && (
           <button
-            onClick={() => router.push("/year4/master-admin")}
+            onClick={() => router.push(`/${currentYear}/master-admin`)}
             className="group w-full flex items-center rounded-xl text-left text-primary px-2 py-2.5 gap-2 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:shadow-md"
             onMouseEnter={(e) => {
               e.currentTarget.style.boxShadow = getThemeGlow();

@@ -348,12 +348,37 @@ function BulkQuestionManagerContent() {
     source: 'manual',
   }), []);
 
-  const handleAddManualQuestion = useCallback(() => {
-    const freshQuestion = createEmptyQuestion();
-    openQuestionForEditing(freshQuestion);
-    setSearchStatus('idle');
-    setSearchMessage('');
-    lastFetchedQuestionId.current = null;
+  const handleAddManualQuestion = useCallback(async () => {
+    try {
+      // Create a draft question in the database immediately so it has an ID
+      const response = await fetch('/api/admin/questions/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create draft question');
+      }
+      
+      const data = await response.json();
+      const draftQuestionId = data.questionId;
+      
+      // Create the question object with the draft ID
+      const freshQuestion = {
+        ...createEmptyQuestion(),
+        dbId: draftQuestionId, // This is the key - it now has a database ID!
+      };
+      
+      openQuestionForEditing(freshQuestion);
+      setSearchStatus('idle');
+      setSearchMessage('');
+      lastFetchedQuestionId.current = null;
+    } catch (error) {
+      console.error('Error creating draft question:', error);
+      // Fallback to old behavior if API fails
+      const freshQuestion = createEmptyQuestion();
+      openQuestionForEditing(freshQuestion);
+    }
   }, [createEmptyQuestion, openQuestionForEditing]);
 
   const fetchExistingQuestion = useCallback(async (rawId: string) => {
@@ -970,6 +995,10 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const stableQuestionId = editedQuestion.dbId ? String(editedQuestion.dbId) : null;
+  // Track if this is an unsaved draft - check for the specific draft marker text
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isDraft, _setIsDraft] = useState(() => question.questionText === '[Draft - Not yet saved]');
+  const [hasBeenSaved, setHasBeenSaved] = useState(false);
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
@@ -998,6 +1027,21 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     setAiSuggestions([]);
   }, []);
 
+  // Cleanup: Delete draft question if modal is closed without saving
+  useEffect(() => {
+    return () => {
+      // On unmount (modal close), delete draft if it wasn't saved
+      if (isDraft && !hasBeenSaved && stableQuestionId) {
+        // Fire and forget - delete the draft question
+        fetch(`/api/admin/questions/draft?id=${stableQuestionId}`, {
+          method: 'DELETE',
+        }).catch((error) => {
+          console.error('Failed to delete draft question:', error);
+        });
+      }
+    };
+  }, [isDraft, hasBeenSaved, stableQuestionId]);
+
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
@@ -1013,6 +1057,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         rotationNumber: primaryMeta.rotationNumber,
       };
       await onSave(normalised, questionIndex);
+      setHasBeenSaved(true); // Mark as saved so we don't delete it on close
       onClose();
     } catch (error) {
       console.error('Error saving question:', error);
@@ -1021,6 +1066,20 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       setSaving(false);
     }
   };
+
+  const handleClose = useCallback(async () => {
+    // If it's a draft that hasn't been saved, delete it
+    if (isDraft && !hasBeenSaved && stableQuestionId) {
+      try {
+        await fetch(`/api/admin/questions/draft?id=${stableQuestionId}`, {
+          method: 'DELETE',
+        });
+      } catch (error) {
+        console.error('Failed to delete draft question:', error);
+      }
+    }
+    onClose();
+  }, [isDraft, hasBeenSaved, stableQuestionId, onClose]);
 
   const handleAddOccurrence = useCallback(() => {
     setEditedQuestion((prev) => {
@@ -1253,7 +1312,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         <div className="sticky top-0 bg-white px-6 py-4 border-b border-sky-200 flex justify-between items-center z-20">
           <h2 className="text-xl font-semibold text-[#0ea5e9]">Edit Question</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-500 hover:text-gray-700 icon-hover"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1263,15 +1322,69 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         </div>
 
         <div className="p-6 space-y-6" style={{ paddingTop: '1.5rem' }}>{/* Added padding to prevent text clipping */}
+          {/* Year Selector - MUST BE FIRST */}
+          <div className="rounded-2xl border-2 border-[#0ea5e9] bg-sky-50 p-4">
+            <label className="block text-sm font-semibold text-[#0284c7] mb-3 uppercase tracking-wide">Question Year</label>
+            <p className="text-xs text-slate-600 mb-3">Select which year this question belongs to. This determines where the question appears.</p>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditedQuestion((prev) => {
+                    const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
+                    const withoutY5 = existing.filter((occ) => occ.year !== 'Y5');
+                    const hasY4 = withoutY5.some((occ) => occ.year === 'Y4');
+                    if (!hasY4) {
+                      withoutY5.push({ clientKey: makeOccurrenceKey(), year: 'Y4', rotation: '', orderIndex: withoutY5.length });
+                    }
+                    const reindexed = normalizeOccurrencesForEditing(withoutY5);
+                    const primaryMeta = derivePrimaryOccurrenceMeta(reindexed);
+                    return { ...prev, occurrences: reindexed, questionYear: primaryMeta.questionYear, rotationNumber: primaryMeta.rotationNumber };
+                  });
+                }}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 font-semibold transition-all duration-200 ${
+                  (Array.isArray(editedQuestion.occurrences) ? editedQuestion.occurrences : []).some((occ) => occ.year === 'Y4')
+                    ? 'border-[#0ea5e9] bg-[#0ea5e9] text-white shadow-lg'
+                    : 'border-sky-200 bg-white text-[#0284c7] hover:border-[#0ea5e9] hover:bg-sky-50'
+                }`}
+              >
+                Year 4
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditedQuestion((prev) => {
+                    const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
+                    const withoutY4 = existing.filter((occ) => occ.year !== 'Y4');
+                    const hasY5 = withoutY4.some((occ) => occ.year === 'Y5');
+                    if (!hasY5) {
+                      withoutY4.push({ clientKey: makeOccurrenceKey(), year: 'Y5', rotation: '', orderIndex: withoutY4.length });
+                    }
+                    const reindexed = normalizeOccurrencesForEditing(withoutY4);
+                    const primaryMeta = derivePrimaryOccurrenceMeta(reindexed);
+                    return { ...prev, occurrences: reindexed, questionYear: primaryMeta.questionYear, rotationNumber: primaryMeta.rotationNumber };
+                  });
+                }}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 font-semibold transition-all duration-200 ${
+                  (Array.isArray(editedQuestion.occurrences) ? editedQuestion.occurrences : []).some((occ) => occ.year === 'Y5')
+                    ? 'border-[#0ea5e9] bg-[#0ea5e9] text-white shadow-lg'
+                    : 'border-sky-200 bg-white text-[#0284c7] hover:border-[#0ea5e9] hover:bg-sky-50'
+                }`}
+              >
+                Year 5
+              </button>
+            </div>
+          </div>
+
           {/* Question Text with Rich Text Editor */}
           <div>
             <label className="block text-sm font-medium text-[#0284c7] mb-2">Question Text</label>
-            <div className="max-h-[400px] overflow-y-auto border border-sky-200 rounded-lg">
+            <div className="border border-sky-200 rounded-lg">
               <RichTextEditor
                 content={editedQuestion.questionText}
                 onChange={(content) => setEditedQuestion(prev => ({ ...prev, questionText: content }))}
                 placeholder="Enter the question text..."
-                className="min-h-[120px]"
+                className="min-h-[150px]"
                 allowBold={false} // Don't allow bold in question text
                 preserveLineBreaks={true}
               />
@@ -1388,13 +1501,13 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
           {/* Explanation with Rich Text Editor */}
           <div>
-            <label className="block text-sm font-medium text-[#0284c7] mb-2">Explanation</label>
-            <div className="max-h-[400px] overflow-y-auto border border-sky-200 rounded-lg">
+            <label className="block text-sm font-medium text-[#0284c7] mb-2">Explanation (Expandable - No character limit)</label>
+            <div className="border border-sky-200 rounded-lg">
               <RichTextEditor
                 content={editedQuestion.explanation}
                 onChange={(content) => setEditedQuestion(prev => ({ ...prev, explanation: content }))}
-                placeholder="Enter the explanation..."
-                className="min-h-[100px]"
+                placeholder="Enter the explanation... This field expands as you type with no character limit."
+                className="min-h-[200px]"
                 allowBold={true} // Allow bold in explanations
                 preserveLineBreaks={true}
               />
@@ -1476,12 +1589,12 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           {/* Educational Objective with Rich Text Editor */}
           <div>
             <label className="block text-sm font-medium text-[#0284c7] mb-2">Educational Objective</label>
-            <div className="max-h-[300px] overflow-y-auto border border-sky-200 rounded-lg">
+            <div className="border border-sky-200 rounded-lg">
               <RichTextEditor
                 content={editedQuestion.educationalObjective}
                 onChange={(content) => setEditedQuestion(prev => ({ ...prev, educationalObjective: content }))}
                 placeholder="Enter the educational objective..."
-                className="min-h-[80px]"
+                className="min-h-[100px]"
                 allowBold={true} // Allow bold in educational objectives
                 preserveLineBreaks={true}
               />
@@ -1645,9 +1758,26 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             aiSuggestions={aiSuggestions}
           />
 
-          {stableQuestionId ? (
-            <AdminQuestionComments key={stableQuestionId} questionId={stableQuestionId} />
-          ) : null}
+          {/* Question Discussion Section - Always visible */}
+          <div className="rounded-2xl border border-sky-200 bg-white p-4">
+            <h3 className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide mb-3">Question Discussion</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Add comments from previous batches to help students understand common mistakes and important points.
+            </p>
+            {stableQuestionId ? (
+              <AdminQuestionComments key={stableQuestionId} questionId={stableQuestionId} />
+            ) : (
+              <div className="rounded-lg border-2 border-dashed border-sky-200 bg-sky-50 p-6 text-center">
+                <svg className="w-12 h-12 mx-auto text-sky-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                <p className="text-sm font-medium text-[#0284c7] mb-1">Save question first to add comments</p>
+                <p className="text-xs text-slate-500">
+                  Comments from previous batches can be added after you save this question to the database.
+                </p>
+              </div>
+            )}
+          </div>
 
           {saveError && (
             <p className="text-sm text-red-600">{saveError}</p>
@@ -1656,7 +1786,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           {/* Action Buttons */}
           <div className="flex justify-end gap-4 pt-4 border-t border-sky-200">
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="px-6 py-2 border border-sky-200 text-[#0284c7] rounded-lg hover:bg-sky-50 transition-colors duration-200 btn-hover"
             >
               Cancel

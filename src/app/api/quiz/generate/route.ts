@@ -13,6 +13,7 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json().catch(() => ({}))) as Partial<{
+    year: string;
     rotationKeys: string[];
     resources: string[];
     disciplines: string[];
@@ -21,6 +22,8 @@ export async function POST(req: Request) {
     mode: string;
     types: string[];
   }>;
+
+  const year = typeof body.year === "string" ? body.year : "Y4"; // Default to Y4 for backwards compatibility
 
   const rotationKeys = Array.isArray(body.rotationKeys)
     ? body.rotationKeys.filter((value): value is string => typeof value === "string" && value.length > 0)
@@ -51,6 +54,7 @@ export async function POST(req: Request) {
 
   const ids = await selectQuestions({
     userId: user.id,
+    year,
     rotationKeys,
     resourceValues,
     disciplineValues,

@@ -272,6 +272,8 @@ export default function ViewQuestionsPage() {
 
         body: JSON.stringify({
 
+          year: 'Y4',
+
           questionId: idPayload || undefined,
 
           keywords: keywordPayload || undefined,

@@ -8,6 +8,7 @@ import { Prisma, TagType } from "@prisma/client";
 import { expandTagValues } from "@/lib/tags/server";
 
 type Payload = {
+  year?: string;
   selectedModes?: string[];
   rotationKeys?: string[];
   resourceValues?: string[];
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json().catch(() => ({}))) as Payload;
+
+    const year = body.year ?? "Y4"; // Default to Y4 for backwards compatibility
 
     // Expand tag values
     const rotValues = expandTagValues(TagType.ROTATION, body.rotationKeys ?? []);
@@ -87,6 +90,17 @@ export async function POST(req: Request) {
           WHERE qy."questionId" = q.id
             AND ty.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
             AND ty.value IN (${Prisma.join(sysValues.map((value) => Prisma.sql`${value}`))})
+        )`
+      );
+    }
+
+    // Add year filtering to the static conditions
+    if (year) {
+      staticFilterConditions.push(
+        Prisma.sql`EXISTS (
+          SELECT 1 FROM "QuestionOccurrence" qo
+          WHERE qo."questionId" = q.id
+            AND qo.year = ${year}
         )`
       );
     }

@@ -1,0 +1,804 @@
+﻿"use client";
+
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { initHighlight, type HLColor } from "../_utils/highlight";
+
+type Choice = { id: string; text: string; isCorrect: boolean };
+type Question = { id: string; stem: string; explanation?: string | null; choices: Choice[] };
+type Item = {
+  id: string;
+  order: number | null;
+  marked: boolean;
+  question: Question;
+  responses: { choiceId: string | null; isCorrect: boolean | null }[];
+};
+type InitialQuiz = {
+  id: string;
+  status: "Active" | "Suspended" | "Ended";
+  items: Item[];
+};
+
+const TOP_H = 56;
+const BOTTOM_H = 56;
+
+export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }) {
+  const [id] = useState(initialQuiz.id);
+  const [items, setItems] = useState<Item[]>(initialQuiz.items);
+  const [curIndex, setCurIndex] = useState(0);
+  const [status, setStatus] = useState<"Active" | "Suspended" | "Ended">(initialQuiz.status);
+
+  // Sidebar visual width (narrower)
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const sidebarWidth = sidebarOpen ? "9rem" : "0rem";
+
+  // Portal root to return to after suspend/end (e.g. /year4)
+  const portalRoot = useMemo(() => {
+    if (typeof window === "undefined") return "/years";
+    const seg = window.location.pathname.split("/")[1] || "years";
+    return `/${seg}`;
+  }, []);
+
+  // Text scale (only text grows/shrinks)
+  const [fontScale, setFontScale] = useState(1);
+  const incFont = () => setFontScale((v) => Math.min(1.4, Number((v + 0.1).toFixed(2))));
+  const decFont = () => setFontScale((v) => Math.max(0.8, Number((v - 0.1).toFixed(2))));
+  const resetFont = () => setFontScale(1);
+
+  // Highlighter
+  const [showHighlighter, setShowHighlighter] = useState(false);
+  const [highlightColor, setHighlightColor] = useState<HLColor>("yellow");
+  const paletteRef = useRef<HTMLDivElement | null>(null);
+  const stemRef = useRef<HTMLDivElement | null>(null);
+  const explRef = useRef<HTMLDivElement | null>(null);
+  const objRef  = useRef<HTMLDivElement | null>(null);
+
+  // Calc / Labs / Fullscreen
+  const [showCalc, setShowCalc] = useState(false);
+  const [showLabs, setShowLabs] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Feedback
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackToast, setFeedbackToast] = useState(false);
+
+  // Confirmations
+  const [confirmSuspend, setConfirmSuspend] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
+
+  // Timers
+  const [blockSeconds, setBlockSeconds] = useState(0);
+  const [questionSeconds, setQuestionSeconds] = useState(0);
+  const tickRef = useRef<number | null>(null);
+  const qTickRef = useRef<number | null>(null);
+
+  // Answer state
+  theconstFix:
+  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
+  const [crossed, setCrossed] = useState<Record<string, boolean>>({});
+
+  const currentItem = items[curIndex];
+  const total = items.length;
+  const isAnswered = Boolean(currentItem?.responses?.[0]?.choiceId);
+
+  // Close highlighter palette on outside click
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!paletteRef.current) return;
+      if (paletteRef.current.contains(e.target as Node)) return;
+      setShowHighlighter(false);
+    }
+    if (showHighlighter) document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showHighlighter]);
+
+  // Mount highlighter for question/explanation/objective only
+  useEffect(() => {
+    const dispose = initHighlight({
+      roots: [stemRef.current, explRef.current, objRef.current],
+      getColor: () => (showHighlighter ? highlightColor : null),
+    });
+    return dispose;
+  }, [showHighlighter, highlightColor]);
+
+  // Timers only when active & not answered
+  useEffect(() => {
+    const run = status === "Active" && currentItem && !isAnswered;
+    if (run) {
+      tickRef.current = window.setInterval(() => setBlockSeconds((s) => s + 1), 1000) as any;
+      qTickRef.current = window.setInterval(() => setQuestionSeconds((s) => s + 1), 1000) as any;
+    }
+    return () => {
+      if (tickRef.current) window.clearInterval(tickRef.current);
+      if (qTickRef.current) window.clearInterval(qTickRef.current);
+      tickRef.current = null;
+      qTickRef.current = null;
+    };
+  }, [curIndex, status, isAnswered, currentItem?.id]);
+
+  // Reset per-question local state
+  useEffect(() => {
+    setQuestionSeconds(0);
+    setSelectedChoiceId(null);
+    setCrossed({});
+  }, [curIndex]);
+
+  const fmtHMS = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  // Navigation
+  const goPrev = () => setCurIndex((i) => Math.max(0, i - 1));
+  const goNext = () => setCurIndex((i) => Math.min(total - 1, i + 1));
+
+  // Flag
+  async function toggleFlag(marked: boolean) {
+    if (!currentItem) return;
+    try {
+      await fetch(`/api/quiz/${id}/flag`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quizItemId: currentItem.id, marked }),
+      });
+      setItems((prev) => prev.map((it) => (it.id === currentItem.id ? { ...it, marked } : it)));
+    } catch {}
+  }
+
+  // Submit answer
+  async function submitAnswer() {
+    if (!currentItem || !selectedChoiceId) return;
+    const localCorrect = currentItem.question.choices.find((c) => c.id === selectedChoiceId)?.isCorrect ?? null;
+    try {
+      const res = await fetch(`/api/quiz/${id}/answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quizItemId: currentItem.id, choiceId: selectedChoiceId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (tickRef.current) window.clearInterval(tickRef.current);
+      if (qTickRef.current) window.clearInterval(qTickRef.current);
+      tickRef.current = null;
+      qTickRef.current = null;
+
+      const finalCorrect = typeof data?.isCorrect === "boolean" ? data.isCorrect : localCorrect;
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === currentItem.id
+            ? { ...it, responses: [{ choiceId: selectedChoiceId, isCorrect: Boolean(finalCorrect) }] }
+            : it
+        )
+      );
+    } catch {
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === currentItem.id
+            ? { ...it, responses: [{ choiceId: selectedChoiceId, isCorrect: Boolean(localCorrect) }] }
+            : it
+        )
+      );
+    }
+  }
+
+  async function endQuiz() {
+    try {
+      await fetch(`/api/quiz/${id}/end`, { method: "POST" });
+      setStatus("Ended");
+    } finally {
+      setConfirmEnd(false);
+      window.location.href = portalRoot; // back to dashboard
+    }
+  }
+
+  async function suspendQuiz() {
+    try {
+      await fetch(`/api/quiz/${id}/suspend`, { method: "POST" });
+      setStatus("Suspended");
+    } finally {
+      setConfirmSuspend(false);
+      window.location.href = portalRoot; // back to dashboard
+    }
+  }
+
+  async function sendFeedback() {
+    try {
+      await fetch(`/api/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          questionId: currentItem?.question.id ?? null,
+          text: feedbackText.trim(),
+        }),
+      });
+      setFeedbackText("");
+      setShowFeedback(false);
+      setFeedbackToast(true);
+      setTimeout(() => setFeedbackToast(false), 2500);
+    } catch {}
+  }
+
+  const BarIconBtn = ({ title, onClick, children }: any) => (
+    <button
+      onClick={onClick}
+      title={title}
+      className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-[#2F6F8F] hover:bg-white/70 transition"
+    >
+      {children}
+    </button>
+  );
+
+  return (
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-neutral-50" style={{ ["--sbw" as any]: sidebarWidth }}>
+      {/* LEFT SIDEBAR — sits above top/bottom bars */}
+      <aside
+        className={[
+          "fixed z-60 border-r bg-white border-[#E6F0F7]",
+          "left-0 overflow-hidden",
+          "transition-[width] duration-300 ease-in-out will-change-[width]"
+        ].join(" ")}
+        style={{ width: sidebarWidth, top: 0, bottom: 0 }}
+      >
+        <div className="h-full overflow-auto">
+          <div className="flex flex-col">
+            {items.map((it, i) => {
+              const _answered = Boolean(it.responses?.[0]?.choiceId);
+              const _correct = it.responses?.[0]?.isCorrect ?? false;
+              const even = i % 2 === 0;
+              return (
+                <button
+                  key={it.id}
+                  onClick={() => setCurIndex(i)}
+                  className={[
+                    "relative flex items-center justify-between px-3 py-2 text-sm font-semibold",
+                    even ? "bg-white" : "bg-[#F3F9FC]",
+                    "text-[#2F6F8F]",
+                    i === curIndex ? "ring-2 ring-[#A5CDE4] z-10" : ""
+                  ].join(" ")}
+                  title={`Question ${i + 1}`}
+                >
+                  <span className="text-base">{i + 1}</span>
+                  <span className="ml-auto inline-flex items-center gap-2">
+                    {it.marked && (
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-label="Flagged">
+                        <path fill="#e11d48" d="M6 2v20H4V2h2Zm2 2h9.5l-2.2 3 2.2 3H8V4Z"/>
+                      </svg>
+                    )}
+                    {_answered && (
+                      <span className="text-lg font-extrabold" style={{ color: _correct ? "#16a34a" : "#e11d48" }}>
+                        {_correct ? "✓" : "×"}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </aside>
+
+      {/* TOP BAR */}
+      <header
+        className={[
+          "fixed left-0 right-0 top-0 z-30 border-b bg-[#E6F0F7] backdrop-blur",
+          "border-[#E6F0F7] h-14",
+          "transition-[padding-left] duration-300 ease-in-out"
+        ].join(" ")}
+        style={{ paddingLeft: `var(--sbw)` }}
+      >
+        <div className="flex h-full items-center justify-between px-3">
+          <div className="flex items-center gap-3">
+            <BarIconBtn title="Toggle sidebar" onClick={() => setSidebarOpen((v) => !v)}>
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
+                <rect x="3" y="5" width="14" height="2" rx="1" />
+                <rect x="3" y="9" width="14" height="2" rx="1" />
+                <rect x="3" y="13" width="14" height="2" rx="1" />
+              </svg>
+            </BarIconBtn>
+
+            <div className="text-sm font-semibold text-[#2F6F8F]">
+              Question {curIndex + 1} of {total}
+            </div>
+
+            <label className="ml-2 inline-flex items-center gap-2 rounded-xl bg-white px-2 py-1 border border-[#A5CDE4]">
+              <input type="checkbox" checked={Boolean(currentItem?.marked)} onChange={(e) => toggleFlag(e.target.checked)} />
+              <span className="inline-flex items-center gap-1 text-sm text-[#2F6F8F]">
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#e11d48" d="M6 2v20H4V2h2Zm2 2h9.5l-2.2 3 2.2 3H8V4Z"/></svg>
+                Mark
+              </span>
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <BarIconBtn title="Previous" onClick={() => setCurIndex((i) => Math.max(0, i - 1))}>
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M12.5 5l-5 5 5 5" /></svg>
+            </BarIconBtn>
+            <BarIconBtn title="Next" onClick={() => setCurIndex((i) => Math.min(total - 1, i + 1))}>
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M7.5 5l5 5-5 5" /></svg>
+            </BarIconBtn>
+          </div>
+
+          <div className="relative flex items-center gap-1" ref={paletteRef}>
+            {/* Highlighter toggle */}
+            <BarIconBtn
+              title="Highlighter"
+              onClick={() => setShowHighlighter((v) => !v)}
+            >
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M3 14l-1 3 3-1 9-9-2-2-9 9zM14 3l3 3" />
+              </svg>
+            </BarIconBtn>
+            {showHighlighter && (
+              <div className="absolute right-0 top-12 z-40 rounded-2xl border border-[#E6F0F7] bg-white p-2 shadow">
+                <div className="flex items-center gap-2">
+                  {[
+                    { hex: "#e11d48", name: "red" as HLColor },
+                    { hex: "#16a34a", name: "green" as HLColor },
+                    { hex: "#56A2CD", name: "blue" as HLColor },
+                    { hex: "#ffe066", name: "yellow" as HLColor },
+                  ].map((k) => (
+                    <button
+                      key={k.name}
+                      onClick={() => setHighlightColor(k.name)}
+                      className="h-6 w-6 rounded-full border border-[#E6F0F7]"
+                      style={{ backgroundColor: k.hex, outline: highlightColor === k.name ? "2px solid #A5CDE4" : "none" }}
+                      title={k.name}
+                    />
+                  ))}
+                </div>
+                <div className="mt-2 text-[11px] text-slate-500">
+                  Select text in the question / explanation / objective. Release mouse to apply.
+                  <br/>Alt+Click a highlight to remove it.
+                </div>
+              </div>
+            )}
+
+            {/* Text size with reset icon */}
+            <div className="ml-1 inline-flex items-center gap-1 rounded-xl border border-[#A5CDE4] bg-white p-1">
+              <button onClick={decFont} className="rounded-lg px-2 py-1 text-[#2F6F8F] hover:bg-[#F3F9FC]" title="Smaller">−</button>
+              <button onClick={resetFont} className="rounded-lg px-2 py-1 text-[#2F6F8F] hover:bg-[#F3F9FC]" title="Reset">
+                <svg width="22" height="22" viewBox="0 0 200 200" aria-hidden="true">
+                  <rect x="8" y="8" width="184" height="184" rx="20" fill="#1F5F8F"/>
+                  <path fill="#ffffff" d="M40 130 L60 70 H72 L92 130 H80 L75 115 H47 L42 130 Z M54 105 H68 L61 84 Z"/>
+                  <path fill="#ffffff" d="M92 130 L112 70 H124 L144 130 H132 L127 115 H99 L94 130 Z M106 105 H120 L113 84 Z"/>
+                  <path fill="#ffffff" d="M124 130 L144 70 H156 L176 130 H164 L159 115 H131 L126 130 Z M138 105 H152 L145 84 Z"/>
+                </svg>
+              </button>
+              <button onClick={incFont} className="rounded-lg px-2 py-1 text-[#2F6F8F] hover:bg-[#F3F9FC]" title="Larger">+</button>
+            </div>
+
+            {/* Fullscreen */}
+            <BarIconBtn
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              onClick={() => {
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen?.();
+                  setIsFullscreen(true);
+                } else {
+                  document.exitFullscreen?.();
+                  setIsFullscreen(false);
+                }
+              }}
+            >
+              {isFullscreen ? (
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3H3v4h2V5h2V3zm8 0h-4v2h2v2h2V3zM3 17h4v-2H5v-2H3v4zm14-4h-2v2h-2v2h4v-4z" /></svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h4v2H5v2H3V3zm14 0v4h-2V5h-2V3h4zM3 17v-4h2v2h2v2H3zm14-4h2v4h-4v-2h2v-2z" /></svg>
+              )}
+            </BarIconBtn>
+
+            {/* Calculator */}
+            <BarIconBtn title="Calculator" onClick={() => setShowCalc(true)}>
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
+                <rect x="4" y="3" width="12" height="14" rx="2" />
+                <rect x="6" y="6" width="8" height="3" rx="1" fill="white" />
+                <circle cx="7.5" cy="12" r="1.2" fill="white" />
+                <circle cx="10" cy="12" r="1.2" fill="white" />
+                <circle cx="12.5" cy="12" r="1.2" fill="white" />
+                <rect x="9" y="13.5" width="6" height="2" rx="1" fill="white" />
+              </svg>
+            </BarIconBtn>
+
+            {/* Lab values */}
+            <BarIconBtn title="Lab Values" onClick={() => setShowLabs(true)}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M10 3v5.5L5.2 17.4A3 3 0 0 0 7.9 22h8.2a3 3 0 0 0 2.7-4.6L14 8.5V3h-4Zm2 10.5 4.1 7H7.9l4.1-7Z"/>
+              </svg>
+            </BarIconBtn>
+          </div>
+        </div>
+      </header>
+
+      {/* BOTTOM BAR */}
+      <footer
+        className={[
+          "fixed bottom-0 left-0 right-0 z-30 border-t bg-[#F3F9FC] backdrop-blur",
+          "border-[#E6F0F7] h-14",
+          "transition-[padding-left] duration-300 ease-in-out"
+        ].join(" ")}
+        style={{ paddingLeft: `var(--sbw)` }}
+      >
+        <div className="flex h-full items-center justify-between px-3">
+          <div className="text-sm font-semibold text-[#2F6F8F]">
+            Block Elapsed Time: <span className="tabular-nums">{fmtHMS(blockSeconds)}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="inline-flex items-center justify-center rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]"
+              title="Send feedback"
+            >
+              Feedback
+            </button>
+
+            <button
+              onClick={() => setConfirmSuspend(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#E6F0F7] bg-white px-3 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]"
+              title="Suspend"
+            >
+              <svg width="22" height="22" viewBox="0 0 48 48" aria-hidden="true">
+                <circle cx="24" cy="24" r="22" fill="#A5CDE4" stroke="#2F6F8F" strokeWidth="3"/>
+                <rect x="18" y="14" width="5" height="20" rx="2" fill="#2F6F8F"/>
+                <rect x="25" y="14" width="5" height="20" rx="2" fill="#2F6F8F"/>
+              </svg>
+              Suspend
+            </button>
+
+            <button
+              onClick={() => setConfirmEnd(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#F3D1D6] bg-white px-3 py-2 text-[#e11d48] hover:bg-[#FFF5F6]"
+              title="End block"
+            >
+              <svg width="22" height="22" viewBox="0 0 100 100" aria-hidden="true">
+                <polygon points="30,5 70,5 95,30 95,70 70,95 30,95 5,70 5,30" fill="#e11d48" stroke="#b91c1c" strokeWidth="3"/>
+              </svg>
+              End Block
+            </button>
+          </div>
+        </div>
+      </footer>
+
+      {/* MAIN CONTENT */}
+      <main
+        className={[
+          "absolute left-0 right-0 overflow-auto",
+          "transition-[padding-left] duration-300 ease-in-out"
+        ].join(" ")}
+        style={{ top: `${TOP_H}px`, bottom: `${BOTTOM_H}px`, paddingLeft: `var(--sbw)` }}
+      >
+        <div className="mx-auto max-w-4xl px-4 py-6">
+          <div className="quiz-question rounded-2xl border border-[#E6F0F7] bg-white p-5">
+            <div
+              ref={stemRef}
+              className="text-[15px] leading-relaxed text-neutral-900"
+              style={{ fontSize: `${fontScale}rem` }}
+              dangerouslySetInnerHTML={{ __html: toHTML(currentItem?.question.stem ?? "") }}
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {currentItem?.question.choices.map((ch, idx) => (
+              <AnswerRow
+                key={ch.id}
+                choice={ch}
+                index={idx}
+                submittedId={currentItem?.responses?.[0]?.choiceId ?? null}
+                submitted={Boolean(currentItem?.responses?.[0]?.choiceId)}
+                selectedId={selectedChoiceId}
+                crossed={!!crossed[ch.id]}
+                status={status}
+                fontScale={fontScale}
+                onSelect={() => {
+                  if (currentItem?.responses?.[0]?.choiceId || status !== "Active" || crossed[ch.id]) return;
+                  setSelectedChoiceId((prev) => (prev === ch.id ? null : ch.id));
+                }}
+                onCross={() => {
+                  if (currentItem?.responses?.[0]?.choiceId) return;
+                  setCrossed((m) => ({ ...m, [ch.id]: !m[ch.id] }));
+                  if (selectedChoiceId === ch.id) setSelectedChoiceId(null);
+                }}
+              />
+            ))}
+          </div>
+
+          {!isAnswered && status === "Active" && (
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={submitAnswer}
+                disabled={!selectedChoiceId}
+                className="rounded-2xl px-6 py-2 font-semibold text-white bg-[#56A2CD] hover:bg-[#2F6F8F] disabled:opacity-60 disabled:cursor-not-allowed shadow"
+              >
+                Submit Answer
+              </button>
+            </div>
+          )}
+
+          {(() => {
+            if (!currentItem || !isAnswered) return null;
+            const wasCorrect = currentItem.responses?.[0]?.isCorrect ?? null;
+            return (
+              <div className="mt-5 rounded-2xl border bg-white p-4" style={{ borderColor: wasCorrect ? "#CDEFE1" : "#F3D1D6" }}>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="flex items-center justify-center rounded-xl bg-[#F3F9FC] p-3">
+                    <span className="text-lg font-extrabold" style={{ color: wasCorrect ? "#16a34a" : "#e11d48" }}>
+                      {wasCorrect ? "Correct" : "Incorrect"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-3xl font-extrabold text-[#2F6F8F]">—%</div>
+                      <div className="text-xs leading-tight text-slate-500">Answered<br/>Correctly</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-lg font-extrabold text-[#2F6F8F]">
+                        {Math.floor(questionSeconds / 60)} Mins, {questionSeconds % 60} Secs
+                      </div>
+                      <div className="text-xs text-slate-500">Time Spent on Question</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="quiz-explanation mt-6">
+                  <div className="text-lg font-bold text-[#2F6F8F]">Explanation:</div>
+                  <div
+                    ref={explRef}
+                    className="prose mt-2 max-w-none text-neutral-900"
+                    style={{ fontSize: `${fontScale}rem` }}
+                  >
+                    {currentItem?.question.explanation ? (
+                      <div dangerouslySetInnerHTML={{ __html: toHTML(currentItem.question.explanation) }} />
+                    ) : (
+                      <div className="text-sm text-slate-500">No explanation provided.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="quiz-objective mt-6" style={{ fontSize: `${fontScale}rem` }}>
+                  <div className="text-lg font-bold text-[#2F6F8F]">Educational Objective:</div>
+                  <div ref={objRef} className="mt-2 text-neutral-900">This section summarizes the key takeaway for rapid review.</div>
+                </div>
+
+                <div className="mt-6">
+                  <div className="text-lg font-bold text-[#2F6F8F]">References :</div>
+                  <ul className="mt-2 list-inside list-disc text-neutral-900">
+                    <li><span className="text-slate-600">Add reference links here.</span></li>
+                  </ul>
+                </div>
+
+                <div className="mt-6 border-t border-[#E6F0F7] pt-3">
+                  <div className="flex flex-wrap gap-6 text-sm">
+                    {["Subject/Discipline","System","Topic","Rotation","Resource"].map((t)=>(
+                      <div key={t}>
+                        <div className="text-[#2F6F8F] font-semibold">{t}</div>
+                        <div className="mt-1 text-neutral-900">—</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </main>
+
+      {showCalc && <DraggableCalc onClose={() => setShowCalc(false)} />}
+      {showLabs && <LabDrawer onClose={() => setShowLabs(false)} />}
+
+      {showFeedback && (
+        <Modal onClose={() => setShowFeedback(false)} title="Submit Feedback">
+          <textarea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Describe the issue or suggestion…"
+            className="mt-3 h-32 w-full rounded-xl border border-[#E6F0F7] p-3 outline-none focus:ring-2 focus:ring-[#A5CDE4] text-neutral-900"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <button onClick={() => setShowFeedback(false)} className="rounded-xl border border-[#E6F0F7] bg-white px-4 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]">Cancel</button>
+            <button onClick={sendFeedback} disabled={!feedbackText.trim()} className="rounded-xl bg-[#56A2CD] px-4 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed">Submit</button>
+          </div>
+        </Modal>
+      )}
+
+      {feedbackToast && (
+        <div className="pointer-events-none fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-[#2F6F8F] px-6 py-3 text-white shadow-lg">
+          Feedback Submitted!
+        </div>
+      )}
+
+      {confirmSuspend && (
+        <Modal onClose={() => setConfirmSuspend(false)} title="Suspend Test Block">
+          <p className="text-neutral-800">You are about to suspend this test block, you can always return back to it later on.</p>
+          <p className="mt-2 text-neutral-800">Are you sure you want to suspend the test block?</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setConfirmSuspend(false)} className="rounded-xl border border-[#E6F0F7] bg-white px-4 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]">Cancel</button>
+            <button onClick={suspendQuiz} className="rounded-xl bg-[#56A2CD] px-4 py-2 font-semibold text-white">Confirm</button>
+          </div>
+        </Modal>
+      )}
+
+      {confirmEnd && (
+        <Modal onClose={() => setConfirmEnd(false)} title="End Test Block">
+          <p className="text-neutral-800">You are about to end this test block.</p>
+          <p className="mt-2 text-neutral-800">Are you sure you want to end the test block?</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setConfirmEnd(false)} className="rounded-xl border border-[#E6F0F7] bg-white px-4 py-2 text-[#2F6F8F] hover:bg-[#F3F9FC]">Cancel</button>
+            <button onClick={endQuiz} className="rounded-xl bg="#e11d48" style={{background:"#e11d48"}} className="rounded-xl px-4 py-2 font-semibold text-white">Confirm</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- subcomponents ---------- */
+
+const AnswerRow = memo(function AnswerRow({
+  choice, index, submittedId, submitted, selectedId, crossed, status, fontScale, onSelect, onCross
+}: {
+  choice: Choice;
+  index: number;
+  submittedId: string | null;
+  submitted: boolean;
+  selectedId: string | null;
+  crossed: boolean;
+  status: "Active" | "Suspended" | "Ended";
+  fontScale: number;
+  onSelect: () => void;
+  onCross: () => void;
+}) {
+  const isSelected = selectedId === choice.id || (submitted && submittedId === choice.id);
+  const isCorrectChoice = choice.isCorrect;
+
+  return (
+    <div className={[
+      "group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 select-none",
+      isSelected ? "bg-[#2F6F8F] text-white" : "border-[#E6F0F7] bg-white text-neutral-900"
+    ].join(" ")}>
+      <button onClick={onSelect} disabled={submitted || status !== "Active" || crossed} className="flex w-full items-center gap-3 text-left">
+        <span className={[
+          "grid h-5 w-5 place-items-center rounded-full border text-[11px] font-bold",
+          isSelected ? "bg-white text-[#2F6F8F] border-white" : "border-[#A5CDE4] text-[#2F6F8F]"
+        ].join(" ")}>
+          {String.fromCharCode(65 + index)}
+        </span>
+        <span className={crossed ? "line-through text-slate-400" : ""} style={{ fontSize: `${fontScale}rem` }}>
+          {choice.text}
+        </span>
+      </button>
+
+      <div className="shrink-0 flex items-center gap-3 pr-1">
+        {submitted && (
+          <>
+            {!isCorrectChoice ? (
+              <span className="text-lg font-extrabold" style={{ color: "#e11d48" }} title="Incorrect">×</span>
+            ) : (
+              <span className="text-lg font-extrabold" style={{ color: "#16a34a" }} title="Correct">✓</span>
+            )}
+            <span className={["text-xs", isSelected ? "text-white/80" : "text-slate-500"].join(" ")} title="Students who chose this (coming soon)">— %</span>
+          </>
+        )}
+        <button aria-label="cross out" onClick={onCross} className={[
+          "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold transition",
+          crossed ? (isSelected ? "text-white" : "text-[#e11d48]") : (isSelected ? "text-white/80" : "text-slate-500 hover:text-[#e11d48]")
+        ].join(" ")}>×</button>
+      </div>
+    </div>
+  );
+});
+
+function toHTML(s: string) { return s.replace(/\n/g, "<br/>"); }
+
+function Modal({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string; }) {
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onEsc);
+    return () => document.removeEventListener("keydown", onEsc);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
+      <div className="relative w-full max-w-lg rounded-2xl border border-[#E6F0F7] bg-white shadow-xl">
+        <div className="rounded-t-2xl bg-[#2F6F8F] px-4 py-2 text-white flex items-center justify-between">
+          <div className="text-base font-semibold">{title}</div>
+          <button onClick={onClose} className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/15" aria-label="Close">×</button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function DraggableCalc({ onClose }: { onClose: () => void }) {
+  const box = useRef<HTMLDivElement | null>(null);
+  const drag = useRef<{ x: number; y: number; dx: number; dy: number } | null>(null);
+  const onDown = (e: React.MouseEvent) => {
+    const rect = box.current?.getBoundingClientRect();
+    if (!rect) return;
+    drag.current = { x: e.clientX, y: e.clientY, dx: rect.left, dy: rect.top };
+    document.addEventListener("mousemove", onMove as any);
+    document.addEventListener("mouseup", onUp as any, { once: true });
+  };
+  const onMove = (e: MouseEvent) => {
+    if (!box.current || !drag.current) return;
+    const nx = drag.current.dx + (e.clientX - drag.current.x);
+    const ny = drag.current.dy + (e.clientY - drag.current.y);
+    box.current.style.left = `${nx}px`;
+    box.current.style.top = `${ny}px`;
+  };
+  const onUp = () => { document.removeEventListener("mousemove", onMove as any); drag.current = null; };
+
+  return (
+    <div ref={box} className="fixed left-10 top-24 z-40 w-64 rounded-2xl border border-[#E6F0F7] bg-white shadow-lg" style={{ userSelect: "none" }}>
+      <div onMouseDown={onDown} className="flex cursor-move items-center justify-between rounded-t-2xl border-b border-[#E6F0F7] bg-[#F3F9FC] px-3 py-2">
+        <div className="text-sm font-semibold text-[#2F6F8F]">Calculator</div>
+        <button onClick={onClose} className="rounded-lg p-1 text-[#2F6F8F]" aria-label="Close">×</button>
+      </div>
+      <CalcPad />
+    </div>
+  );
+}
+
+function CalcPad() {
+  const [val, setVal] = useState("0");
+  const press = (t: string) => {
+    if (t === "C") return setVal("0");
+    if (t === "←") return setVal((v) => (v.length > 1 ? v.slice(0, -1) : "0"));
+    if (t === "=") { try { const out = eval(val as any); setVal(String(out)); } catch { setVal("Error"); } return; }
+    setVal((v) => (v === "0" ? t : v + t));
+  };
+  const keys = ["7","8","9","/","4","5","6","*","1","2","3","-","0",".","=","+","C","←"];
+  return (
+    <div className="p-3">
+      <div className="mb-2 rounded-xl border border-[#E6F0F7] bg-white p-2 text-right font-mono text-lg text-neutral-900">{val}</div>
+      <div className="grid grid-cols-4 gap-2">
+        {keys.map((k) => (
+          <button key={k} onClick={() => press(k)} className={["rounded-xl border px-3 py-2", k==="="? "bg-[#56A2CD] text-white border-[#56A2CD]" : "bg-white border-[#E6F0F7] hover:bg-[#F3F9FC] text-[#2F6F8F]"].join(" ")}>{k}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LabDrawer({ onClose }: { onClose: () => void }) {
+  const [tab, setTab] = useState<"Serum" | "CSF" | "Blood" | "Urine" | "BMI">("Serum");
+  const [q, setQ] = useState("");
+  const all: Record<string, { name: string; value: string }[]> = {
+    Serum: [{ name: "Sodium", value: "135–145 mEq/L" }, { name: "Potassium", value: "3.5–5.0 mEq/L" }, { name: "Creatinine", value: "0.6–1.3 mg/dL" }],
+    CSF: [{ name: "Opening pressure", value: "90–180 mmH2O" }],
+    Blood: [{ name: "Hemoglobin (M)", value: "13.5–17.5 g/dL" }],
+    Urine: [{ name: "Specific Gravity", value: "1.005–1.030" }],
+    BMI: [{ name: "Normal BMI", value: "18.5–24.9" }],
+  };
+  const list = (all[tab] ?? []).filter((x) => x.name.toLowerCase().includes(q.toLowerCase()));
+
+  return (
+    <div className="fixed right-0 z-40 w-96 border-l border-[#E6F0F7] bg-white shadow-lg" style={{ top: `${TOP_H}px`, bottom: `${BOTTOM_H}px` }}>
+      <div className="flex items-center justify-between border-b border-[#E6F0F7] bg-[#F3F9FC] px-3 py-2">
+        <div className="text-sm font-semibold text-[#2F6F8F]">Lab Values</div>
+        <button onClick={onClose} className="rounded-lg p-1 text-[#2F6F8F]" aria-label="Close">×</button>
+      </div>
+      <div className="px-3 py-3">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search biomarker…" className="w-full rounded-xl border border-[#E6F0F7] p-2 outline-none focus:ring-2 focus:ring-[#A5CDE4] text-neutral-900" />
+      </div>
+      <div className="flex flex-wrap gap-2 px-3">
+        {(["Serum","CSF","Blood","Urine","BMI"] as const).map((t)=>(
+          <button key={t} onClick={()=>setTab(t)} className={["rounded-xl border px-3 py-1 text-sm", tab===t? "bg-[#56A2CD] text-white border-[#56A2CD]" : "bg-white text-[#2F6F8F] border-[#E6F0F7] hover:bg-[#F3F9FC]"].join(" ")}>{t}</button>
+        ))}
+      </div>
+      <div className="mt-3 max-h-[calc(100%-130px)] overflow-auto px-3 pb-20">
+        {list.length===0 && <div className="p-2 text-sm text-slate-500">No results.</div>}
+        {list.map((row,i)=>(
+          <div key={row.name+"-"+i} className="mb-2 rounded-xl border border-[#E6F0F7] bg-white p-3">
+            <div className="text-sm font-semibold text-[#2F6F8F]">{row.name}</div>
+            <div className="text-neutral-900">{row.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
