@@ -151,8 +151,10 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
   const occurrenceItems = (currentItem.question.occurrences ?? [])
     .map((occ) => {
       const pieces: string[] = [];
-      if (occ?.year && occ.year.trim()) pieces.push(occ.year.trim());
-      if (occ?.rotation && occ.rotation.trim()) pieces.push(occ.rotation.trim());
+      // Only include rotation if it's not just "Y4" or "Y5" (those are year indicators, not rotations)
+      if (occ?.rotation && occ.rotation.trim() && !occ.rotation.match(/^Y[45]$/i)) {
+        pieces.push(occ.rotation.trim());
+      }
       const label = pieces.join(" · ");
       return label ? { key: `${pieces.join("|")}`, label } : null;
     })

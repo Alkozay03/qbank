@@ -971,7 +971,19 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 borderColor: isDark ? '#4b5563' : 'var(--color-primary)'
               }}
             >
-              Question {curIndex + 1} of {total}
+              <div>Question {curIndex + 1} of {total}</div>
+              {currentItem?.question.id && (
+                <div 
+                  className="text-xs font-mono mt-0.5"
+                  style={{
+                    color: isDark ? '#ffffff' : 'var(--color-primary)',
+                    opacity: isDark ? 0.7 : 0.6
+                  }}
+                  title={`Question ID: ${currentItem.question.id}`}
+                >
+                  ID: {currentItem.question.id.substring(0, 6)}
+                </div>
+              )}
             </div>
 
             {status !== "Ended" && (
