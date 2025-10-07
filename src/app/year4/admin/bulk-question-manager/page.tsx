@@ -1756,6 +1756,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             }
             className="border border-[#E6F0F7] rounded-lg p-4"
             aiSuggestions={aiSuggestions}
+            year="Y4"
           />
 
           {/* Question Discussion Section - Always visible */}
