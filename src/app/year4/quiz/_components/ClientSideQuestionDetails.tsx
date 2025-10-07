@@ -148,18 +148,9 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
     ? currentItem.question.iduScreenshotUrl.trim()
     : "";
     
-  const occurrenceItems = (currentItem.question.occurrences ?? [])
-    .map((occ) => {
-      const pieces: string[] = [];
-      // Only include rotation if it's not just "Y4" or "Y5" (those are year indicators, not rotations)
-      if (occ?.rotation && occ.rotation.trim() && !occ.rotation.match(/^Y[45]$/i)) {
-        pieces.push(occ.rotation.trim());
-      }
-      const label = pieces.join(" · ");
-      return label ? { key: `${pieces.join("|")}`, label } : null;
-    })
-    .filter((item): item is { key: string; label: string } => Boolean(item))
-    .filter((item, index, arr) => arr.findIndex((candidate) => candidate.key === item.key) === index);
+  // Hide Question Occurrences section - this is internal/backend data (year/rotation categorization)
+  // not meaningful for students to see
+  const occurrenceItems: Array<{ key: string; label: string }> = [];
 
   const questionStats = statsByQuestion[currentItem.question.id];
   const percentLabel =
