@@ -25,13 +25,13 @@ function resolveTagLabel(raw: string): string | null {
 
 const rotations: Option[] = [
 
-  { key: "im", label: "Internal Medicine" },
+  { key: "fm", label: "Family Medicine" },
 
-  { key: "gs", label: "General Surgery" },
+  { key: "psych", label: "Psychiatry" },
 
-  { key: "peds", label: "Pediatrics" },
+  { key: "gs2", label: "General Surgery 2" },
 
-  { key: "obgyn", label: "Obstetrics and Gynaecology" },
+  { key: "im2", label: "Internal Medicine 2" },
 
 ];
 

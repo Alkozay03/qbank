@@ -8,10 +8,16 @@ export interface TagOption {
 }
 
 const rotationOptions: TagOption[] = [
+  // Year 4 Rotations
   { key: "im", label: "Internal Medicine", aliases: ["internal medicine", "im"] },
   { key: "gs", label: "General Surgery", aliases: ["general surgery", "gs"] },
   { key: "peds", label: "Pediatrics", aliases: ["pediatrics", "peds"] },
   { key: "obgyn", label: "Obstetrics and Gynaecology", aliases: ["obstetrics and gynaecology", "ob-gyn", "obgyn"] },
+  // Year 5 Rotations
+  { key: "fm", label: "Family Medicine", aliases: ["family medicine", "fm"] },
+  { key: "psych", label: "Psychiatry", aliases: ["psychiatry", "psych"] },
+  { key: "gs2", label: "General Surgery 2", aliases: ["general surgery 2", "gs2"] },
+  { key: "im2", label: "Internal Medicine 2", aliases: ["internal medicine 2", "im2"] },
 ];
 
 const resourceOptions: TagOption[] = [

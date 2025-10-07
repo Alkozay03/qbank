@@ -16,10 +16,10 @@ const modes: Option[] = [
 ];
 
 const rotations: Option[] = [
-  { key: "im", label: "Internal Medicine" },
-  { key: "gs", label: "General Surgery" },
-  { key: "peds", label: "Pediatrics" },
-  { key: "obgyn", label: "Obstetrics and Gynaecology" },
+  { key: "fm", label: "Family Medicine" },
+  { key: "psych", label: "Psychiatry" },
+  { key: "gs2", label: "General Surgery 2" },
+  { key: "im2", label: "Internal Medicine 2" },
 ];
 
 const resources: Option[] = [
