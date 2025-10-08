@@ -148,19 +148,23 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
     ? currentItem.question.iduScreenshotUrl.trim()
     : "";
     
-  // Show Question Occurrences to students - helps them understand how frequently this question appears
-  const occurrenceItems = (currentItem.question.occurrences ?? [])
-    .map((occ) => {
-      const pieces: string[] = [];
-      // Show rotation name if available (but filter out Y4/Y5 year indicators)
-      if (occ?.rotation && occ.rotation.trim() && !occ.rotation.match(/^Y[45]$/i)) {
-        pieces.push(occ.rotation.trim());
-      }
-      const label = pieces.join(" · ");
-      return label ? { key: `${pieces.join("|")}`, label } : null;
-    })
-    .filter((item): item is { key: string; label: string } => Boolean(item))
-    .filter((item, index, arr) => arr.findIndex((candidate) => candidate.key === item.key) === index);
+  // Show Question Occurrences to students - displays how many times this question appeared in previous tests
+  // This is distinct from rotation tags which are already shown separately
+  const occurrences = currentItem.question.occurrences ?? [];
+  
+  // Group by year if year data is available
+  const yearCounts = occurrences.reduce((acc, occ) => {
+    if (occ?.year && occ.year.trim()) {
+      const year = occ.year.trim();
+      acc[year] = (acc[year] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const occurrenceItems = Object.entries(yearCounts).map(([year, count]) => ({
+    key: year,
+    label: count > 1 ? `${year} (${count} times)` : year
+  }));
 
   const questionStats = statsByQuestion[currentItem.question.id];
   const percentLabel =

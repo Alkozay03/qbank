@@ -1081,9 +1081,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     onClose();
   }, [isDraft, hasBeenSaved, stableQuestionId, onClose]);
 
-  // Question Appearances handlers - currently disabled as this is internal data
-  // Occurrences are managed automatically by the system based on question usage
-  const _handleAddOccurrence = useCallback(() => {
+  const handleAddOccurrence = useCallback(() => {
     setEditedQuestion((prev) => {
       const existing = Array.isArray(prev.occurrences) ? prev.occurrences : [];
       const nextDrafts = normalizeOccurrencesForEditing([
@@ -1106,7 +1104,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     });
   }, []);
 
-  const _handleOccurrenceChange = useCallback((index: number, field: 'year' | 'rotation', value: string) => {
+  const handleOccurrenceChange = useCallback((index: number, field: 'year' | 'rotation', value: string) => {
     setEditedQuestion((prev) => {
       const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
       if (!existing[index]) return prev;
@@ -1125,7 +1123,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     });
   }, []);
 
-  const _handleRemoveOccurrence = useCallback((index: number) => {
+  const handleRemoveOccurrence = useCallback((index: number) => {
     setEditedQuestion((prev) => {
       const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
       if (!existing[index]) return prev;
@@ -1612,8 +1610,69 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             />
           </div>
 
-          {/* Question Appearances section hidden - this is internal data managed automatically by the system */}
-          {/* Admins should not manually edit occurrences; they are derived from question usage */}
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 space-y-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-[#0284c7] uppercase tracking-wide">Question Appearances</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Track every year and rotation combination where this question appeared so we can surface its history to students.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddOccurrence}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#0ea5e9] px-3 py-1.5 text-xs font-semibold text-[#0ea5e9] transition hover:bg-sky-100"
+              >
+                <span className="text-lg leading-none">＋</span>
+                Add occurrence
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {occurrences.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[#C7D9E6] bg-white px-3 py-4 text-sm text-slate-500">
+                  No appearances recorded yet. Add the first year and rotation where this question was used.
+                </div>
+              ) : (
+                occurrences.map((occurrence, index) => (
+                  <div
+                    key={occurrence.clientKey ?? occurrence.id ?? `${index}-${occurrence.year}-${occurrence.rotation}`}
+                    className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+                  >
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
+                      <input
+                        type="text"
+                        value={occurrence.year ?? ''}
+                        onChange={(e) => handleOccurrenceChange(index, 'year', e.target.value)}
+                        placeholder="e.g. 2025"
+                        className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Rotation</label>
+                      <input
+                        type="text"
+                        value={occurrence.rotation ?? ''}
+                        onChange={(e) => handleOccurrenceChange(index, 'rotation', e.target.value)}
+                        placeholder="e.g. Rotation 3"
+                        className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+                      />
+                    </div>
+                    <div className="flex items-end justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOccurrence(index)}
+                        className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
           <div className="rounded-2xl border border-sky-200 bg-white p-4">
             <div className="flex flex-col gap-2">
