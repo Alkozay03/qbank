@@ -148,9 +148,19 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
     ? currentItem.question.iduScreenshotUrl.trim()
     : "";
     
-  // Hide Question Occurrences section - this is internal/backend data (year/rotation categorization)
-  // not meaningful for students to see
-  const occurrenceItems: Array<{ key: string; label: string }> = [];
+  // Show Question Occurrences to students - helps them understand how frequently this question appears
+  const occurrenceItems = (currentItem.question.occurrences ?? [])
+    .map((occ) => {
+      const pieces: string[] = [];
+      // Show rotation name if available (but filter out Y4/Y5 year indicators)
+      if (occ?.rotation && occ.rotation.trim() && !occ.rotation.match(/^Y[45]$/i)) {
+        pieces.push(occ.rotation.trim());
+      }
+      const label = pieces.join(" · ");
+      return label ? { key: `${pieces.join("|")}`, label } : null;
+    })
+    .filter((item): item is { key: string; label: string } => Boolean(item))
+    .filter((item, index, arr) => arr.findIndex((candidate) => candidate.key === item.key) === index);
 
   const questionStats = statsByQuestion[currentItem.question.id];
   const percentLabel =
