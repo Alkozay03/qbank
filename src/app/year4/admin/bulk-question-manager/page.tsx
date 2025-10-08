@@ -694,86 +694,145 @@ function BulkQuestionManagerContent() {
   }, [setSearchMessage, setSearchStatus]);
 
   const handleSaveAllQuestions = async () => {
+    console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS STARTED ==========');
+    console.warn('🔷 [SAVE ALL] Total questions to save:', state.questions.length);
+    
     const requiredCategories = ['rotation', 'resource', 'discipline', 'system'];
 
-    const normalisedQuestions = state.questions.map((question) => {
-  const uniqueTags = normalizeTagValues(question.tags);
-      const normalisedCorrect = (question.correctAnswer || '').trim().toUpperCase();
+    try {
+      console.warn('🔷 [SAVE ALL] Step 1: Normalizing questions...');
+      const normalisedQuestions = state.questions.map((question, idx) => {
+        console.warn(`🔷 [SAVE ALL] Processing question ${idx + 1}/${state.questions.length}:`, {
+          id: question.dbId,
+          questionText: question.questionText?.substring(0, 50),
+          hasCorrectAnswer: !!question.correctAnswer
+        });
+        
+        const uniqueTags = normalizeTagValues(question.tags);
+        const normalisedCorrect = (question.correctAnswer || '').trim().toUpperCase();
       
-      // Build answers array in the format the API expects
-      const answers = [
-        { text: (question.optionA || '').trim(), isCorrect: normalisedCorrect === 'A' },
-        { text: (question.optionB || '').trim(), isCorrect: normalisedCorrect === 'B' },
-        { text: (question.optionC || '').trim(), isCorrect: normalisedCorrect === 'C' },
-        { text: (question.optionD || '').trim(), isCorrect: normalisedCorrect === 'D' },
-        { text: question.optionE?.trim() ?? '', isCorrect: normalisedCorrect === 'E' },
-      ].filter(a => a.text.length > 0); // Remove empty options
-      
-      // Convert string tags to object format expected by API
-      // Format: ["rotation:Y5R1", "resource:IDU"] -> [{type: "rotation", value: "Y5R1"}, {type: "resource", value: "IDU"}]
-      const formattedTags = uniqueTags.map(tag => {
-        const [category, value] = tag.split(':');
-        return { type: category, value: value };
-      }).filter(tag => tag.type && tag.value);
-      
-      return {
-        text: question.questionText.trim(),
-        explanation: (question.explanation || '').trim(),
-        objective: (question.educationalObjective || '').trim(),
-        answers,
-        refs: (question.references || '').trim(),
-        tags: formattedTags,
-      };
-    });
+        // Build answers array in the format the API expects
+        const answers = [
+          { text: (question.optionA || '').trim(), isCorrect: normalisedCorrect === 'A' },
+          { text: (question.optionB || '').trim(), isCorrect: normalisedCorrect === 'B' },
+          { text: (question.optionC || '').trim(), isCorrect: normalisedCorrect === 'C' },
+          { text: (question.optionD || '').trim(), isCorrect: normalisedCorrect === 'D' },
+          { text: question.optionE?.trim() ?? '', isCorrect: normalisedCorrect === 'E' },
+        ].filter(a => a.text.length > 0); // Remove empty options
+        
+        // Convert string tags to object format expected by API
+        // Format: ["rotation:Y5R1", "resource:IDU"] -> [{type: "rotation", value: "Y5R1"}, {type: "resource", value: "IDU"}]
+        const formattedTags = uniqueTags.map(tag => {
+          const [category, value] = tag.split(':');
+          return { type: category, value: value };
+        }).filter(tag => tag.type && tag.value);
+        
+        const normalized = {
+          text: question.questionText.trim(),
+          explanation: (question.explanation || '').trim(),
+          objective: (question.educationalObjective || '').trim(),
+          answers,
+          refs: (question.references || '').trim(),
+          tags: formattedTags,
+        };
+        
+        console.warn(`🔷 [SAVE ALL] Question ${idx + 1} normalized:`, {
+          textLength: normalized.text.length,
+          answerCount: normalized.answers.length,
+          tagCount: normalized.tags.length,
+          hasExplanation: !!normalized.explanation,
+          hasObjective: !!normalized.objective
+        });
+        
+        return normalized;
+      });
 
-    const validationIssues: string[] = [];
-    normalisedQuestions.forEach((question, index) => {
-      const missing = requiredCategories.filter((category) =>
-        !question.tags.some((tag) => tag.type === category)
-      );
-      if (missing.length) {
-        validationIssues.push(`Question ${index + 1}: missing ${missing.join(', ')}`);
-      }
-      if (!question.answers.some(a => a.isCorrect)) {
-        validationIssues.push(`Question ${index + 1}: must have at least one correct answer`);
-      }
-    });
+      console.warn('🔷 [SAVE ALL] Step 2: Validating questions...');
+      const validationIssues: string[] = [];
+      normalisedQuestions.forEach((question, index) => {
+        const missing = requiredCategories.filter((category) =>
+          !question.tags.some((tag) => tag.type === category)
+        );
+        if (missing.length) {
+          const issue = `Question ${index + 1}: missing ${missing.join(', ')}`;
+          console.warn(`🔷 [SAVE ALL] Validation issue:`, issue);
+          validationIssues.push(issue);
+        }
+        if (!question.answers.some(a => a.isCorrect)) {
+          const issue = `Question ${index + 1}: must have at least one correct answer`;
+          console.warn(`🔷 [SAVE ALL] Validation issue:`, issue);
+          validationIssues.push(issue);
+        }
+      });
 
-    if (validationIssues.length) {
+      if (validationIssues.length) {
+        console.warn('🔷 [SAVE ALL] ❌ VALIDATION FAILED - Total issues:', validationIssues.length);
+        setState(prev => ({
+          ...prev,
+          message: validationIssues.join(' | '),
+        }));
+        const formattedList = validationIssues.map((issue) => `- ${issue}`).join('\n');
+        alert(`Please resolve the following issues before saving:
+${formattedList}`);
+        return;
+      }
+      
+      console.warn('🔷 [SAVE ALL] ✅ Validation passed');
+
+      console.warn('🔷 [SAVE ALL] Step 3: Updating state to "saving"...');
       setState(prev => ({
         ...prev,
-        message: validationIssues.join(' | '),
+        status: 'saving',
+        progress: 0,
+        message: 'Saving all questions to database...',
       }));
-      const formattedList = validationIssues.map((issue) => `- ${issue}`).join('\n');
-      alert(`Please resolve the following issues before saving:
-${formattedList}`);
-      return;
-    }
+      console.warn('🔷 [SAVE ALL] State updated to "saving"');
 
-    setState(prev => ({
-      ...prev,
-      status: 'saving',
-      progress: 0,
-      message: 'Saving all questions to database...',
-    }));
+      console.warn('🔷 [SAVE ALL] Step 4: Sending bulk save API request...');
+      const apiPayload = { questions: normalisedQuestions };
+      console.warn('🔷 [SAVE ALL] API payload:', {
+        url: '/api/admin/questions/bulk',
+        method: 'POST',
+        questionCount: apiPayload.questions.length,
+        payloadSize: JSON.stringify(apiPayload).length,
+      });
 
-    try {
       const response = await fetch('/api/admin/questions/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questions: normalisedQuestions }),
+        body: JSON.stringify(apiPayload),
+      });
+
+      console.warn('🔷 [SAVE ALL] API response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save questions');
+        const errorText = await response.text();
+        console.warn('🔷 [SAVE ALL] ❌ API request failed:', errorText);
+        throw new Error(`Failed to save questions: ${response.status} ${errorText}`);
       }
 
+      console.warn('🔷 [SAVE ALL] Step 5: Parsing API response...');
       const result = await response.json();
+      console.warn('🔷 [SAVE ALL] API result:', {
+        message: result.message,
+        errorCount: result.errors?.length ?? 0,
+        successCount: result.successCount,
+        hasErrors: !!result.errors?.length
+      });
+
+      if (result.errors?.length) {
+        console.warn('🔷 [SAVE ALL] ⚠️ Bulk save completed with errors:', result.errors);
+      }
 
       const feedback = result.errors?.length
         ? `${result.message} (check errors in the console for details)`
         : result.message ?? 'Questions saved';
 
+      console.warn('🔷 [SAVE ALL] Step 6: Updating state with results...');
       setState(prev => ({
         ...prev,
         status: 'idle',
@@ -782,19 +841,27 @@ ${formattedList}`);
         questions: result.errors?.length ? prev.questions : [],
       }));
 
-      if (result.errors?.length) {
-        console.warn('Bulk save reported issues:', result.errors);
-      } else if (fileInputRef.current) {
+      if (!result.errors?.length && fileInputRef.current) {
+        console.warn('🔷 [SAVE ALL] Clearing file input');
         fileInputRef.current.value = '';
       }
+      
+      console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS COMPLETED ==========');
     } catch (error) {
-      console.error('Error saving questions:', error);
+      console.warn('🔷 [SAVE ALL] ❌❌❌ CRITICAL ERROR CAUGHT ❌❌❌');
+      console.warn('🔷 [SAVE ALL] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.warn('🔷 [SAVE ALL] Error message:', error instanceof Error ? error.message : String(error));
+      console.warn('🔷 [SAVE ALL] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.warn('🔷 [SAVE ALL] Full error object:', error);
+      
       setState(prev => ({
         ...prev,
         status: 'ready',
         progress: 0,
-        message: 'Error saving questions. Please try again.',
+        message: `Error saving questions: ${error instanceof Error ? error.message : 'Unknown error'}`,
       }));
+      
+      console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS FAILED ==========');
     }
   };
 
