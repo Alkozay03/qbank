@@ -371,6 +371,7 @@ function BulkQuestionManagerContent() {
       const freshQuestion = {
         ...createEmptyQuestion(),
         dbId: draftQuestionId, // This is the key - it now has a database ID!
+        questionText: '[Draft - Not yet saved]', // Mark as draft so isDraft flag works correctly
       };
       
       openQuestionForEditing(freshQuestion);

@@ -364,6 +364,7 @@ function BulkQuestionManagerContent() {
     const freshQuestion = {
       ...createEmptyQuestion(),
       dbId: data.questionId, // Set the database ID immediately
+      questionText: '[Draft - Not yet saved]', // Mark as draft so isDraft flag works correctly
     };
     openQuestionForEditing(freshQuestion);
     setSearchStatus('idle');
