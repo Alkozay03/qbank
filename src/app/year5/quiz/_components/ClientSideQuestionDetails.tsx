@@ -34,6 +34,7 @@ type Question = {
     rotation: string | null;
     orderIndex: number | null;
   }>;
+  isAnswerConfirmed?: boolean;
 };
 
 type Item = {
@@ -248,6 +249,35 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
               unoptimized
             />
           </div>
+
+          {/* Show confirmation status only after answer is submitted */}
+          {currentItem.responses && currentItem.responses.length > 0 && (
+            <div className="mt-4 flex justify-center">
+              {currentItem.question.isAnswerConfirmed ? (
+                <div 
+                  className="px-6 py-3 rounded-xl text-2xl font-bold text-center"
+                  style={{ 
+                    backgroundColor: isDark ? 'transparent' : '#10b981',
+                    color: isDark ? '#ffffff' : '#ffffff',
+                    border: isDark ? '2px solid #10b981' : 'none'
+                  }}
+                >
+                  ✅ IDU Answer Confirmed!
+                </div>
+              ) : (
+                <div 
+                  className="px-6 py-3 rounded-xl text-2xl font-bold text-center"
+                  style={{ 
+                    backgroundColor: isDark ? 'transparent' : '#ef4444',
+                    color: isDark ? '#ffffff' : '#ffffff',
+                    border: isDark ? '2px solid #ef4444' : 'none'
+                  }}
+                >
+                  ⚠️ IDU Answer Unconfirmed :/
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
 

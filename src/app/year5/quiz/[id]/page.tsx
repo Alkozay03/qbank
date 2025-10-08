@@ -52,6 +52,7 @@ export default async function QuizPage({
               questionImageUrl: true,
               explanationImageUrl: true,
               references: true,
+              isAnswerConfirmed: true,
               occurrences: {
                 select: {
                   year: true,
@@ -153,6 +154,7 @@ export default async function QuizPage({
           iduScreenshotUrl: it.question.iduScreenshotUrl ?? null,
           questionImageUrl: it.question.questionImageUrl ?? null,
           explanationImageUrl: it.question.explanationImageUrl ?? null,
+          isAnswerConfirmed: it.question.isAnswerConfirmed ?? true,
           occurrences: (it.question.occurrences ?? []).map((occ: { year: string | null; rotation: string | null; orderIndex: number | null }) => ({
             year: occ.year ?? null,
             rotation: occ.rotation ?? null,

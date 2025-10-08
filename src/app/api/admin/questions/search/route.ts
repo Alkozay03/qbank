@@ -249,6 +249,7 @@ export async function POST(request: NextRequest) {
         updatedAt: question.updatedAt,
         createdAt: question.createdAt,
         tags,
+        isAnswerConfirmed: question.isAnswerConfirmed,
       };
     });
 

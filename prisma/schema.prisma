@@ -91,6 +91,7 @@ model Question {
   questionImageUrl    String?
   explanationImageUrl String?
   references          String?
+  isAnswerConfirmed   Boolean              @default(true)
   extraction          AIExtraction?
   answers             Answer[]
   comments            QuestionComment[]

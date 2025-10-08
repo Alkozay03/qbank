@@ -166,6 +166,7 @@ interface ExtractedQuestion {
   dbId?: string;
   customId?: number;
   source?: "extracted" | "manual" | "existing";
+  isAnswerConfirmed?: boolean;
 }
 
 interface BulkUploadState {

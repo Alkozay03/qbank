@@ -167,6 +167,8 @@ type QuestionRow = {
 
   updatedAt: string;
 
+  isAnswerConfirmed: boolean;
+
 };
 
 
@@ -342,6 +344,30 @@ export default function ViewQuestionsPage() {
 
     router.push(`/year4/admin/bulk-question-manager?questionId=${targetId}`);
 
+  };
+
+  const handleConfirmationToggle = async (questionId: string, newStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/questions/${questionId}/confirm`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAnswerConfirmed: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update confirmation status');
+      }
+
+      // Update local state
+      setQuestions(prev =>
+        prev.map(q =>
+          q.id === questionId ? { ...q, isAnswerConfirmed: newStatus } : q
+        )
+      );
+    } catch (err) {
+      console.error('Error updating confirmation status:', err);
+      alert('Failed to update confirmation status');
+    }
   };
 
 
@@ -603,6 +629,8 @@ export default function ViewQuestionsPage() {
 
                     <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Updated</th>
 
+                    <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Confirmation</th>
+
                     <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Actions</th>
 
                   </tr>
@@ -672,6 +700,33 @@ export default function ViewQuestionsPage() {
 
                         {new Date(question.updatedAt).toLocaleDateString()}
 
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleConfirmationToggle(question.id, true)}
+                            className={`px-2 py-1 text-xs rounded transition-all ${
+                              question.isAnswerConfirmed
+                                ? 'bg-green-500 text-white font-semibold'
+                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            }`}
+                            title="Mark as confirmed"
+                          >
+                            ✓ Confirmed
+                          </button>
+                          <button
+                            onClick={() => handleConfirmationToggle(question.id, false)}
+                            className={`px-2 py-1 text-xs rounded transition-all ${
+                              !question.isAnswerConfirmed
+                                ? 'bg-red-500 text-white font-semibold'
+                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            }`}
+                            title="Mark as unconfirmed"
+                          >
+                            ⚠ Unconfirmed
+                          </button>
+                        </div>
                       </td>
 
                       <td className="px-4 py-3">
