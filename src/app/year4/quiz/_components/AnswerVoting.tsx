@@ -169,7 +169,7 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
       )}
 
       {/* Current Rotation Voting */}
-      {canVote && currentVotes && (
+      {canVote && (
         <div 
           className="mb-6 p-4 rounded-xl border"
           style={{ 
@@ -178,7 +178,7 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
           }}
         >
           <div className="text-sm font-semibold mb-3" style={{ color: isDark ? '#ffffff' : '#1e40af' }}>
-            {currentVotes.rotationName} {currentVotes.rotationNumber} ({currentVotes.academicYear}) - Current Voting
+            {currentVotes?.rotationName || 'Current Rotation'} {currentVotes?.rotationNumber || ''} {currentVotes?.academicYear ? `(${currentVotes.academicYear})` : ''} - {currentVotes ? 'Current Voting' : 'Be the First to Vote!'}
           </div>
           <div className="grid grid-cols-5 gap-2 mb-3">
             {['A', 'B', 'C', 'D', 'E'].map((choice) => (
@@ -210,8 +210,8 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
           {/* Live vote counts and percentages */}
           <div className="space-y-2">
             {['A', 'B', 'C', 'D', 'E'].map((choice) => {
-              const count = currentVotes.counts[choice] || 0;
-              const percentage = currentVotes.percentages[choice] || 0;
+              const count = currentVotes?.counts[choice] || 0;
+              const percentage = currentVotes?.percentages[choice] || 0;
               return (
                 <div key={choice} className="flex items-center gap-3">
                   <span className="text-sm font-bold w-6" style={{ color: isDark ? '#ffffff' : '#111827' }}>

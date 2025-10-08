@@ -138,13 +138,26 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       `${v.academicYear}-${v.rotationNumber}-${v.rotationName}` !== currentPeriodKey
     );
 
-    return NextResponse.json({
+    const response = {
       canVote,
       userVote: userVote?.selectedAnswer || null,
       currentVotes,
       historicalVotes,
       isAnswerConfirmed: question.isAnswerConfirmed,
+    };
+
+    console.warn('🗳️ [VOTING API] Response for question', questionId, ':', {
+      canVote,
+      hasUserVote: !!userVote,
+      hasCurrentVotes: !!currentVotes,
+      currentVotesTotal: currentVotes?.total || 0,
+      historicalCount: historicalVotes.length,
+      isAnswerConfirmed: question.isAnswerConfirmed,
+      userRotation: `${user.gradYear}-${user.rotationNumber}-${user.rotation}`,
+      hasPeriod: !!currentPeriod
     });
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("[votes/GET] Error fetching votes:", error);
     return NextResponse.json(
