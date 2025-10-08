@@ -157,23 +157,31 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
       className="mt-6 rounded-2xl border p-6"
       style={{ 
         borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
-        backgroundColor: isDark ? '#000000' : '#ffffff'
+        backgroundColor: isDark ? '#000000 !important' : '#ffffff',
+        color: isDark ? '#ffffff' : 'inherit',
+        isolation: 'isolate'
       }}
     >
-      <div 
-        className="text-lg font-bold mb-4"
-        style={{
-          ...(isDark ? {
-            color: '#ffffff'
-          } : {
-            background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          })
-        }}
-      >
-        📊 Student Answer Voting
+      <div className="text-lg font-bold mb-4 flex items-center gap-2">
+        <span style={{ 
+          filter: 'none',
+          WebkitTextFillColor: 'initial',
+          backgroundClip: 'border-box'
+        }}>📊</span>
+        <span
+          style={{
+            ...(isDark ? {
+              color: '#ffffff'
+            } : {
+              background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            })
+          }}
+        >
+          Student Answer Voting
+        </span>
       </div>
       
       {error && (
