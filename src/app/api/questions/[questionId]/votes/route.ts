@@ -284,3 +284,107 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 }
+
+// DELETE /api/questions/[questionId]/votes
+// Cancel/remove a vote
+export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { questionId } = await Promise.resolve(context.params);
+
+  try {
+    // Get user details
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: {
+        id: true,
+        rotation: true,
+        rotationNumber: true,
+        gradYear: true,
+      },
+    });
+
+    if (!user || !user.rotation || !user.rotationNumber || !user.gradYear) {
+      return NextResponse.json(
+        { error: "User must have rotation, rotation number, and graduation year set in profile" },
+        { status: 400 }
+      );
+    }
+
+    // Check if question exists and is not confirmed
+    const question = await prisma.question.findUnique({
+      where: { id: questionId },
+      select: { id: true, isAnswerConfirmed: true },
+    });
+
+    if (!question) {
+      return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    }
+
+    if (question.isAnswerConfirmed) {
+      return NextResponse.json(
+        { error: "Cannot remove vote from confirmed answers" },
+        { status: 400 }
+      );
+    }
+
+    // Get current rotation period
+    const currentPeriod = await prisma.rotationPeriod.findFirst({
+      where: {
+        academicYear: user.gradYear,
+        rotationNumber: user.rotationNumber,
+        rotationName: user.rotation,
+        isActive: true,
+      },
+    });
+
+    if (!currentPeriod) {
+      return NextResponse.json(
+        { error: "No active rotation period found for your current rotation" },
+        { status: 400 }
+      );
+    }
+
+    // Check if period has ended
+    if (new Date() > new Date(currentPeriod.endDate)) {
+      return NextResponse.json(
+        { error: "Voting period has ended for this rotation" },
+        { status: 400 }
+      );
+    }
+
+    // Delete the vote if it exists
+    const deleted = await prisma.answerVote.deleteMany({
+      where: {
+        questionId,
+        userId: user.id,
+        academicYear: user.gradYear,
+        rotationNumber: user.rotationNumber,
+        rotationName: user.rotation,
+      },
+    });
+
+    if (deleted.count === 0) {
+      return NextResponse.json(
+        { error: "No vote found to cancel" },
+        { status: 404 }
+      );
+    }
+
+    console.warn(`🗳️ [VOTING API] Vote cancelled for question ${questionId} by user ${user.id}`);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "Vote cancelled successfully" 
+    });
+  } catch (error) {
+    console.error("[votes/DELETE] Error cancelling vote:", error);
+    return NextResponse.json(
+      { error: "Failed to cancel vote" },
+      { status: 500 }
+    );
+  }
+}

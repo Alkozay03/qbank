@@ -99,6 +99,34 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
     }
   }
 
+  async function handleCancelVote() {
+    if (!canVote || voting || !userVote) return;
+    
+    const confirmCancel = window.confirm("Are you sure you want to cancel your vote? You can vote again later.");
+    if (!confirmCancel) return;
+    
+    try {
+      setVoting(true);
+      setError(null);
+      const res = await fetch(`/api/questions/${questionId}/votes`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to cancel vote");
+      }
+
+      // Refresh votes
+      await fetchVotes();
+    } catch (err) {
+      console.error("Error cancelling vote:", err);
+      setError(err instanceof Error ? err.message : "Failed to cancel vote");
+    } finally {
+      setVoting(false);
+    }
+  }
+
   function toggleHistory(periodKey: string) {
     setExpandedHistory(prev => ({ ...prev, [periodKey]: !prev[periodKey] }));
   }
@@ -249,6 +277,29 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
               );
             })}
           </div>
+
+          {/* Cancel Vote Button */}
+          {userVote && (
+            <div className="mt-4 pt-3 border-t" style={{ borderColor: isDark ? '#1e3a8a' : '#bfdbfe' }}>
+              <button
+                onClick={handleCancelVote}
+                disabled={voting}
+                className="w-full py-2 px-4 rounded-lg font-semibold text-sm transition-all hover:opacity-80"
+                style={{
+                  backgroundColor: isDark ? '#991b1b' : '#fee2e2',
+                  color: isDark ? '#fecaca' : '#991b1b',
+                  border: isDark ? '1px solid #dc2626' : '1px solid #fca5a5',
+                  opacity: voting ? 0.6 : 1,
+                  cursor: voting ? 'wait' : 'pointer'
+                }}
+              >
+                {voting ? 'Processing...' : '🗑️ Cancel My Vote'}
+              </button>
+              <p className="text-xs mt-2 text-center" style={{ color: isDark ? '#93c5fd' : '#1e40af' }}>
+                You can change your vote anytime before the rotation period ends
+              </p>
+            </div>
+          )}
         </div>
       )}
 
