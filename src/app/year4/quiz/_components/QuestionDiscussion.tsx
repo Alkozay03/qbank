@@ -24,6 +24,11 @@ export type QuestionDiscussionComment = {
   createdByEmail?: string | null;
   createdByGradYear?: number | null;
   origin?: "runner" | "editor" | null;
+  parentId?: string | null;
+  upvoteCount?: number;
+  replyCount?: number;
+  hasVoted?: boolean;
+  replies?: QuestionDiscussionComment[];
 };
 
 interface Props {
@@ -49,6 +54,18 @@ export default function QuestionDiscussion({ questionId }: Props) {
 
   const [userEmail, setUserEmail] = useState<string>("");
   const [userRole, setUserRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | null>(null);
+
+  // New state for sorting and reply functionality
+  const [sortBy, setSortBy] = useState<"recent" | "upvotes" | "popular" | "oldest">("recent");
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyDraftName, setReplyDraftName] = useState<string>("");
+  const [replyDraftBody, setReplyDraftBody] = useState<string>("");
+  const [replyDraftImageUrl, setReplyDraftImageUrl] = useState<string | null>(null);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [isReplyUploading, setIsReplyUploading] = useState(false);
+  const [isReplySubmitting, setIsReplySubmitting] = useState(false);
+  const replyFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const absoluteFormatter = useMemo(
     () =>
@@ -162,7 +179,7 @@ export default function QuestionDiscussion({ questionId }: Props) {
     setStatus("loading");
     setError(null);
     try {
-      const res = await fetch(`/api/questions/${questionId}/comments`, { cache: "no-store" });
+      const res = await fetch(`/api/questions/${questionId}/comments?sort=${sortBy}`, { cache: "no-store" });
       const payload = (await res.json().catch(() => ({}))) as {
         comments?: QuestionDiscussionComment[];
         error?: string;
@@ -175,6 +192,10 @@ export default function QuestionDiscussion({ questionId }: Props) {
             ...comment,
             authorName: comment.authorName ?? "Previous Batch",
             origin: comment.origin ?? "runner",
+            replies: Array.isArray(comment.replies) ? comment.replies : [],
+            upvoteCount: comment.upvoteCount ?? 0,
+            replyCount: comment.replyCount ?? 0,
+            hasVoted: comment.hasVoted ?? false,
           }))
         : [];
       setComments(items);
@@ -183,7 +204,7 @@ export default function QuestionDiscussion({ questionId }: Props) {
       setStatus("error");
       setError(err instanceof Error && err.message ? err.message : "Unable to load comments");
     }
-  }, [questionId]);
+  }, [questionId, sortBy]);
 
   useEffect(() => {
     loadComments().catch(() => {
@@ -363,6 +384,168 @@ export default function QuestionDiscussion({ questionId }: Props) {
     [userEmail, userRole]
   );
 
+  // Toggle vote on a comment
+  const handleVote = useCallback(async (commentId: string) => {
+    try {
+      const res = await fetch(`/api/questions/${questionId}/comments/${commentId}/vote`, {
+        method: "POST",
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        voted?: boolean;
+        upvoteCount?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to toggle vote");
+      }
+
+      // Update comment vote status
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId
+            ? {
+                ...comment,
+                hasVoted: payload.voted ?? false,
+                upvoteCount: payload.upvoteCount ?? comment.upvoteCount ?? 0,
+              }
+            : comment
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Unable to toggle vote");
+    }
+  }, [questionId]);
+
+  // Toggle reply expansion
+  const toggleReplies = useCallback((commentId: string) => {
+    setExpandedReplies((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) {
+        next.delete(commentId);
+      } else {
+        next.add(commentId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Start replying to a comment
+  const startReply = useCallback((commentId: string, authorName: string) => {
+    setReplyingTo(commentId);
+    setReplyDraftName(draftName || `@${authorName}`);
+    setReplyDraftBody("");
+    setReplyDraftImageUrl(null);
+    setReplyError(null);
+  }, [draftName]);
+
+  // Cancel reply
+  const cancelReply = useCallback(() => {
+    setReplyingTo(null);
+    setReplyDraftName("");
+    setReplyDraftBody("");
+    setReplyDraftImageUrl(null);
+    setReplyError(null);
+  }, []);
+
+  // Upload reply image
+  const uploadReplyImage = useCallback(async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setReplyError("Only image files are supported.");
+      return;
+    }
+    if (file.size > COMMENT_IMAGE_MAX_BYTES) {
+      setReplyError(`Image too large. Max size: ${Math.round(COMMENT_IMAGE_MAX_BYTES / (1024 * 1024))}MB`);
+      return;
+    }
+
+    setIsReplyUploading(true);
+    setReplyError(null);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", "comments");
+
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const payload = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !payload?.url) {
+        throw new Error(payload?.error ?? "Upload failed");
+      }
+      setReplyDraftImageUrl(payload.url);
+    } catch (err) {
+      setReplyError(err instanceof Error && err.message ? err.message : "Upload failed");
+    } finally {
+      setIsReplyUploading(false);
+    }
+  }, []);
+
+  // Submit reply
+  const submitReply = useCallback(async () => {
+    if (!replyingTo) return;
+    if (!replyDraftBody.trim() && !replyDraftImageUrl) {
+      setReplyError("Please add a comment or image.");
+      return;
+    }
+
+    setIsReplySubmitting(true);
+    setReplyError(null);
+
+    try {
+      const res = await fetch(`/api/questions/${questionId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: replyDraftBody.trim(),
+          imageUrl: replyDraftImageUrl || "",
+          authorName: replyDraftName.trim() || "Study Partner",
+          parentId: replyingTo,
+        }),
+      });
+
+      const payload = (await res.json().catch(() => ({}))) as {
+        comment?: QuestionDiscussionComment;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to post reply");
+      }
+      if (!payload?.comment) throw new Error("Unexpected response from server");
+
+      const saved: QuestionDiscussionComment = {
+        ...payload.comment,
+        authorName: payload.comment.authorName ?? "Study Partner",
+        origin: payload.comment.origin ?? "runner",
+      };
+
+      // Add reply to parent comment
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === replyingTo
+            ? {
+                ...comment,
+                replies: [...(comment.replies || []), saved],
+                replyCount: (comment.replyCount || 0) + 1,
+              }
+            : comment
+        )
+      );
+
+      // Expand replies to show the new one
+      setExpandedReplies((prev) => {
+        const next = new Set(prev);
+        next.add(replyingTo);
+        return next;
+      });
+
+      cancelReply();
+    } catch (err) {
+      setReplyError(err instanceof Error && err.message ? err.message : "Unable to post reply");
+    } finally {
+      setIsReplySubmitting(false);
+    }
+  }, [replyingTo, replyDraftBody, replyDraftImageUrl, replyDraftName, questionId, cancelReply]);
+
   const commentCount = comments.length;
   const uploadLimitMb = Math.round(COMMENT_IMAGE_MAX_BYTES / (1024 * 1024));
 
@@ -400,33 +583,56 @@ export default function QuestionDiscussion({ questionId }: Props) {
             {commentCount} {commentCount === 1 ? "comment" : "comments"}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            loadComments().catch(() => {
-              /* handled internally */
-            });
-          }}
-          disabled={status === "loading"}
-          className="rounded-xl border bg-white px-3 py-1.5 text-xs font-medium text-primary disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ transition: 'all 0.2s ease-out', borderColor: 'var(--color-primary)' }}
-          onMouseEnter={(e) => {
-            if (!e.currentTarget.disabled) {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1)';
-              e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!e.currentTarget.disabled) {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
-              e.currentTarget.style.backgroundColor = 'white';
-            }
-          }}
-        >
-          {status === "loading" ? "Refreshing…" : "Refresh"}
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="rounded-xl border px-3 py-1.5 text-xs font-medium text-primary"
+            style={{ 
+              transition: 'all 0.2s ease-out', 
+              borderColor: 'var(--color-primary)',
+              backgroundColor: isDark ? '#1f2937' : 'white',
+              color: isDark ? '#ffffff' : 'var(--color-primary)'
+            }}
+          >
+            <option value="recent">Most Recent</option>
+            <option value="upvotes">Most Upvotes</option>
+            <option value="popular">Most Popular</option>
+            <option value="oldest">Oldest</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              loadComments().catch(() => {
+                /* handled internally */
+              });
+            }}
+            disabled={status === "loading"}
+            className="rounded-xl border bg-white px-3 py-1.5 text-xs font-medium text-primary disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ 
+              transition: 'all 0.2s ease-out', 
+              borderColor: 'var(--color-primary)',
+              backgroundColor: isDark ? '#1f2937' : 'white',
+              color: isDark ? '#ffffff' : 'var(--color-primary)'
+            }}
+            onMouseEnter={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
+                e.currentTarget.style.backgroundColor = isDark ? '#1f2937' : 'white';
+              }
+            }}
+          >
+            {status === "loading" ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {warning ? (
@@ -554,6 +760,269 @@ export default function QuestionDiscussion({ questionId }: Props) {
                   </span>
                 </button>
               ) : null}
+
+              {/* Vote and Reply Actions */}
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleVote(comment.id)}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition"
+                  style={{
+                    backgroundColor: comment.hasVoted 
+                      ? isDark ? 'rgba(var(--color-primary-rgb), 0.2)' : 'var(--color-primary-light)'
+                      : isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(var(--color-primary-rgb), 0.05)',
+                    color: comment.hasVoted ? 'var(--color-primary)' : isDark ? '#9ca3af' : 'var(--color-primary)',
+                    border: `1px solid ${comment.hasVoted ? 'var(--color-primary)' : isDark ? '#374151' : 'var(--color-border)'}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <span>{comment.hasVoted ? '👍' : '👍🏻'}</span>
+                  <span>{comment.upvoteCount || 0}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => startReply(comment.id, displayName)}
+                  className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition"
+                  style={{
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(var(--color-primary-rgb), 0.05)',
+                    color: isDark ? '#9ca3af' : 'var(--color-primary)',
+                    border: `1px solid ${isDark ? '#374151' : 'var(--color-border)'}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <span>💬</span>
+                  <span>Reply</span>
+                </button>
+
+                {(comment.replyCount ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleReplies(comment.id)}
+                    className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition"
+                    style={{
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(var(--color-primary-rgb), 0.05)',
+                      color: isDark ? '#9ca3af' : 'var(--color-primary)',
+                      border: `1px solid ${isDark ? '#374151' : 'var(--color-border)'}`,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <span>{expandedReplies.has(comment.id) ? '▼' : '▶'}</span>
+                    <span>{comment.replyCount} {comment.replyCount === 1 ? 'reply' : 'replies'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Reply Input (inline when replying to this comment) */}
+              {replyingTo === comment.id && (
+                <div className="mt-3 border-l-2 pl-3" style={{ borderColor: 'var(--color-primary)' }}>
+                  <div className="rounded-xl border p-3" style={{ backgroundColor: isDark ? '#1f2937' : 'rgba(var(--color-primary-rgb), 0.03)', borderColor: 'var(--color-border)' }}>
+                    <div className="text-xs font-medium mb-2" style={{ color: 'var(--color-primary)' }}>
+                      Replying to {displayName}
+                    </div>
+                    <input
+                      type="text"
+                      value={replyDraftName}
+                      onChange={(e) => setReplyDraftName(e.target.value)}
+                      className="w-full rounded-lg border px-2 py-1.5 text-xs mb-2"
+                      style={{ 
+                        borderColor: 'var(--color-border)',
+                        backgroundColor: isDark ? '#111827' : 'white',
+                        color: isDark ? '#ffffff' : 'var(--color-primary)'
+                      }}
+                      placeholder="Your display name"
+                    />
+                    <textarea
+                      value={replyDraftBody}
+                      onChange={(e) => setReplyDraftBody(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border px-2 py-1.5 text-xs"
+                      style={{ 
+                        borderColor: 'var(--color-border)',
+                        backgroundColor: isDark ? '#111827' : 'white',
+                        color: isDark ? '#ffffff' : 'var(--color-primary)'
+                      }}
+                      placeholder="Write your reply..."
+                    />
+                    {replyDraftImageUrl && (
+                      <div className="mt-2 flex items-center gap-2 text-xs">
+                        <span style={{ color: 'var(--color-primary)' }}>Image attached</span>
+                        <button
+                          type="button"
+                          onClick={() => setReplyDraftImageUrl(null)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    {replyError && (
+                      <p className="mt-2 text-xs text-red-600">{replyError}</p>
+                    )}
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        ref={replyFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadReplyImage(file);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => replyFileInputRef.current?.click()}
+                        disabled={isReplyUploading || isReplySubmitting}
+                        className="rounded-lg border px-2 py-1 text-xs font-medium disabled:opacity-50"
+                        style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                      >
+                        {isReplyUploading ? 'Uploading...' : '📎 Image'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={submitReply}
+                        disabled={isReplySubmitting || (!replyDraftBody.trim() && !replyDraftImageUrl)}
+                        className="rounded-lg px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                        style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))' }}
+                      >
+                        {isReplySubmitting ? 'Posting...' : 'Post Reply'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelReply}
+                        className="rounded-lg border px-2 py-1 text-xs font-medium"
+                        style={{ borderColor: 'var(--color-border)', color: isDark ? '#9ca3af' : 'var(--color-primary)' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Replies Section (collapsed by default) */}
+              {expandedReplies.has(comment.id) && comment.replies && comment.replies.length > 0 && (
+                <div className="mt-3 space-y-2 border-l-2 pl-3" style={{ borderColor: 'var(--color-primary)', opacity: 0.8 }}>
+                  {comment.replies.map((reply) => {
+                    const replyCreated = new Date(reply.createdAt);
+                    const replyAbsolute = Number.isNaN(replyCreated.getTime()) ? "" : absoluteFormatter.format(replyCreated);
+                    const replyRelative = formatRelativeTime(reply.createdAt);
+                    const replyIsStaff = reply.createdByRole === "ADMIN" || reply.createdByRole === "MASTER_ADMIN";
+                    const replyGradLabel =
+                      typeof reply.createdByGradYear === "number" && Number.isFinite(reply.createdByGradYear)
+                        ? `Class of ${reply.createdByGradYear}`
+                        : null;
+                    
+                    let replyPillLabel: string | null = null;
+                    let replyCohortLabel: string;
+                    let replyDisplayName: string;
+                    let replyTimeDisplay: string | null = null;
+
+                    if (replyIsStaff && reply.origin === "editor") {
+                      replyPillLabel = "Previous Batch";
+                      replyCohortLabel = "Class of < 2027";
+                      replyDisplayName = reply.authorName || "Previous Batch Student";
+                      replyTimeDisplay = "Long time ago 🤷";
+                    } else if (replyIsStaff && reply.origin === "runner") {
+                      replyPillLabel = "Member";
+                      replyCohortLabel = replyGradLabel ?? "Class of 2027";
+                      replyDisplayName = reply.authorName || "Study Partner";
+                      replyTimeDisplay = replyRelative;
+                    } else {
+                      replyPillLabel = reply.createdByRole || "Member";
+                      replyCohortLabel = replyGradLabel ?? "Class of 2027";
+                      replyDisplayName = reply.authorName || "Study Partner";
+                      replyTimeDisplay = replyRelative;
+                    }
+
+                    return (
+                      <div key={reply.id} className="rounded-xl border p-2" style={{ backgroundColor: isDark ? '#1f2937' : 'rgba(var(--color-primary-rgb), 0.02)', borderColor: 'var(--color-border)' }}>
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: isDark ? '#d1d5db' : 'var(--color-primary)' }}>
+                              <span>{replyDisplayName}</span>
+                              {replyPillLabel && (
+                                <span 
+                                  className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white"
+                                  style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))' }}
+                                >
+                                  {replyPillLabel}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px]" style={{ color: 'var(--color-primary)', opacity: 0.5 }}>
+                              <span>{replyCohortLabel}</span>
+                              {reply.origin === "editor" ? (
+                                <span>· {replyTimeDisplay}</span>
+                              ) : (
+                                <>
+                                  {replyAbsolute && <span>{replyAbsolute}</span>}
+                                  {replyTimeDisplay && <span>· {replyTimeDisplay}</span>}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {canDelete(reply) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(reply.id)}
+                              className="text-[10px] font-medium text-[#e11d48] underline"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                        {reply.body && (
+                          <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed" style={{ color: isDark ? '#d1d5db' : 'var(--color-primary)', opacity: 0.8 }}>
+                            {reply.body}
+                          </p>
+                        )}
+                        {reply.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImageUrl(reply.imageUrl!)}
+                            className="group relative mt-2 block overflow-hidden rounded-lg border"
+                            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background-secondary)' }}
+                          >
+                            <div className="relative h-32 w-full">
+                              <img
+                                src={reply.imageUrl}
+                                alt="Reply attachment"
+                                className="h-full w-full object-contain transition group-hover:opacity-90"
+                              />
+                            </div>
+                            <span className="pointer-events-none absolute bottom-1 right-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white opacity-80">
+                              Open
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}

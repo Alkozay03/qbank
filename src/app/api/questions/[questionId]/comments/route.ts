@@ -72,7 +72,7 @@ async function ensureOriginColumnPresence(): Promise<boolean> {
   return cachedHasOriginColumn;
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ questionId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ questionId: string }> }) {
   try {
     const session = await auth();
     if (!session?.user?.email) {
@@ -84,53 +84,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ que
       return NextResponse.json({ error: "Question id required" }, { status: 400 });
     }
 
+    // Get sort parameter from query string (default: "recent")
+    const { searchParams } = new URL(req.url);
+    const sortBy = searchParams.get("sort") || "recent";
+
     const hasOriginColumn = await ensureOriginColumnPresence();
 
-    if (hasOriginColumn) {
-      const comments = await prisma.questionComment.findMany({
-        where: { questionId },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          authorName: true,
-          body: true,
-          imageUrl: true,
-          origin: true,
-          createdAt: true,
-          createdBy: {
-            select: {
-              role: true,
-              email: true,
-              gradYear: true,
-            },
-          },
-        },
-      });
+    // Get current user for vote status
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true }
+    });
 
-      return NextResponse.json({
-        comments: comments.map((comment) => ({
-          id: comment.id,
-          authorName: comment.authorName,
-          body: comment.body,
-          imageUrl: comment.imageUrl,
-          origin: comment.origin ?? "runner",
-          createdAt: comment.createdAt,
-          createdByRole: comment.createdBy?.role ?? null,
-          createdByEmail: comment.createdBy?.email ?? null,
-          createdByGradYear: comment.createdBy?.gradYear ?? null,
-        })),
-      });
-    }
-
-    const comments = await prisma.questionComment.findMany({
+    // Fetch all comments (parent comments and replies)
+    const allComments = await prisma.questionComment.findMany({
       where: { questionId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        authorName: true,
-        body: true,
-        imageUrl: true,
-        createdAt: true,
+      include: {
         createdBy: {
           select: {
             role: true,
@@ -138,25 +107,89 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ que
             gradYear: true,
           },
         },
+        replies: {
+          select: { id: true },
+        },
+        votes: user ? {
+          where: { userId: user.id },
+          select: { id: true },
+        } : false,
       },
     });
 
-    return NextResponse.json({
-      comments: comments.map((comment) => ({
+    // Separate parent comments and replies
+    const parentComments = allComments.filter(c => !c.parentId);
+    const repliesMap = new Map<string, typeof allComments>();
+    
+    allComments.filter(c => c.parentId).forEach(reply => {
+      if (!repliesMap.has(reply.parentId!)) {
+        repliesMap.set(reply.parentId!, []);
+      }
+      repliesMap.get(reply.parentId!)!.push(reply);
+    });
+
+    // Sort parent comments based on sortBy parameter
+    let sortedParents = [...parentComments];
+    switch (sortBy) {
+      case "upvotes":
+        sortedParents.sort((a, b) => b.upvoteCount - a.upvoteCount);
+        break;
+      case "popular":
+        sortedParents.sort((a, b) => b.replies.length - a.replies.length);
+        break;
+      case "oldest":
+        sortedParents.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        break;
+      case "recent":
+      default:
+        sortedParents.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        break;
+    }
+
+    // Map comments with their replies
+    const commentsWithReplies = sortedParents.map((comment) => {
+      const replies = repliesMap.get(comment.id) || [];
+      // Sort replies oldest first
+      replies.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+      return {
         id: comment.id,
         authorName: comment.authorName,
         body: comment.body,
         imageUrl: comment.imageUrl,
-        origin:
+        origin: hasOriginColumn && "origin" in comment ? comment.origin ?? "runner" : (
           comment.createdBy?.role === "ADMIN" || comment.createdBy?.role === "MASTER_ADMIN"
             ? "editor"
-            : "runner",
+            : "runner"
+        ),
         createdAt: comment.createdAt,
         createdByRole: comment.createdBy?.role ?? null,
         createdByEmail: comment.createdBy?.email ?? null,
         createdByGradYear: comment.createdBy?.gradYear ?? null,
-      })),
+        parentId: null,
+        upvoteCount: comment.upvoteCount,
+        replyCount: replies.length,
+        hasVoted: user ? (comment.votes && comment.votes.length > 0) : false,
+        replies: replies.map(reply => ({
+          id: reply.id,
+          authorName: reply.authorName,
+          body: reply.body,
+          imageUrl: reply.imageUrl,
+          origin: hasOriginColumn && "origin" in reply ? reply.origin ?? "runner" : (
+            reply.createdBy?.role === "ADMIN" || reply.createdBy?.role === "MASTER_ADMIN"
+              ? "editor"
+              : "runner"
+          ),
+          createdAt: reply.createdAt,
+          createdByRole: reply.createdBy?.role ?? null,
+          createdByEmail: reply.createdBy?.email ?? null,
+          createdByGradYear: reply.createdBy?.gradYear ?? null,
+          parentId: reply.parentId,
+        })),
+      };
     });
+
+    return NextResponse.json({ comments: commentsWithReplies });
   } catch (error) {
     console.error("Error loading question comments", error);
     return NextResponse.json({ error: "Failed to load comments" }, { status: 500 });
@@ -180,12 +213,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ que
       authorName?: unknown;
       imageUrl?: unknown;
       origin?: unknown;
+      parentId?: unknown;
     };
 
     const text = typeof payload.text === "string" ? payload.text.trim() : "";
     const imageUrl = typeof payload.imageUrl === "string" ? payload.imageUrl.trim() : "";
     const authorName = typeof payload.authorName === "string" ? payload.authorName.trim() : "";
     const requestedOrigin = payload.origin === "editor" ? "editor" : "runner";
+    const parentId = typeof payload.parentId === "string" ? payload.parentId : null;
 
     if (!text && !imageUrl) {
       return NextResponse.json({ error: "A comment or image is required" }, { status: 400 });
@@ -230,6 +265,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ que
 
     const hasOriginColumn = await ensureOriginColumnPresence();
 
+    // If parentId is provided, verify parent comment exists
+    if (parentId) {
+      const parentComment = await prisma.questionComment.findUnique({
+        where: { id: parentId },
+        select: { id: true, questionId: true, parentId: true },
+      });
+
+      if (!parentComment) {
+        return NextResponse.json({ error: "Parent comment not found" }, { status: 404 });
+      }
+
+      if (parentComment.questionId !== questionId) {
+        return NextResponse.json({ error: "Parent comment belongs to different question" }, { status: 400 });
+      }
+
+      if (parentComment.parentId) {
+        return NextResponse.json({ error: "Cannot reply to a reply (only one level deep)" }, { status: 400 });
+      }
+    }
+
     let comment;
     try {
       comment = await prisma.questionComment.create({
@@ -240,6 +295,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ que
           authorName: authorName || "Previous Batch",
           ...(hasOriginColumn ? { origin: requestedOrigin } : {}),
           createdById: user.id,
+          parentId: parentId,
         },
         include: {
           createdBy: {

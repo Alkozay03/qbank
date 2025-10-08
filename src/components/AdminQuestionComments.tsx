@@ -15,6 +15,11 @@ export type AdminQuestionComment = {
   createdByEmail?: string | null;
   createdByGradYear?: number | null;
   origin?: "runner" | "editor" | null;
+  parentId?: string | null;
+  upvoteCount?: number;
+  replyCount?: number;
+  hasVoted?: boolean;
+  replies?: AdminQuestionComment[];
 };
 
 interface Props {
@@ -39,6 +44,18 @@ export default function AdminQuestionComments({ questionId }: Props) {
 
   const [userRole, setUserRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
+
+  // New state for sorting and reply functionality
+  const [sortBy, setSortBy] = useState<"recent" | "upvotes" | "popular" | "oldest">("recent");
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyDraftName, setReplyDraftName] = useState<string>("");
+  const [replyDraftBody, setReplyDraftBody] = useState<string>("");
+  const [replyDraftImageUrl, setReplyDraftImageUrl] = useState<string | null>(null);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [isReplyUploading, setIsReplyUploading] = useState(false);
+  const [isReplySubmitting, setIsReplySubmitting] = useState(false);
+  const replyFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const absoluteFormatter = useMemo(
     () =>
@@ -124,7 +141,7 @@ export default function AdminQuestionComments({ questionId }: Props) {
     setStatus("loading");
     setError(null);
     try {
-      const res = await fetch(`/api/questions/${questionId}/comments`, { cache: "no-store" });
+      const res = await fetch(`/api/questions/${questionId}/comments?sort=${sortBy}`, { cache: "no-store" });
       const payload = (await res.json().catch(() => ({}))) as {
         comments?: AdminQuestionComment[];
         error?: string;
@@ -137,6 +154,10 @@ export default function AdminQuestionComments({ questionId }: Props) {
             ...comment,
             authorName: comment.authorName ?? "Previous Batch",
             origin: comment.origin ?? "runner",
+            replies: Array.isArray(comment.replies) ? comment.replies : [],
+            upvoteCount: comment.upvoteCount ?? 0,
+            replyCount: comment.replyCount ?? 0,
+            hasVoted: comment.hasVoted ?? false,
           }))
         : [];
       setComments(items);
@@ -145,7 +166,7 @@ export default function AdminQuestionComments({ questionId }: Props) {
       setStatus("error");
       setError(err instanceof Error && err.message ? err.message : "Unable to load comments");
     }
-  }, [questionId]);
+  }, [questionId, sortBy]);
 
   useEffect(() => {
     loadComments().catch(() => {
@@ -321,6 +342,166 @@ export default function AdminQuestionComments({ questionId }: Props) {
     [userEmail, userRole]
   );
 
+  // Toggle vote on a comment
+  const handleVote = useCallback(async (commentId: string) => {
+    try {
+      const res = await fetch(`/api/questions/${questionId}/comments/${commentId}/vote`, {
+        method: "POST",
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        voted?: boolean;
+        upvoteCount?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to toggle vote");
+      }
+
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId
+            ? {
+                ...comment,
+                hasVoted: payload.voted ?? false,
+                upvoteCount: payload.upvoteCount ?? comment.upvoteCount ?? 0,
+              }
+            : comment
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Unable to toggle vote");
+    }
+  }, [questionId]);
+
+  // Toggle reply expansion
+  const toggleReplies = useCallback((commentId: string) => {
+    setExpandedReplies((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) {
+        next.delete(commentId);
+      } else {
+        next.add(commentId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Start replying to a comment
+  const startReply = useCallback((commentId: string, authorName: string) => {
+    setReplyingTo(commentId);
+    setReplyDraftName(draftName || `@${authorName}`);
+    setReplyDraftBody("");
+    setReplyDraftImageUrl(null);
+    setReplyError(null);
+  }, [draftName]);
+
+  // Cancel reply
+  const cancelReply = useCallback(() => {
+    setReplyingTo(null);
+    setReplyDraftName("");
+    setReplyDraftBody("");
+    setReplyDraftImageUrl(null);
+    setReplyError(null);
+  }, []);
+
+  // Upload reply image
+  const uploadReplyImage = useCallback(async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setReplyError("Only image files are supported.");
+      return;
+    }
+    if (file.size > COMMENT_IMAGE_MAX_BYTES) {
+      setReplyError(`Image too large. Max size: ${Math.round(COMMENT_IMAGE_MAX_BYTES / (1024 * 1024))}MB`);
+      return;
+    }
+
+    setIsReplyUploading(true);
+    setReplyError(null);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", "comments");
+
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const payload = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !payload?.url) {
+        throw new Error(payload?.error ?? "Upload failed");
+      }
+      setReplyDraftImageUrl(payload.url);
+    } catch (err) {
+      setReplyError(err instanceof Error && err.message ? err.message : "Upload failed");
+    } finally {
+      setIsReplyUploading(false);
+    }
+  }, []);
+
+  // Submit reply
+  const submitReply = useCallback(async () => {
+    if (!replyingTo) return;
+    if (!replyDraftBody.trim() && !replyDraftImageUrl) {
+      setReplyError("Please add a comment or image.");
+      return;
+    }
+
+    setIsReplySubmitting(true);
+    setReplyError(null);
+
+    try {
+      const res = await fetch(`/api/questions/${questionId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: replyDraftBody.trim(),
+          imageUrl: replyDraftImageUrl || "",
+          authorName: replyDraftName.trim() || "Admin Team",
+          parentId: replyingTo,
+          origin: "editor",
+        }),
+      });
+
+      const payload = (await res.json().catch(() => ({}))) as {
+        comment?: AdminQuestionComment;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload?.error ?? "Failed to post reply");
+      }
+      if (!payload?.comment) throw new Error("Unexpected response from server");
+
+      const saved: AdminQuestionComment = {
+        ...payload.comment,
+        authorName: payload.comment.authorName ?? "Admin Team",
+        origin: "editor",
+      };
+
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === replyingTo
+            ? {
+                ...comment,
+                replies: [...(comment.replies || []), saved],
+                replyCount: (comment.replyCount || 0) + 1,
+              }
+            : comment
+        )
+      );
+
+      setExpandedReplies((prev) => {
+        const next = new Set(prev);
+        next.add(replyingTo);
+        return next;
+      });
+
+      cancelReply();
+    } catch (err) {
+      setReplyError(err instanceof Error && err.message ? err.message : "Unable to post reply");
+    } finally {
+      setIsReplySubmitting(false);
+    }
+  }, [replyingTo, replyDraftBody, replyDraftImageUrl, replyDraftName, questionId, cancelReply]);
+
   const commentCount = comments.length;
   const uploadLimitMb = Math.round(COMMENT_IMAGE_MAX_BYTES / (1024 * 1024));
 
@@ -334,6 +515,16 @@ export default function AdminQuestionComments({ questionId }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="rounded-xl border border-[#E6F0F7] bg-white px-3 py-1.5 text-xs font-medium text-[#2F6F8F]"
+          >
+            <option value="recent">Most Recent</option>
+            <option value="upvotes">Most Upvotes</option>
+            <option value="popular">Most Popular</option>
+            <option value="oldest">Oldest</option>
+          </select>
           <button
             type="button"
             onClick={() => {
@@ -454,6 +645,206 @@ export default function AdminQuestionComments({ questionId }: Props) {
                   </span>
                 </button>
               ) : null}
+
+              {/* Vote and Reply Actions */}
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleVote(comment.id)}
+                  className="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-medium transition hover:shadow-md"
+                  style={{
+                    backgroundColor: comment.hasVoted ? '#E6F0F7' : 'white',
+                    borderColor: comment.hasVoted ? '#2F6F8F' : '#E6F0F7',
+                    color: '#2F6F8F',
+                  }}
+                >
+                  <span>{comment.hasVoted ? '👍' : '👍🏻'}</span>
+                  <span>{comment.upvoteCount || 0}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => startReply(comment.id, displayName)}
+                  className="flex items-center gap-1.5 rounded-lg border border-[#E6F0F7] bg-white px-2 py-1 text-xs font-medium text-[#2F6F8F] transition hover:shadow-md"
+                >
+                  <span>💬</span>
+                  <span>Reply</span>
+                </button>
+
+                {(comment.replyCount ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleReplies(comment.id)}
+                    className="flex items-center gap-1.5 rounded-lg border border-[#E6F0F7] bg-white px-2 py-1 text-xs font-medium text-[#2F6F8F] transition hover:shadow-md"
+                  >
+                    <span>{expandedReplies.has(comment.id) ? '▼' : '▶'}</span>
+                    <span>{comment.replyCount} {comment.replyCount === 1 ? 'reply' : 'replies'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Reply Input */}
+              {replyingTo === comment.id && (
+                <div className="mt-3 border-l-2 border-[#2F6F8F] pl-3">
+                  <div className="rounded-xl border border-[#E6F0F7] bg-white p-3">
+                    <div className="mb-2 text-xs font-medium text-[#2F6F8F]">
+                      Replying to {displayName}
+                    </div>
+                    <input
+                      type="text"
+                      value={replyDraftName}
+                      onChange={(e) => setReplyDraftName(e.target.value)}
+                      className="mb-2 w-full rounded-lg border border-[#E6F0F7] px-2 py-1.5 text-xs"
+                      placeholder="Your display name"
+                    />
+                    <textarea
+                      value={replyDraftBody}
+                      onChange={(e) => setReplyDraftBody(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border border-[#E6F0F7] px-2 py-1.5 text-xs"
+                      placeholder="Write your reply..."
+                    />
+                    {replyDraftImageUrl && (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-[#2F6F8F]">
+                        <span>Image attached</span>
+                        <button
+                          type="button"
+                          onClick={() => setReplyDraftImageUrl(null)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    {replyError && (
+                      <p className="mt-2 text-xs text-red-600">{replyError}</p>
+                    )}
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        ref={replyFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadReplyImage(file);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => replyFileInputRef.current?.click()}
+                        disabled={isReplyUploading || isReplySubmitting}
+                        className="rounded-lg border border-[#2F6F8F] px-2 py-1 text-xs font-medium text-[#2F6F8F] disabled:opacity-50"
+                      >
+                        {isReplyUploading ? 'Uploading...' : '📎 Image'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={submitReply}
+                        disabled={isReplySubmitting || (!replyDraftBody.trim() && !replyDraftImageUrl)}
+                        className="rounded-lg bg-[#2F6F8F] px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        {isReplySubmitting ? 'Posting...' : 'Post Reply'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelReply}
+                        className="rounded-lg border border-[#E6F0F7] px-2 py-1 text-xs font-medium text-slate-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Replies Section */}
+              {expandedReplies.has(comment.id) && comment.replies && comment.replies.length > 0 && (
+                <div className="mt-3 space-y-2 border-l-2 border-[#2F6F8F] pl-3 opacity-90">
+                  {comment.replies.map((reply) => {
+                    const replyCreated = new Date(reply.createdAt);
+                    const replyAbsolute = Number.isNaN(replyCreated.getTime()) ? "" : absoluteFormatter.format(replyCreated);
+                    const replyRelative = formatRelativeTime(reply.createdAt);
+                    const replyIsStaff = reply.createdByRole === "ADMIN" || reply.createdByRole === "MASTER_ADMIN";
+                    const replyGradLabel =
+                      typeof reply.createdByGradYear === "number" && Number.isFinite(reply.createdByGradYear)
+                        ? `Class of ${reply.createdByGradYear}`
+                        : null;
+                    
+                    let replyPillLabel: string | null = null;
+                    let replyCohortLabel: string;
+                    let replyDisplayName: string;
+
+                    if (replyIsStaff && reply.origin === "editor") {
+                      replyPillLabel = "Previous Batch";
+                      replyCohortLabel = "Class of < 2027";
+                      replyDisplayName = reply.authorName || "Previous Batch Student";
+                    } else if (replyIsStaff && reply.origin === "runner") {
+                      replyPillLabel = "Member";
+                      replyCohortLabel = replyGradLabel ?? "Member";
+                      replyDisplayName = reply.authorName || "Study Partner";
+                    } else {
+                      replyPillLabel = null;
+                      replyCohortLabel = replyGradLabel ?? "Previous Batches";
+                      replyDisplayName = reply.authorName || "Study Partner";
+                    }
+
+                    return (
+                      <div key={reply.id} className="rounded-xl border border-[#E6F0F7] bg-white p-2">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 text-xs font-semibold text-[#2F6F8F]">
+                              <span>{replyDisplayName}</span>
+                              {replyPillLabel && (
+                                <span className="rounded-full bg-[#2F6F8F] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                                  {replyPillLabel}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+                              <span>{replyCohortLabel}</span>
+                              {replyAbsolute && <span>{replyAbsolute}</span>}
+                              {replyRelative && <span>· {replyRelative}</span>}
+                            </div>
+                          </div>
+                          {canDelete(reply) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(reply.id)}
+                              className="text-[10px] font-medium text-[#e11d48] underline hover:text-[#be123c]"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                        {reply.body && (
+                          <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-neutral-900">
+                            {reply.body}
+                          </p>
+                        )}
+                        {reply.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImageUrl(reply.imageUrl!)}
+                            className="group relative mt-2 block overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F8FBFD]"
+                          >
+                            <div className="relative h-32 w-full">
+                              <img
+                                src={reply.imageUrl}
+                                alt="Reply attachment"
+                                className="h-full w-full object-contain transition group-hover:opacity-90"
+                              />
+                            </div>
+                            <span className="pointer-events-none absolute bottom-1 right-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white opacity-80">
+                              Open
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}

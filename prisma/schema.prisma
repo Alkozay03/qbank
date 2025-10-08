@@ -1,7 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -12,23 +12,24 @@ datasource db {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  firstName         String?
-  lastName          String?
-  email             String             @unique
-  image             String?
-  role              Role               @default(MEMBER)
-  approvalStatus    ApprovalStatus     @default(PENDING)
-  theme             String?            @default("blue")
-  gradYear          Int?
-  rotation          String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime?          @updatedAt
-  timezone          String?
-  accounts          Account[]
-  notifications     Notification[]     @relation("NotificationCreator")
+  id                    String             @id @default(cuid())
+  firstName             String?
+  lastName              String?
+  email                 String             @unique
+  image                 String?
+  role                  Role               @default(MEMBER)
+  approvalStatus        ApprovalStatus     @default(PENDING)
+  theme                 String?            @default("blue")
+  gradYear              Int?
+  rotation              String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime?          @updatedAt
+  timezone              String?
+  accounts              Account[]
+  notifications         Notification[]     @relation("NotificationCreator")
   notificationReads     NotificationRead[]
   questionComments      QuestionComment[]  @relation("QuestionCommentAuthor")
+  commentVotes          CommentVote[]      @relation("CommentVotes")
   quizzes               Quiz[]
   responses             Response[]         @relation("UserResponses")
   schedules             Schedule[]         @relation("ScheduleCreator")
@@ -69,7 +70,7 @@ model Session {
 
 model VerificationToken {
   identifier String
-  token      String   @unique
+  token      String    @unique
   expires    DateTime
   usedAt     DateTime? // Track when token was first used (for email scanner tolerance)
 
@@ -77,45 +78,64 @@ model VerificationToken {
 }
 
 model Question {
-  id                 String               @id @default(cuid())
-  explanation        String?
-  createdAt          DateTime             @default(now())
-  objective          String?
-  customId           Int?                 @unique
-  text               String?
-  updatedAt          DateTime?            @updatedAt
-  yearCaptured       String?
-  rotationNumber     String?
-  iduScreenshotUrl   String?
-  questionImageUrl   String?
+  id                  String               @id @default(cuid())
+  explanation         String?
+  createdAt           DateTime             @default(now())
+  objective           String?
+  customId            Int?                 @unique
+  text                String?
+  updatedAt           DateTime?            @updatedAt
+  yearCaptured        String?
+  rotationNumber      String?
+  iduScreenshotUrl    String?
+  questionImageUrl    String?
   explanationImageUrl String?
-  references         String?
-  extraction         AIExtraction?
-  answers          Answer[]
-  comments         QuestionComment[]
-  occurrences      QuestionOccurrence[]
-  questionTags     QuestionTag[]
-  quizItems        QuizItem[]
-  userModes        UserQuestionMode[]
+  references          String?
+  extraction          AIExtraction?
+  answers             Answer[]
+  comments            QuestionComment[]
+  occurrences         QuestionOccurrence[]
+  questionTags        QuestionTag[]
+  quizItems           QuizItem[]
+  userModes           UserQuestionMode[]
 
   @@index([id], map: "idx_question_id")
 }
 
 model QuestionComment {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   questionId  String
   authorName  String?
   body        String?
   imageUrl    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   createdById String?
-  origin      String   @default("runner")
-  createdBy   User?    @relation("QuestionCommentAuthor", fields: [createdById], references: [id])
-  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  origin      String            @default("runner")
+  parentId    String? // For replies - links to parent comment
+  upvoteCount Int               @default(0) // Only used for parent comments
+  createdBy   User?             @relation("QuestionCommentAuthor", fields: [createdById], references: [id])
+  question    Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  parent      QuestionComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     QuestionComment[] @relation("CommentReplies")
+  votes       CommentVote[]
 
   @@index([questionId], map: "idx_questioncomment_questionid")
   @@index([createdById], map: "idx_questioncomment_createdbyid")
+  @@index([parentId], map: "idx_questioncomment_parentid")
+}
+
+model CommentVote {
+  id        String          @id @default(cuid())
+  userId    String
+  commentId String
+  createdAt DateTime        @default(now())
+  user      User            @relation("CommentVotes", fields: [userId], references: [id], onDelete: Cascade)
+  comment   QuestionComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([commentId], map: "idx_commentvote_commentid")
+  @@index([userId], map: "idx_commentvote_userid")
 }
 
 model QuestionOccurrence {
@@ -219,7 +239,7 @@ model QuestionTag {
 model UserQuestionMode {
   userId     String
   questionId String
-  mode       String   // "unused", "correct", "incorrect", "omitted", "marked"
+  mode       String // "unused", "correct", "incorrect", "omitted", "marked"
   updatedAt  DateTime @updatedAt
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -239,7 +259,7 @@ model Notification {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   isDeleted      Boolean            @default(false)
-  targetRotation String?            // null = global, or specific rotation name
+  targetRotation String? // null = global, or specific rotation name
   createdById    String?
   createdBy      User?              @relation("NotificationCreator", fields: [createdById], references: [id])
   readReceipts   NotificationRead[]
@@ -268,7 +288,7 @@ model Schedule {
   weekStart      DateTime       @unique
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  targetRotation String?        // null = global, or specific rotation name
+  targetRotation String? // null = global, or specific rotation name
   createdById    String?
   createdBy      User?          @relation("ScheduleCreator", fields: [createdById], references: [id])
   items          ScheduleItem[]
@@ -371,25 +391,25 @@ model HelpItem {
 }
 
 model Conversation {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  messages    Message[]
-  
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
   // Track which admin is assigned to this conversation (for CONTACT_ADMIN type)
   recipientId String?
-  recipient   User?     @relation("AssignedConversations", fields: [recipientId], references: [id], onDelete: SetNull)
-  
+  recipient   User?   @relation("AssignedConversations", fields: [recipientId], references: [id], onDelete: SetNull)
+
   // Type of message: HELP_CREATOR (master admin) or CONTACT_ADMIN (random admin)
-  messageType String    @default("HELP_CREATOR")
-  
+  messageType String @default("HELP_CREATOR")
+
   // Track unread messages for both user and admin
   userUnreadCount  Int @default(0)
   adminUnreadCount Int @default(0)
-  
+
   // Track last message for ordering
   lastMessageAt DateTime @default(now())
 

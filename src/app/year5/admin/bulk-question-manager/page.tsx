@@ -641,22 +641,26 @@ function BulkQuestionManagerContent() {
 
   const handleSaveAllQuestions = async () => {
     const requiredCategories = ['rotation', 'resource', 'discipline', 'system'];
-    const allowedLetters = ['A', 'B', 'C', 'D', 'E'];
 
     const normalisedQuestions = state.questions.map((question) => {
   const uniqueTags = normalizeTagValues(question.tags);
       const normalisedCorrect = (question.correctAnswer || '').trim().toUpperCase();
+      
+      // Build answers array in the format the API expects
+      const answers = [
+        { text: (question.optionA || '').trim(), isCorrect: normalisedCorrect === 'A' },
+        { text: (question.optionB || '').trim(), isCorrect: normalisedCorrect === 'B' },
+        { text: (question.optionC || '').trim(), isCorrect: normalisedCorrect === 'C' },
+        { text: (question.optionD || '').trim(), isCorrect: normalisedCorrect === 'D' },
+        { text: question.optionE?.trim() ?? '', isCorrect: normalisedCorrect === 'E' },
+      ].filter(a => a.text.length > 0); // Remove empty options
+      
       return {
-        questionText: question.questionText.trim(),
-        optionA: (question.optionA || '').trim(),
-        optionB: (question.optionB || '').trim(),
-        optionC: (question.optionC || '').trim(),
-        optionD: (question.optionD || '').trim(),
-        optionE: question.optionE?.trim() ?? '',
-        correctAnswer: normalisedCorrect,
+        text: question.questionText.trim(),
         explanation: (question.explanation || '').trim(),
-        educationalObjective: (question.educationalObjective || '').trim(),
-        references: (question.references || '').trim(),
+        objective: (question.educationalObjective || '').trim(),
+        answers,
+        refs: (question.references || '').trim(),
         tags: uniqueTags,
       };
     });
@@ -669,8 +673,8 @@ function BulkQuestionManagerContent() {
       if (missing.length) {
         validationIssues.push(`Question ${index + 1}: missing ${missing.join(', ')}`);
       }
-      if (!allowedLetters.includes(question.correctAnswer)) {
-        validationIssues.push(`Question ${index + 1}: correct answer must be one of ${allowedLetters.join(', ')}`);
+      if (!question.answers.some(a => a.isCorrect)) {
+        validationIssues.push(`Question ${index + 1}: must have at least one correct answer`);
       }
     });
 
@@ -693,7 +697,7 @@ ${formattedList}`);
     }));
 
     try {
-      const response = await fetch('/api/admin/bulk-questions/save', {
+      const response = await fetch('/api/admin/questions/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questions: normalisedQuestions }),
