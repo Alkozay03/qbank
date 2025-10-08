@@ -348,6 +348,45 @@ export default function ViewQuestionsPage() {
 
   const handleConfirmationToggle = async (questionId: string, newStatus: boolean) => {
     try {
+      // If confirming the answer (true), prompt for vote management
+      let voteAction: 'keep' | 'archive' | 'delete' | null = null;
+      
+      if (newStatus === true) {
+        // Check if there are any votes for this question
+        const votesCheckResponse = await fetch(`/api/questions/${questionId}/votes`);
+        if (votesCheckResponse.ok) {
+          const votesData = await votesCheckResponse.json();
+          const hasVotes = votesData.currentVotes?.totalVotes > 0 || votesData.historicalVotes?.length > 0;
+          
+          if (hasVotes) {
+            // Show prompt for vote management
+            const choice = prompt(
+              `⚠️ This question has student votes.\n\nWhat would you like to do with the votes?\n\n` +
+              `Type one of the following:\n` +
+              `• "keep" - Keep votes visible (students can still see them)\n` +
+              `• "archive" - Archive votes (hide from students, keep data for admins)\n` +
+              `• "delete" - Permanently delete all votes\n` +
+              `• "cancel" - Cancel confirmation\n\n` +
+              `Your choice:`,
+              "archive"
+            );
+            
+            if (!choice || choice.toLowerCase() === 'cancel') {
+              return; // User cancelled
+            }
+            
+            const normalizedChoice = choice.toLowerCase().trim();
+            if (normalizedChoice === 'keep' || normalizedChoice === 'archive' || normalizedChoice === 'delete') {
+              voteAction = normalizedChoice;
+            } else {
+              alert('Invalid choice. Please enter "keep", "archive", "delete", or "cancel".');
+              return;
+            }
+          }
+        }
+      }
+
+      // Update the question confirmation status
       const response = await fetch(`/api/admin/questions/${questionId}/confirm`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -356,6 +395,25 @@ export default function ViewQuestionsPage() {
 
       if (!response.ok) {
         throw new Error('Failed to update confirmation status');
+      }
+
+      // If vote action is archive or delete, handle it
+      if (voteAction === 'archive') {
+        const archiveResponse = await fetch(`/api/admin/questions/${questionId}/votes/archive`, {
+          method: 'POST',
+        });
+        if (!archiveResponse.ok) {
+          console.error('Failed to archive votes');
+          alert('Answer confirmed, but failed to archive votes.');
+        }
+      } else if (voteAction === 'delete') {
+        const deleteResponse = await fetch(`/api/admin/questions/${questionId}/votes/delete`, {
+          method: 'DELETE',
+        });
+        if (!deleteResponse.ok) {
+          console.error('Failed to delete votes');
+          alert('Answer confirmed, but failed to delete votes.');
+        }
       }
 
       // Update local state

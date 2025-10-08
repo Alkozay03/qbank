@@ -37,6 +37,7 @@ export default async function MasterAdminHub() {
         {/* Manual Question Management page removed */}
         <Card href="/year4/admin/tags" label="Tag Management" description="Manage question tags and categories" />
         <Card href="/year4/admin/schedule" label="Schedule Management" description="Set up and manage weekly schedules" />
+        <Card href="/year4/admin/rotation-schedule" label="Rotation Schedule Manager" description="Manage rotation periods and voting schedules" />
         <Card href="/year4/admin/notifications" label="Notification Manager" description="Create and manage system notifications" />
         <Card href="/year4/master-admin/help-editor" label="Help Page Editor" description="Manage help content and FAQs for users" />
         <Card href="/year4" label="Year 4 Portal" description="Return to main Year 4 portal" />

@@ -11,6 +11,7 @@ export default async function Year4AdminHub() {
             <Card href="/year4/admin/bulk-question-manager" label="Bulk Question Manager" description="Upload PDFs and manage multiple questions with references and tags" />
             <Card href="/year4/admin/view-questions" label="View Questions" description="Filter existing questions and jump into edits" />
             <Card href="/year4/admin/schedule-editor" label="Schedule Editor" description="Create and manage weekly schedules" />
+            <Card href="/year4/admin/rotation-schedule" label="Rotation Schedule Manager" description="Manage rotation periods and voting schedules" />
             {/* Manual Question Builder removed; use AI builder for bulk import */}
             <Card href="/year4/admin/notifications" label="Notifications Editor" description="Create and manage system notifications" />
             {/* Tag Manager hidden from Year 4 Admin - only accessible from Master Admin */}
