@@ -47,7 +47,7 @@ export default function UserListClient({ users }: Props) {
       }
 
       const data = await res.json();
-      setMessage({ type: "success", text: data.message || `✅ User approved! They can now login.` });
+      setMessage({ type: "success", text: data.message || `✅ User approved and login email sent to ${email}` });
       
       // Refresh the page to show updated status
       setTimeout(() => window.location.reload(), 2000);
