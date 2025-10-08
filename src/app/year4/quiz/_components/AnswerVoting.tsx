@@ -39,11 +39,22 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
     try {
       setLoading(true);
       setError(null);
+      console.warn('🗳️ [VOTING] Fetching votes for question:', questionId);
       const res = await fetch(`/api/questions/${questionId}/votes`);
+      console.warn('🗳️ [VOTING] Response status:', res.status);
       if (!res.ok) {
+        const errorText = await res.text();
+        console.warn('🗳️ [VOTING] Error response:', errorText);
         throw new Error("Failed to fetch votes");
       }
       const data = await res.json();
+      console.warn('🗳️ [VOTING] Vote data received:', {
+        canVote: data.canVote,
+        userVote: data.userVote,
+        hasCurrentVotes: !!data.currentVotes,
+        currentVotesTotal: data.currentVotes?.total,
+        historicalCount: data.historicalVotes?.length || 0
+      });
       setCanVote(data.canVote);
       setUserVote(data.userVote);
       setCurrentVotes(data.currentVotes);
@@ -134,6 +145,26 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
           }}
         >
           {error}
+        </div>
+      )}
+
+      {/* No voting data message */}
+      {!canVote && !currentVotes && historicalVotes.length === 0 && (
+        <div 
+          className="p-4 rounded-xl text-center"
+          style={{ 
+            backgroundColor: isDark ? '#1f2937' : '#f9fafb',
+            color: isDark ? '#9ca3af' : '#6b7280'
+          }}
+        >
+          <p className="text-sm">
+            No voting data available. Make sure:
+          </p>
+          <ul className="text-xs mt-2 space-y-1">
+            <li>• You have set your rotation number in your profile</li>
+            <li>• An admin has created an active rotation period</li>
+            <li>• The rotation period matches your current rotation</li>
+          </ul>
         </div>
       )}
 

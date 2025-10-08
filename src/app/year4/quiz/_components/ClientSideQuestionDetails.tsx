@@ -154,23 +154,23 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
   // This is distinct from rotation tags which are already shown separately
   const occurrences = currentItem.question.occurrences ?? [];
   
-  // Group by year if year data is available, filtering out Y4/Y5 internal categorization
-  const yearCounts = occurrences.reduce((acc, occ) => {
-    if (occ?.year && occ.year.trim()) {
-      const year = occ.year.trim();
+  // Build occurrence labels with year and rotation
+  const occurrenceItems = occurrences
+    .filter(occ => {
       // Skip Y4/Y5 - these are internal categorization, not student-facing years
-      if (year.match(/^Y[45]$/i)) {
-        return acc;
-      }
-      acc[year] = (acc[year] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<string, number>);
-  
-  const occurrenceItems = Object.entries(yearCounts).map(([year, count]) => ({
-    key: year,
-    label: count > 1 ? `${year} (${count} times)` : year
-  }));
+      if (!occ?.year || !occ.year.trim()) return false;
+      if (occ.year.trim().match(/^Y[45]$/i)) return false;
+      return true;
+    })
+    .map((occ, index) => {
+      const year = occ.year?.trim() || '';
+      const rotation = occ.rotation?.trim() || '';
+      const label = rotation ? `${year} - ${rotation}` : year;
+      return {
+        key: `${year}-${rotation}-${index}`,
+        label
+      };
+    });
 
   const questionStats = statsByQuestion[currentItem.question.id];
   const percentLabel =

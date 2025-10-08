@@ -346,6 +346,32 @@ export default function ViewQuestionsPage() {
 
   };
 
+  const handleDelete = async (questionId: string, questionText: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete this question?\n\n"${questionText.substring(0, 100)}..."\n\nThis action cannot be undone.`
+    );
+    
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(`/api/admin/questions/${questionId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete question');
+      }
+
+      // Remove from local state
+      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      alert('Question deleted successfully');
+    } catch (err) {
+      console.error('Error deleting question:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete question');
+    }
+  };
+
   const handleConfirmationToggle = async (questionId: string, newStatus: boolean) => {
     try {
       // If confirming the answer (true), prompt for vote management
@@ -788,18 +814,26 @@ export default function ViewQuestionsPage() {
                       </td>
 
                       <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button
 
-                        <button
+                            onClick={() => handleEdit(question.id, question.customId)}
 
-                          onClick={() => handleEdit(question.id, question.customId)}
+                            className="px-3 py-1 text-xs bg-[#0ea5e9] text-white rounded hover:bg-[#0284c7] transition-all btn-hover"
 
-                          className="px-3 py-1 text-xs bg-[#0ea5e9] text-white rounded hover:bg-[#0284c7] transition-all btn-hover"
+                          >
 
-                        >
+                            Edit
 
-                          Edit
+                          </button>
 
-                        </button>
+                          <button
+                            onClick={() => handleDelete(question.id, question.questionText)}
+                            className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-all btn-hover"
+                          >
+                            Delete
+                          </button>
+                        </div>
 
                       </td>
 

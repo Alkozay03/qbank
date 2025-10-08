@@ -590,6 +590,48 @@ function BulkQuestionManagerContent() {
     setState(prev => ({ ...prev, editingIndex: index }));
   };
 
+  const handleDeleteQuestion = async (index: number) => {
+    const question = state.questions[index];
+    if (!question?.dbId) {
+      // Not saved to database yet, just remove from state
+      setState(prev => ({
+        ...prev,
+        questions: prev.questions.filter((_, i) => i !== index)
+      }));
+      return;
+    }
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete this question?\n\n"${question.questionText?.substring(0, 100)}..."\n\nThis action cannot be undone.`
+    );
+    
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(`/api/admin/questions/${question.dbId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete question');
+      }
+
+      // Remove from local state
+      setState(prev => ({
+        ...prev,
+        questions: prev.questions.filter((_, i) => i !== index)
+      }));
+      
+      setSearchStatus('success');
+      setSearchMessage('Question deleted successfully');
+    } catch (err) {
+      console.error('Error deleting question:', err);
+      setSearchStatus('error');
+      setSearchMessage(err instanceof Error ? err.message : 'Failed to delete question');
+    }
+  };
+
   const handleSaveQuestion = useCallback(async (updatedQuestion: ExtractedQuestion, index: number) => {
     console.warn('🟡 [SAVE] handleSaveQuestion called:', {
       index,
@@ -1082,12 +1124,20 @@ ${formattedList}`);
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <button
-                          onClick={() => handleEditQuestion(index)}
-                          className="px-3 py-1 text-xs bg-[#0ea5e9] text-white rounded hover:bg-[#0284c7] transition-all duration-200"
-                        >
-                          Edit
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditQuestion(index)}
+                            className="px-3 py-1 text-xs bg-[#0ea5e9] text-white rounded hover:bg-[#0284c7] transition-all duration-200"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteQuestion(index)}
+                            className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-all duration-200"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -404,3 +404,49 @@ export async function PUT(
     return NextResponse.json({ error: "Failed to update question" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ questionId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { role: true },
+    });
+
+    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN")) {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
+    const resolvedParams = await params;
+    const questionId = resolvedParams.questionId;
+
+    // Check if question exists
+    const question = await prisma.question.findUnique({
+      where: { id: questionId },
+      select: { id: true },
+    });
+
+    if (!question) {
+      return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    }
+
+    // Delete the question (cascade will handle related records)
+    await prisma.question.delete({
+      where: { id: questionId },
+    });
+
+    console.warn(`🗑️ [DELETE] Question ${questionId} deleted by ${session.user.email}`);
+
+    return NextResponse.json({ success: true, message: "Question deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting question:", error);
+    return NextResponse.json({ error: "Failed to delete question" }, { status: 500 });
+  }
+}
