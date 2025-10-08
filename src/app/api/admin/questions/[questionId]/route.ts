@@ -37,6 +37,7 @@ type QuestionUpdateBody = {
   iduScreenshotUrl?: string;
   questionImageUrl?: string;
   explanationImageUrl?: string;
+  isAnswerConfirmed?: boolean;
   occurrences?: Array<{
     id?: string;
     year?: string | null;
@@ -340,6 +341,10 @@ export async function PUT(
           normalizedExplanationImageUrl !== undefined
             ? (normalizedExplanationImageUrl.length > 0 ? normalizedExplanationImageUrl : null)
             : existing.explanationImageUrl,
+        isAnswerConfirmed:
+          body.isAnswerConfirmed !== undefined
+            ? body.isAnswerConfirmed
+            : existing.isAnswerConfirmed,
       },
     });
 
