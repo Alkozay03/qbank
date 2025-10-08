@@ -3,6 +3,7 @@
 import { memo, useEffect } from "react";
 import Image from "next/image";
 import QuestionDiscussion from "./QuestionDiscussion";
+import { AnswerVoting } from "./AnswerVoting";
 
 // Helper to check if dark mode is active
 const isDarkMode = () => {
@@ -280,6 +281,14 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
           )}
         </div>
       ) : null}
+
+      {/* Answer Voting System - only show if answer has been submitted */}
+      {currentItem.responses && currentItem.responses.length > 0 && (
+        <AnswerVoting 
+          questionId={currentItem.question.id}
+          isAnswerConfirmed={currentItem.question.isAnswerConfirmed ?? true}
+        />
+      )}
 
       {occurrenceItems.length ? (
         <div className="mt-6">

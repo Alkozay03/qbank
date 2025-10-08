@@ -347,6 +347,7 @@ function BulkQuestionManagerContent() {
     explanationImageUrl: '',
     occurrences: [],
     source: 'manual',
+    isAnswerConfirmed: true, // Default to confirmed for new questions
   }), []);
 
   const handleAddManualQuestion = useCallback(async () => {
@@ -614,6 +615,7 @@ function BulkQuestionManagerContent() {
         questionImageUrl: (updatedQuestion.questionImageUrl ?? '').trim(),
         explanationImageUrl: (updatedQuestion.explanationImageUrl ?? '').trim(),
         occurrences: sanitizedOccurrences,
+        isAnswerConfirmed: updatedQuestion.isAnswerConfirmed !== false, // Default to true if undefined
       };
 
       const response = await fetch(`/api/admin/questions/${updatedQuestion.dbId}`, {
@@ -670,20 +672,27 @@ function BulkQuestionManagerContent() {
         { text: question.optionE?.trim() ?? '', isCorrect: normalisedCorrect === 'E' },
       ].filter(a => a.text.length > 0); // Remove empty options
       
+      // Convert string tags to object format expected by API
+      // Format: ["rotation:Y5R1", "resource:IDU"] -> [{type: "rotation", value: "Y5R1"}, {type: "resource", value: "IDU"}]
+      const formattedTags = uniqueTags.map(tag => {
+        const [category, value] = tag.split(':');
+        return { type: category, value: value };
+      }).filter(tag => tag.type && tag.value);
+      
       return {
         text: question.questionText.trim(),
         explanation: (question.explanation || '').trim(),
         objective: (question.educationalObjective || '').trim(),
         answers,
         refs: (question.references || '').trim(),
-        tags: uniqueTags,
+        tags: formattedTags,
       };
     });
 
     const validationIssues: string[] = [];
     normalisedQuestions.forEach((question, index) => {
       const missing = requiredCategories.filter((category) =>
-        !question.tags.some((tag) => tag.startsWith(`${category}:`))
+        !question.tags.some((tag) => tag.type === category)
       );
       if (missing.length) {
         validationIssues.push(`Question ${index + 1}: missing ${missing.join(', ')}`);
@@ -1754,6 +1763,40 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 </div>
               </div>
             ) : null}
+          </div>
+
+          {/* Answer Confirmation Status */}
+          <div className="rounded-2xl border border-sky-200 bg-white p-4">
+            <div className="flex flex-col gap-2 mb-3">
+              <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">IDU Answer Confirmation Status</label>
+              <p className="text-xs text-slate-500">
+                Mark whether the answer from the IDU screenshot has been verified and confirmed.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setEditedQuestion(prev => ({ ...prev, isAnswerConfirmed: true }))}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  editedQuestion.isAnswerConfirmed !== false
+                    ? 'bg-green-500 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                ✓ Confirmed
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditedQuestion(prev => ({ ...prev, isAnswerConfirmed: false }))}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  editedQuestion.isAnswerConfirmed === false
+                    ? 'bg-red-500 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                ⚠ Unconfirmed
+              </button>
+            </div>
           </div>
 
           {/* Tags with Tag Selector and AI Suggestions */}

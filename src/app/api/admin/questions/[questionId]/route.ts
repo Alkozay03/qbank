@@ -107,14 +107,14 @@ async function upsertTag(questionId: string, payload: TagPayload) {
   });
 }
 
-type RouteContext = { params: { id: string } } | { params: Promise<{ id: string }> };
+type RouteContext = { params: { questionId: string } } | { params: Promise<{ questionId: string }> };
 
 export async function GET(
   _request: NextRequest,
   context: RouteContext
 ) {
   try {
-    const { id } = await Promise.resolve(context.params);
+    const { questionId } = await Promise.resolve(context.params);
     const session = await auth();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -130,7 +130,7 @@ export async function GET(
     }
 
     const question = await prisma.question.findUnique({
-      where: { id },
+      where: { id: questionId },
       include: {
         answers: { orderBy: { id: "asc" } },
         questionTags: {
@@ -208,7 +208,7 @@ export async function PUT(
   context: RouteContext
 ) {
   try {
-    const { id } = await Promise.resolve(context.params);
+    const { questionId } = await Promise.resolve(context.params);
     const session = await auth();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -223,7 +223,6 @@ export async function PUT(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-  const questionId = id;
     if (!questionId) {
       return NextResponse.json({ error: "Question ID required" }, { status: 400 });
     }

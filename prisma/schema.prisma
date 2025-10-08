@@ -22,6 +22,7 @@ model User {
   theme                 String?            @default("blue")
   gradYear              Int?
   rotation              String?
+  rotationNumber        String?            // R1, R2, R3, R4
   createdAt             DateTime           @default(now())
   updatedAt             DateTime?          @updatedAt
   timezone              String?
@@ -38,6 +39,7 @@ model User {
   messages              Message[]
   questionModes         UserQuestionMode[]
   assignedConversations Conversation[]     @relation("AssignedConversations")
+  answerVotes           AnswerVote[]       @relation("UserAnswerVotes")
 
   @@index([approvalStatus], map: "idx_user_approval_status")
 }
@@ -99,6 +101,7 @@ model Question {
   questionTags        QuestionTag[]
   quizItems           QuizItem[]
   userModes           UserQuestionMode[]
+  answerVotes         AnswerVote[]         @relation("QuestionAnswerVotes")
 
   @@index([id], map: "idx_question_id")
 }
@@ -432,4 +435,44 @@ model Message {
   updatedAt      DateTime     @updatedAt
 
   @@map("Message")
+}
+
+model RotationPeriod {
+  id             String   @id @default(cuid())
+  academicYear   Int      // e.g., 2027
+  rotationNumber String   // R1, R2, R3, R4
+  rotationName   String   // Pediatrics, Surgery, Internal Medicine, OB/GYN
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([academicYear, rotationNumber, rotationName], map: "uniq_rotation_period")
+  @@index([academicYear, rotationNumber], map: "idx_rotation_period_year_number")
+  @@index([isActive], map: "idx_rotation_period_active")
+  @@map("RotationPeriod")
+}
+
+model AnswerVote {
+  id             String   @id @default(cuid())
+  questionId     String
+  userId         String
+  academicYear   Int      // e.g., 2027
+  rotationNumber String   // R1, R2, R3, R4
+  rotationName   String   // Pediatrics, Surgery, etc.
+  selectedAnswer String   // A, B, C, D, E
+  isFinal        Boolean  @default(false) // Locked after rotation period ends
+  isArchived     Boolean  @default(false) // Hidden when answer is confirmed
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation("UserAnswerVotes", fields: [userId], references: [id], onDelete: Cascade)
+  question       Question @relation("QuestionAnswerVotes", fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, userId, academicYear, rotationNumber, rotationName], map: "uniq_answer_vote")
+  @@index([questionId], map: "idx_answer_vote_questionid")
+  @@index([userId], map: "idx_answer_vote_userid")
+  @@index([questionId, academicYear, rotationNumber, rotationName], map: "idx_answer_vote_question_period")
+  @@index([isArchived], map: "idx_answer_vote_archived")
+  @@map("AnswerVote")
 }

@@ -13,6 +13,7 @@ type Me = {
   role?: string;
   timezone?: string;
   rotation?: string;
+  rotationNumber?: string;
   theme?: string;
 };
 
@@ -179,6 +180,22 @@ export default function Profile() {
                   <option value="Internal Medicine">Internal Medicine</option>
                   <option value="General Surgery">General Surgery</option>
                   <option value="Obstetrics & Gynecology">Obstetrics & Gynecology</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-readable">
+                  Rotation Number
+                </label>
+                <select
+                  name="rotationNumber"
+                  defaultValue={me.rotationNumber ?? ""}
+                  className="w-full rounded-xl border border-theme px-3 py-2 outline-none focus-theme theme-transition text-readable bg-theme-background"
+                >
+                  <option value="">Select Rotation Number</option>
+                  <option value="R1">R1</option>
+                  <option value="R2">R2</option>
+                  <option value="R3">R3</option>
+                  <option value="R4">R4</option>
                 </select>
               </div>
               <div>

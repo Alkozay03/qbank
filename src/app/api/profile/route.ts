@@ -25,6 +25,7 @@ export async function GET() {
         role: true,
         timezone: true,
         rotation: true,
+        rotationNumber: true,
       },
     });
 
@@ -75,13 +76,14 @@ export async function POST(req: NextRequest) {
   const gradYear = gradYearRaw ? Number(gradYearRaw) : null;
   const timezone = (form.get("timezone") || null) as string | null;
   const rotation = (form.get("rotation") || null) as string | null;
+  const rotationNumber = (form.get("rotationNumber") || null) as string | null;
   const theme = (form.get("theme") || null) as string | null;
 
   let updated;
   try {
     updated = await prisma.user.upsert({
       where: { email: session.user.email },
-      update: { firstName, lastName, gradYear, timezone, rotation, theme },
+      update: { firstName, lastName, gradYear, timezone, rotation, rotationNumber, theme },
       create: {
         email: session.user.email,
         role: Role.MEMBER, // ✅ use enum, not string
@@ -90,6 +92,7 @@ export async function POST(req: NextRequest) {
         gradYear,
         timezone,
         rotation,
+        rotationNumber,
         theme,
       },
       select: {
@@ -100,6 +103,7 @@ export async function POST(req: NextRequest) {
         role: true,
         timezone: true,
         rotation: true,
+        rotationNumber: true,
         theme: true,
       },
     });

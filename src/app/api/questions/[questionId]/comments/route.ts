@@ -129,7 +129,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ques
     });
 
     // Sort parent comments based on sortBy parameter
-    let sortedParents = [...parentComments];
+    const sortedParents = [...parentComments];
     switch (sortBy) {
       case "upvotes":
         sortedParents.sort((a, b) => b.upvoteCount - a.upvoteCount);
