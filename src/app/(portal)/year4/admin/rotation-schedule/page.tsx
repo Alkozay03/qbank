@@ -272,7 +272,7 @@ export default function RotationSchedulePage() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-[#0284c7] bg-sky-50">
-                    <th className="px-4 py-3 font-semibold">Year</th>
+                    <th className="px-4 py-3 font-semibold">Class of</th>
                     <th className="px-4 py-3 font-semibold">Rotation</th>
                     <th className="px-4 py-3 font-semibold">Number</th>
                     <th className="px-4 py-3 font-semibold">Start Date</th>
@@ -391,7 +391,7 @@ export default function RotationSchedulePage() {
               {editingPeriod ? (
                 <>
                   <div>
-                    <label className="text-sm font-medium text-[#0284c7]">Academic Year</label>
+                    <label className="text-sm font-medium text-[#0284c7]">Class of (Graduation Year)</label>
                     <input
                       type="number"
                       value={academicYear}
@@ -421,7 +421,7 @@ export default function RotationSchedulePage() {
               ) : (
                 <>
                   <div>
-                    <label className="text-sm font-medium text-[#0284c7]">Academic Year</label>
+                    <label className="text-sm font-medium text-[#0284c7]">Class of (Graduation Year)</label>
                     <input
                       type="number"
                       value={academicYear}
@@ -429,6 +429,7 @@ export default function RotationSchedulePage() {
                       className="mt-1 w-full rounded-xl border border-sky-200 px-3 py-2"
                       min={2020}
                       max={2100}
+                      placeholder="e.g., 2027"
                     />
                   </div>
                   <div>
