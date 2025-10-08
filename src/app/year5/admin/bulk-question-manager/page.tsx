@@ -355,17 +355,37 @@ function BulkQuestionManagerContent() {
   const handleAddManualQuestion = useCallback(async () => {
     // Create a draft question in the database so it has an ID immediately
     // This allows the Question Discussion section to work right away
+    console.warn('🆕 [ADD QUESTION] Calling draft API...');
     const response = await fetch('/api/admin/questions/draft', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
+    
+    console.warn('🆕 [ADD QUESTION] Draft API response:', { status: response.status, ok: response.ok });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn('🆕 [ADD QUESTION] ❌ Draft creation failed:', errorText);
+      throw new Error('Failed to create draft question');
+    }
+    
     const data = await response.json();
+    const draftQuestionId = data.questionId;
+    
+    console.warn('🆕 [ADD QUESTION] Draft created with ID:', draftQuestionId);
     
     const freshQuestion = {
       ...createEmptyQuestion(),
-      dbId: data.questionId, // Set the database ID immediately
+      dbId: draftQuestionId, // Set the database ID immediately
       questionText: '[Draft - Not yet saved]', // Mark as draft so isDraft flag works correctly
     };
+    
+    console.warn('🆕 [ADD QUESTION] Opening modal with draft question:', {
+      dbId: freshQuestion.dbId,
+      questionText: freshQuestion.questionText,
+      hasTags: freshQuestion.tags?.length > 0
+    });
+    
     openQuestionForEditing(freshQuestion);
     setSearchStatus('idle');
     setSearchMessage('');
@@ -1061,6 +1081,14 @@ interface QuestionEditModalProps {
 }
 
 function QuestionEditModal({ question, questionIndex, onSave, onClose }: QuestionEditModalProps) {
+  console.warn('🎭 [MODAL INIT] QuestionEditModal opened:', {
+    questionIndex,
+    dbId: question.dbId,
+    questionText: question.questionText?.substring(0, 50),
+    hasAnswers: !!(question.optionA || question.optionB),
+    hasTags: question.tags?.length > 0
+  });
+  
   const [editedQuestion, setEditedQuestion] = useState<ExtractedQuestion>(() => ({
     ...question,
     occurrences: normalizeOccurrencesForEditing(question.occurrences),
@@ -1079,6 +1107,13 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
+  
+  console.warn('🎭 [MODAL INIT] Initial state:', {
+    isDraft,
+    hasBeenSaved,
+    stableQuestionId,
+    willShowPlaceholder: !hasBeenSaved && isDraft
+  });
 
   // Question Image Upload
   const questionImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -1146,6 +1181,14 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   }, [isDraft, stableQuestionId, onClose]);
 
   const handleSave = async () => {
+    console.warn('🔵 [MODAL] handleSave called');
+    console.warn('🔵 [MODAL] Current state:', {
+      hasBeenSaved,
+      isDraft,
+      stableQuestionId,
+      questionText: editedQuestion.questionText?.substring(0, 50)
+    });
+    
     setSaving(true);
     setSaveError(null);
     try {
@@ -1158,9 +1201,22 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         occurrences: normalizedDrafts,
         questionYear: primaryMeta.questionYear,
         rotationNumber: primaryMeta.rotationNumber,
+        source: 'existing' as const, // CRITICAL: Mark as existing so handleSaveQuestion actually saves it!
       };
+      
+      console.warn('🔵 [MODAL] Calling onSave with question:', {
+        dbId: normalised.dbId,
+        source: normalised.source,
+        questionText: normalised.questionText?.substring(0, 50),
+        hasCorrectAnswer: !!normalised.correctAnswer,
+        hasTags: normalised.tags?.length > 0
+      });
+      
       await onSave(normalised, questionIndex);
+      
+      console.warn('🟢 [MODAL] onSave completed successfully');
       setHasBeenSaved(true); // Mark as saved so we don't delete it on close
+      console.warn('🟢 [MODAL] hasBeenSaved set to true - DRAFT WILL NOT BE DELETED ON CLOSE');
       
       // DON'T close the modal - let user add comments or finalize
       // onClose(); 
@@ -1187,7 +1243,15 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           occurrences: normalizedDrafts,
           questionYear: primaryMeta.questionYear,
           rotationNumber: primaryMeta.rotationNumber,
+          source: 'existing' as const, // CRITICAL: Mark as existing so handleSaveQuestion actually saves it!
         };
+        
+        console.warn('🔵 [FINALIZE] Calling onSave before close:', {
+          dbId: normalised.dbId,
+          source: normalised.source,
+          hasBeenSaved
+        });
+        
         await onSave(normalised, questionIndex);
         onClose();
       } catch (error) {

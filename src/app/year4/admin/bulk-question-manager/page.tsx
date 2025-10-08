@@ -355,17 +355,24 @@ function BulkQuestionManagerContent() {
   const handleAddManualQuestion = useCallback(async () => {
     try {
       // Create a draft question in the database immediately so it has an ID
+      console.warn('🆕 [ADD QUESTION] Calling draft API...');
       const response = await fetch('/api/admin/questions/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
       
+      console.warn('🆕 [ADD QUESTION] Draft API response:', { status: response.status, ok: response.ok });
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.warn('🆕 [ADD QUESTION] ❌ Draft creation failed:', errorText);
         throw new Error('Failed to create draft question');
       }
       
       const data = await response.json();
       const draftQuestionId = data.questionId;
+      
+      console.warn('🆕 [ADD QUESTION] Draft created with ID:', draftQuestionId);
       
       // Create the question object with the draft ID
       const freshQuestion = {
@@ -373,6 +380,12 @@ function BulkQuestionManagerContent() {
         dbId: draftQuestionId, // This is the key - it now has a database ID!
         questionText: '[Draft - Not yet saved]', // Mark as draft so isDraft flag works correctly
       };
+      
+      console.warn('🆕 [ADD QUESTION] Opening modal with draft question:', {
+        dbId: freshQuestion.dbId,
+        questionText: freshQuestion.questionText,
+        hasTags: freshQuestion.tags?.length > 0
+      });
       
       openQuestionForEditing(freshQuestion);
       setSearchStatus('idle');
@@ -1107,6 +1120,14 @@ interface QuestionEditModalProps {
 }
 
 function QuestionEditModal({ question, questionIndex, onSave, onClose }: QuestionEditModalProps) {
+  console.warn('🎭 [MODAL INIT] QuestionEditModal opened:', {
+    questionIndex,
+    dbId: question.dbId,
+    questionText: question.questionText?.substring(0, 50),
+    hasAnswers: !!(question.optionA || question.optionB),
+    hasTags: question.tags?.length > 0
+  });
+  
   const [editedQuestion, setEditedQuestion] = useState<ExtractedQuestion>(() => ({
     ...question,
     occurrences: normalizeOccurrencesForEditing(question.occurrences),
@@ -1125,6 +1146,13 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
+  
+  console.warn('🎭 [MODAL INIT] Initial state:', {
+    isDraft,
+    hasBeenSaved,
+    stableQuestionId,
+    willShowPlaceholder: !hasBeenSaved && isDraft
+  });
 
   // Question Image Upload
   const questionImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -1205,12 +1233,15 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         occurrences: normalizedDrafts,
         questionYear: primaryMeta.questionYear,
         rotationNumber: primaryMeta.rotationNumber,
+        source: 'existing' as const, // CRITICAL: Mark as existing so handleSaveQuestion actually saves it!
       };
       
       console.warn('🔵 [MODAL] Calling onSave with question:', {
         dbId: normalised.dbId,
+        source: normalised.source,
         questionText: normalised.questionText?.substring(0, 50),
-        hasCorrectAnswer: !!normalised.correctAnswer
+        hasCorrectAnswer: !!normalised.correctAnswer,
+        hasTags: normalised.tags?.length > 0
       });
       
       await onSave(normalised, questionIndex);
@@ -1245,7 +1276,15 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           occurrences: normalizedDrafts,
           questionYear: primaryMeta.questionYear,
           rotationNumber: primaryMeta.rotationNumber,
+          source: 'existing' as const, // CRITICAL: Mark as existing so handleSaveQuestion actually saves it!
         };
+        
+        console.warn('🔵 [FINALIZE] Calling onSave before close:', {
+          dbId: normalised.dbId,
+          source: normalised.source,
+          hasBeenSaved
+        });
+        
         await onSave(normalised, questionIndex);
         onClose();
       } catch (error) {
