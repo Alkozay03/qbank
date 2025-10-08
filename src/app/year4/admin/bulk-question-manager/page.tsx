@@ -1053,6 +1053,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const [isDraft, _setIsDraft] = useState(() => question.questionText === '[Draft - Not yet saved]');
   // If it's NOT a draft (existing question), mark as already saved so button shows "Finalize & Close"
   const [hasBeenSaved, setHasBeenSaved] = useState(() => !isDraft);
+  // Use ref to track hasBeenSaved for cleanup - fixes closure problem!
+  const hasBeenSavedRef = useRef(hasBeenSaved);
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
@@ -1083,20 +1085,37 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     setAiSuggestions([]);
   }, []);
 
+  // Keep ref in sync with hasBeenSaved state
+  useEffect(() => {
+    hasBeenSavedRef.current = hasBeenSaved;
+    console.warn('🔄 [MODAL] hasBeenSavedRef updated:', hasBeenSaved);
+  }, [hasBeenSaved]);
+
   // Cleanup: Delete draft question if modal is closed without saving
   useEffect(() => {
     return () => {
       // On unmount (modal close), delete draft if it wasn't saved
-      if (isDraft && !hasBeenSaved && stableQuestionId) {
+      // Use ref to get CURRENT value, not the captured value from closure!
+      const wasSaved = hasBeenSavedRef.current;
+      console.warn('🧹 [CLEANUP] Modal unmounting, checking if should delete draft:', {
+        isDraft,
+        wasSaved,
+        stableQuestionId
+      });
+      
+      if (isDraft && !wasSaved && stableQuestionId) {
+        console.warn('🗑️ [CLEANUP] Deleting unsaved draft:', stableQuestionId);
         // Fire and forget - delete the draft question
         fetch(`/api/admin/questions/draft?id=${stableQuestionId}`, {
           method: 'DELETE',
         }).catch((error) => {
-          console.error('Failed to delete draft question:', error);
+          console.error('🔴 [CLEANUP] Failed to delete draft question:', error);
         });
+      } else {
+        console.warn('✅ [CLEANUP] NOT deleting - question was saved or is not a draft');
       }
     };
-  }, [isDraft, hasBeenSaved, stableQuestionId]);
+  }, [isDraft, stableQuestionId]);
 
   const handleSave = async () => {
     console.warn('🔵 [MODAL] handleSave called');
@@ -1131,7 +1150,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       
       console.warn('🟢 [MODAL] onSave completed successfully');
       setHasBeenSaved(true); // Mark as saved so we don't delete it on close
-      console.warn('🟢 [MODAL] hasBeenSaved set to true - MODAL SHOULD STAY OPEN');
+      console.warn('🟢 [MODAL] hasBeenSaved set to true - DRAFT WILL NOT BE DELETED ON CLOSE');
       
       // DON'T close the modal - let user add comments or finalize
       // onClose();

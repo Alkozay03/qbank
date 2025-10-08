@@ -1006,6 +1006,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const [isDraft, _setIsDraft] = useState(() => question.questionText === '[Draft - Not yet saved]');
   // If it's NOT a draft (existing question), mark as already saved so button shows "Finalize & Close"
   const [hasBeenSaved, setHasBeenSaved] = useState(() => !isDraft);
+  // Use ref to track hasBeenSaved for cleanup - fixes closure problem!
+  const hasBeenSavedRef = useRef(hasBeenSaved);
   const stableQuestionId = editedQuestion.dbId ? String(editedQuestion.dbId) : null;
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
@@ -1037,11 +1039,19 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     setAiSuggestions([]);
   }, []);
 
+  // Keep ref in sync with hasBeenSaved state
+  useEffect(() => {
+    hasBeenSavedRef.current = hasBeenSaved;
+  }, [hasBeenSaved]);
+
   // Cleanup: Delete draft question if modal is closed without saving
   useEffect(() => {
     return () => {
       // On unmount (modal close), delete draft if it wasn't saved
-      if (isDraft && !hasBeenSaved && stableQuestionId) {
+      // Use ref to get CURRENT value, not the captured value from closure!
+      const wasSaved = hasBeenSavedRef.current;
+      
+      if (isDraft && !wasSaved && stableQuestionId) {
         // Fire and forget - delete the draft question
         fetch(`/api/admin/questions/draft?id=${stableQuestionId}`, {
           method: 'DELETE',
@@ -1050,11 +1060,13 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         });
       }
     };
-  }, [isDraft, hasBeenSaved, stableQuestionId]);
+  }, [isDraft, stableQuestionId]);
 
   const handleClose = useCallback(async () => {
     // If it's a draft that hasn't been saved, delete it
-    if (isDraft && !hasBeenSaved && stableQuestionId) {
+    // Use ref to get current value
+    const wasSaved = hasBeenSavedRef.current;
+    if (isDraft && !wasSaved && stableQuestionId) {
       try {
         await fetch(`/api/admin/questions/draft?id=${stableQuestionId}`, {
           method: 'DELETE',
@@ -1064,7 +1076,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       }
     }
     onClose();
-  }, [isDraft, hasBeenSaved, stableQuestionId, onClose]);
+  }, [isDraft, stableQuestionId, onClose]);
 
   const handleSave = async () => {
     setSaving(true);
