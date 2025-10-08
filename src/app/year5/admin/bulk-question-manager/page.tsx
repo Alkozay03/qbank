@@ -1842,7 +1842,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               Add comments from previous batches to help students understand common mistakes and important points.
             </p>
             
-            {!hasBeenSaved && !stableQuestionId ? (
+            {!hasBeenSaved && isDraft ? (
               /* Before first save - show helpful instructions */
               <div className="flex items-start gap-3 p-4 border-2 border-dashed border-sky-200 bg-sky-50 rounded-lg">
                 <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center flex-shrink-0">
