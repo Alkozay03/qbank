@@ -578,12 +578,22 @@ function BulkQuestionManagerContent() {
   };
 
   const handleSaveQuestion = useCallback(async (updatedQuestion: ExtractedQuestion, index: number) => {
+    console.warn('🟡 [SAVE] handleSaveQuestion called:', {
+      index,
+      dbId: updatedQuestion.dbId,
+      source: updatedQuestion.source,
+      questionText: updatedQuestion.questionText?.substring(0, 50)
+    });
+    
     if (updatedQuestion.source === 'existing' && updatedQuestion.dbId) {
-  const normalizedCorrect = (updatedQuestion.correctAnswer || '').trim().toUpperCase();
-  const uniqueTags = normalizeTagValues(updatedQuestion.tags);
+      console.warn('🟡 [SAVE] Question has source=existing and dbId, proceeding with PUT request');
+      
+      const normalizedCorrect = (updatedQuestion.correctAnswer || '').trim().toUpperCase();
+      const uniqueTags = normalizeTagValues(updatedQuestion.tags);
       const requiredCategories = ['rotation', 'resource', 'discipline', 'system'];
       const missing = requiredCategories.filter((category) => !uniqueTags.some((tag) => tag.startsWith(`${category}:`)));
       if (missing.length) {
+        console.error('🔴 [SAVE] Missing required tags:', missing);
         setSearchStatus('error');
         setSearchMessage(`Add tags for: ${missing.join(', ')}`);
         throw new Error('Missing required tags');
@@ -621,16 +631,29 @@ function BulkQuestionManagerContent() {
         isAnswerConfirmed: updatedQuestion.isAnswerConfirmed !== false, // Default to true if undefined
       };
 
+      console.warn('🟡 [SAVE] Sending PUT request to API:', {
+        url: `/api/admin/questions/${updatedQuestion.dbId}`,
+        payloadPreview: {
+          questionText: payload.questionText?.substring(0, 50),
+          correctAnswer: payload.correctAnswer,
+          tagsCount: payload.tags.length,
+          isAnswerConfirmed: payload.isAnswerConfirmed
+        }
+      });
+
       const response = await fetch(`/api/admin/questions/${updatedQuestion.dbId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
+      console.warn('🟡 [SAVE] API response status:', response.status);
+
       if (!response.ok) {
         let message = 'Failed to update question.';
         try {
           const details = await response.json();
+          console.error('🔴 [SAVE] API error details:', details);
           if (details?.error) {
             message = details.error;
           }
@@ -641,20 +664,31 @@ function BulkQuestionManagerContent() {
       }
 
       const displayId = updatedQuestion.customId ?? updatedQuestion.dbId;
+      console.warn('🟢 [SAVE] Question saved successfully:', displayId);
       setSearchStatus('success');
       setSearchMessage(displayId ? `Question ${displayId} updated.` : 'Question updated.');
+    } else {
+      console.warn('⚠️ [SAVE] Question does NOT have source=existing or dbId:', {
+        source: updatedQuestion.source,
+        dbId: updatedQuestion.dbId
+      });
     }
 
+    // Update the question in local state WITHOUT closing modal
+    // The modal will only close when explicitly called via handleClose or handleFinalizeAndClose
+    console.warn('🟡 [SAVE] Updating local state (keeping modal open)');
     setState(prev => {
       if (index < 0 || index >= prev.questions.length) {
-        return { ...prev, editingIndex: null };
+        console.warn('⚠️ [SAVE] Invalid index, returning prev state unchanged');
+        return prev;
       }
 
       const updatedQuestions = prev.questions.map((q, i) => (i === index ? updatedQuestion : q));
+      console.warn('🟢 [SAVE] State updated, modal remains open');
       return {
         ...prev,
         questions: updatedQuestions,
-        editingIndex: null,
+        // DON'T set editingIndex to null here - let the modal control its own closing
       };
     });
   }, [setSearchMessage, setSearchStatus]);
@@ -1017,7 +1051,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   // Track if this is an unsaved draft - check for the specific draft marker text
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDraft, _setIsDraft] = useState(() => question.questionText === '[Draft - Not yet saved]');
-  const [hasBeenSaved, setHasBeenSaved] = useState(false);
+  // If it's NOT a draft (existing question), mark as already saved so button shows "Finalize & Close"
+  const [hasBeenSaved, setHasBeenSaved] = useState(() => !isDraft);
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
@@ -1064,6 +1099,14 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   }, [isDraft, hasBeenSaved, stableQuestionId]);
 
   const handleSave = async () => {
+    console.warn('🔵 [MODAL] handleSave called');
+    console.warn('🔵 [MODAL] Current state:', {
+      hasBeenSaved,
+      isDraft,
+      stableQuestionId,
+      questionText: editedQuestion.questionText?.substring(0, 50)
+    });
+    
     setSaving(true);
     setSaveError(null);
     try {
@@ -1077,16 +1120,27 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         questionYear: primaryMeta.questionYear,
         rotationNumber: primaryMeta.rotationNumber,
       };
+      
+      console.warn('🔵 [MODAL] Calling onSave with question:', {
+        dbId: normalised.dbId,
+        questionText: normalised.questionText?.substring(0, 50),
+        hasCorrectAnswer: !!normalised.correctAnswer
+      });
+      
       await onSave(normalised, questionIndex);
+      
+      console.warn('🟢 [MODAL] onSave completed successfully');
       setHasBeenSaved(true); // Mark as saved so we don't delete it on close
+      console.warn('🟢 [MODAL] hasBeenSaved set to true - MODAL SHOULD STAY OPEN');
       
       // DON'T close the modal - let user add comments or finalize
       // onClose();
     } catch (error) {
-      console.error('Error saving question:', error);
+      console.error('🔴 [MODAL] Error saving question:', error);
       setSaveError(error instanceof Error ? error.message : 'Failed to save question.');
     } finally {
       setSaving(false);
+      console.warn('🔵 [MODAL] handleSave completed, saving state:', saving);
     }
   };
 

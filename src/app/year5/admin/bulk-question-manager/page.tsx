@@ -631,16 +631,18 @@ function BulkQuestionManagerContent() {
       setSearchMessage(displayId ? `Question ${displayId} updated.` : 'Question updated.');
     }
 
+    // Update the question in local state WITHOUT closing modal
+    // The modal will only close when explicitly called via handleClose or handleFinalizeAndClose
     setState(prev => {
       if (index < 0 || index >= prev.questions.length) {
-        return { ...prev, editingIndex: null };
+        return prev;
       }
 
       const updatedQuestions = prev.questions.map((q, i) => (i === index ? updatedQuestion : q));
       return {
         ...prev,
         questions: updatedQuestions,
-        editingIndex: null,
+        // DON'T set editingIndex to null here - let the modal control its own closing
       };
     });
   }, [setSearchMessage, setSearchStatus]);
@@ -1002,7 +1004,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   // Track if this is an unsaved draft - check for the specific draft marker text
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDraft, _setIsDraft] = useState(() => question.questionText === '[Draft - Not yet saved]');
-  const [hasBeenSaved, setHasBeenSaved] = useState(false);
+  // If it's NOT a draft (existing question), mark as already saved so button shows "Finalize & Close"
+  const [hasBeenSaved, setHasBeenSaved] = useState(() => !isDraft);
   const stableQuestionId = editedQuestion.dbId ? String(editedQuestion.dbId) : null;
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
