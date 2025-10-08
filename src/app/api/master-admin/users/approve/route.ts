@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth, signIn } from "@/auth";
+import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 
 export async function POST(req: Request) {
@@ -32,24 +32,16 @@ export async function POST(req: Request) {
       data: { approvalStatus: "APPROVED" },
     });
 
-    // Trigger NextAuth's built-in magic link email
-    try {
-      await signIn("email", { email, redirect: false, callbackUrl: "/years" });
-      console.warn(`✅ User approved and magic link sent via NextAuth: ${email}`);
-      
-      return NextResponse.json({ 
-        success: true,
-        message: `User approved! Magic link sent to ${email}`
-      });
-    } catch (emailError) {
-      console.error("Error triggering magic link:", emailError);
-      console.warn(`✅ User approved (email trigger failed): ${email}`);
-      
-      return NextResponse.json({ 
-        success: true,
-        message: `User approved! Ask them to visit login page for magic link.`
-      });
-    }
+    console.warn(`✅ User approved: ${email}`);
+    
+    // Note: We don't auto-send magic link anymore to avoid race conditions and token issues
+    // The signIn() method is meant for client-side use, not server-side programmatic calls
+    // User should request a new magic link from the login page when they're ready
+    
+    return NextResponse.json({ 
+      success: true,
+      message: `User approved! They can now login at the login page.`
+    });
   } catch (error) {
     console.error("Error approving user:", error);
     return NextResponse.json(
