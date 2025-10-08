@@ -152,10 +152,14 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
   // This is distinct from rotation tags which are already shown separately
   const occurrences = currentItem.question.occurrences ?? [];
   
-  // Group by year if year data is available
+  // Group by year if year data is available, filtering out Y4/Y5 internal categorization
   const yearCounts = occurrences.reduce((acc, occ) => {
     if (occ?.year && occ.year.trim()) {
       const year = occ.year.trim();
+      // Skip Y4/Y5 - these are internal categorization, not student-facing years
+      if (year.match(/^Y[45]$/i)) {
+        return acc;
+      }
       acc[year] = (acc[year] || 0) + 1;
     }
     return acc;
