@@ -999,6 +999,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const [explanationImageUploading, setExplanationImageUploading] = useState(false);
   const [explanationImageError, setExplanationImageError] = useState<string | null>(null);
   const occurrences = Array.isArray(editedQuestion.occurrences) ? editedQuestion.occurrences : [];
+  // Filter out Y4/Y5 internal categorization from display - year buttons already show this
+  const displayOccurrences = occurrences.filter(occ => !occ?.year?.match(/^Y[45]$/i));
 
   useEffect(() => {
     setEditedQuestion({
@@ -1615,47 +1617,51 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             </div>
 
             <div className="space-y-3">
-              {occurrences.length === 0 ? (
+              {displayOccurrences.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[#C7D9E6] bg-white px-3 py-4 text-sm text-slate-500">
                   No appearances recorded yet. Add the first year and rotation where this question was used.
                 </div>
               ) : (
-                occurrences.map((occurrence, index) => (
-                  <div
-                    key={occurrence.clientKey ?? occurrence.id ?? `${index}-${occurrence.year}-${occurrence.rotation}`}
-                    className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
-                  >
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
-                      <input
-                        type="text"
-                        value={occurrence.year ?? ''}
-                        onChange={(e) => handleOccurrenceChange(index, 'year', e.target.value)}
-                        placeholder="e.g. 2025"
-                        className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
-                      />
+                displayOccurrences.map((occurrence) => {
+                  // Find the actual index in the full occurrences array for proper handler calls
+                  const actualIndex = occurrences.findIndex(occ => occ === occurrence);
+                  return (
+                    <div
+                      key={occurrence.clientKey ?? occurrence.id ?? `${actualIndex}-${occurrence.year}-${occurrence.rotation}`}
+                      className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+                    >
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
+                        <input
+                          type="text"
+                          value={occurrence.year ?? ''}
+                          onChange={(e) => handleOccurrenceChange(actualIndex, 'year', e.target.value)}
+                          placeholder="e.g. 2025"
+                          className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Rotation</label>
+                        <input
+                          type="text"
+                          value={occurrence.rotation ?? ''}
+                          onChange={(e) => handleOccurrenceChange(actualIndex, 'rotation', e.target.value)}
+                          placeholder="e.g. Rotation 3"
+                          className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
+                        />
+                      </div>
+                      <div className="flex items-end justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOccurrence(actualIndex)}
+                          className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Rotation</label>
-                      <input
-                        type="text"
-                        value={occurrence.rotation ?? ''}
-                        onChange={(e) => handleOccurrenceChange(index, 'rotation', e.target.value)}
-                        placeholder="e.g. Rotation 3"
-                        className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
-                      />
-                    </div>
-                    <div className="flex items-end justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveOccurrence(index)}
-                        className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
