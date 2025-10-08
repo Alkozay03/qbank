@@ -137,7 +137,7 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
         className="mt-6 rounded-2xl border p-4"
         style={{ 
           borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
-          backgroundColor: isDark ? '#1f2937' : '#ffffff'
+          backgroundColor: isDark ? '#000000' : '#ffffff'
         }}
       >
         <div className="text-center py-4" style={{ color: isDark ? '#9ca3af' : '#64748b' }}>
@@ -157,7 +157,7 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
       className="mt-6 rounded-2xl border p-6"
       style={{ 
         borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
-        backgroundColor: isDark ? '#1f2937' : '#ffffff'
+        backgroundColor: isDark ? '#000000' : '#ffffff'
       }}
     >
       <div 
@@ -215,11 +215,23 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
         <div 
           className="mb-6 p-4 rounded-xl border"
           style={{ 
-            borderColor: isDark ? '#3b82f6' : '#dbeafe',
-            backgroundColor: isDark ? '#1e3a8a' : '#eff6ff'
+            borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
+            backgroundColor: isDark ? '#000000' : '#ffffff'
           }}
         >
-          <div className="text-sm font-semibold mb-3" style={{ color: isDark ? '#93c5fd' : '#1e40af' }}>
+          <div 
+            className="text-sm font-semibold mb-3"
+            style={{
+              ...(isDark ? {
+                color: '#ffffff'
+              } : {
+                background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              })
+            }}
+          >
             {currentVotes?.rotationName || 'Current Rotation'} {currentVotes?.rotationNumber || ''} {currentVotes?.academicYear ? `(${currentVotes.academicYear})` : ''} - {currentVotes ? 'Current Voting' : 'Be the First to Vote!'}
           </div>
           <div className="grid grid-cols-5 gap-2 mb-3">
@@ -228,19 +240,19 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                 key={choice}
                 onClick={() => handleVote(choice)}
                 disabled={voting}
-                className={`py-3 px-2 rounded-lg font-bold transition-all ${
-                  userVote === choice 
-                    ? (isDark ? 'ring-2 ring-blue-400' : 'ring-2 ring-blue-600') 
-                    : ''
-                }`}
+                className="py-3 px-2 rounded-lg font-bold transition-all"
                 style={{
                   backgroundColor: userVote === choice 
-                    ? (isDark ? '#2563eb' : '#2563eb')
-                    : (isDark ? '#374151' : '#f3f4f6'),
-                  color: '#ffffff',
+                    ? 'var(--color-primary)'
+                    : (isDark ? '#1f2937' : '#f3f4f6'),
+                  color: userVote === choice 
+                    ? '#ffffff'
+                    : (isDark ? '#ffffff' : '#111827'),
                   opacity: voting ? 0.6 : 1,
                   cursor: voting ? 'wait' : 'pointer',
-                  border: isDark && userVote !== choice ? '1px solid #4b5563' : 'none'
+                  border: userVote === choice 
+                    ? `2px solid var(--color-primary-hover)`
+                    : (isDark ? '1px solid #4b5563' : '1px solid #d1d5db')
                 }}
               >
                 {choice}
@@ -255,22 +267,22 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
               const percentage = currentVotes?.percentages[choice] || 0;
               return (
                 <div key={choice} className="flex items-center gap-3">
-                  <span className="text-sm font-bold w-6" style={{ color: isDark ? '#e5e7eb' : '#111827' }}>
+                  <span className="text-sm font-bold w-6" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                     {choice}:
                   </span>
                   <div className="flex-1 h-6 rounded-full overflow-hidden" style={{ 
-                    backgroundColor: isDark ? '#0f172a' : '#e5e7eb',
-                    border: isDark ? '1px solid #1e3a8a' : 'none'
+                    backgroundColor: isDark ? '#1f2937' : '#e5e7eb',
+                    border: isDark ? '1px solid #374151' : 'none'
                   }}>
                     <div 
                       className="h-full transition-all duration-300"
                       style={{ 
                         width: `${percentage}%`,
-                        backgroundColor: isDark ? '#60a5fa' : '#2563eb'
+                        backgroundColor: 'var(--color-primary)'
                       }}
                     />
                   </div>
-                  <span className="text-sm font-semibold w-20 text-right" style={{ color: isDark ? '#e5e7eb' : '#111827' }}>
+                  <span className="text-sm font-semibold w-20 text-right" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                     {percentage}% ({count})
                   </span>
                 </div>
@@ -280,22 +292,22 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
 
           {/* Cancel Vote Button */}
           {userVote && (
-            <div className="mt-4 pt-3 border-t" style={{ borderColor: isDark ? '#1e3a8a' : '#bfdbfe' }}>
+            <div className="mt-4 pt-3 border-t" style={{ borderColor: isDark ? '#374151' : '#e5e7eb' }}>
               <button
                 onClick={handleCancelVote}
                 disabled={voting}
                 className="w-full py-2 px-4 rounded-lg font-semibold text-sm transition-all hover:opacity-80"
                 style={{
-                  backgroundColor: isDark ? '#991b1b' : '#fee2e2',
+                  backgroundColor: isDark ? '#7f1d1d' : '#fee2e2',
                   color: isDark ? '#fecaca' : '#991b1b',
-                  border: isDark ? '1px solid #dc2626' : '1px solid #fca5a5',
+                  border: isDark ? '1px solid #991b1b' : '1px solid #fca5a5',
                   opacity: voting ? 0.6 : 1,
                   cursor: voting ? 'wait' : 'pointer'
                 }}
               >
                 {voting ? 'Processing...' : '🗑️ Cancel My Vote'}
               </button>
-              <p className="text-xs mt-2 text-center" style={{ color: isDark ? '#93c5fd' : '#1e40af' }}>
+              <p className="text-xs mt-2 text-center" style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>
                 You can change your vote anytime before the rotation period ends
               </p>
             </div>
@@ -308,11 +320,11 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
         <div 
           className="mb-6 p-4 rounded-xl border"
           style={{ 
-            borderColor: isDark ? '#4b5563' : '#e5e7eb',
-            backgroundColor: isDark ? '#374151' : '#f9fafb'
+            borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
+            backgroundColor: isDark ? '#000000' : '#ffffff'
           }}
         >
-          <div className="text-sm font-semibold mb-3" style={{ color: isDark ? '#d1d5db' : '#374151' }}>
+          <div className="text-sm font-semibold mb-3" style={{ color: isDark ? '#ffffff' : '#374151' }}>
             {currentVotes.rotationName} {currentVotes.rotationNumber} ({currentVotes.academicYear}) - View Only
           </div>
           <div className="space-y-2">
@@ -321,12 +333,12 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
               const percentage = currentVotes.percentages[choice] || 0;
               return (
                 <div key={choice} className="flex items-center gap-3">
-                  <span className="text-sm font-bold w-6" style={{ color: isDark ? '#e5e7eb' : '#111827' }}>
+                  <span className="text-sm font-bold w-6" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                     {choice}:
                   </span>
                   <div className="flex-1 h-6 rounded-full overflow-hidden" style={{ 
                     backgroundColor: isDark ? '#1f2937' : '#e5e7eb',
-                    border: isDark ? '1px solid #4b5563' : 'none'
+                    border: isDark ? '1px solid #374151' : 'none'
                   }}>
                     <div 
                       className="h-full transition-all duration-300"
@@ -336,7 +348,7 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                       }}
                     />
                   </div>
-                  <span className="text-sm font-semibold w-20 text-right" style={{ color: isDark ? '#e5e7eb' : '#111827' }}>
+                  <span className="text-sm font-semibold w-20 text-right" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                     {percentage}% ({count})
                   </span>
                 </div>
@@ -352,7 +364,7 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
       {/* Historical Votes (Expandable) */}
       {historicalVotes.length > 0 && (
         <div>
-          <div className="text-sm font-semibold mb-3" style={{ color: isDark ? '#d1d5db' : '#374151' }}>
+          <div className="text-sm font-semibold mb-3" style={{ color: isDark ? '#ffffff' : '#374151' }}>
             Previous Rotation Votes
           </div>
           <div className="space-y-2">
@@ -368,8 +380,8 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                   key={periodKey}
                   className="rounded-xl border overflow-hidden"
                   style={{ 
-                    borderColor: isDark ? '#4b5563' : '#e5e7eb',
-                    backgroundColor: isDark ? '#374151' : '#ffffff'
+                    borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
+                    backgroundColor: isDark ? '#000000' : '#ffffff'
                   }}
                 >
                   <button
@@ -377,20 +389,20 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                     className="w-full p-3 flex items-center justify-between transition-colors hover:opacity-80"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium" style={{ color: isDark ? '#e5e7eb' : '#111827' }}>
+                      <span className="text-sm font-medium" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                         {vote.rotationName} {vote.rotationNumber} ({vote.academicYear})
                       </span>
                       <span className="text-xs px-2 py-1 rounded-full" style={{ 
-                        backgroundColor: isDark ? '#047857' : '#d1fae5',
-                        color: isDark ? '#d1fae5' : '#065f46',
-                        border: isDark ? '1px solid #10b981' : 'none'
+                        backgroundColor: isDark ? '#065f46' : '#d1fae5',
+                        color: isDark ? '#a7f3d0' : '#065f46',
+                        border: isDark ? '1px solid #059669' : 'none'
                       }}>
                         {topChoice[1]}% chose {topChoice[0]}
                       </span>
                     </div>
                     {isExpanded ? 
-                      <ChevronUp size={20} style={{ color: isDark ? '#d1d5db' : '#111827' }} /> : 
-                      <ChevronDown size={20} style={{ color: isDark ? '#d1d5db' : '#111827' }} />
+                      <ChevronUp size={20} style={{ color: isDark ? '#ffffff' : '#111827' }} /> : 
+                      <ChevronDown size={20} style={{ color: isDark ? '#ffffff' : '#111827' }} />
                     }
                   </button>
                   
@@ -400,22 +412,22 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                         const percentage = vote.percentages[choice] || 0;
                         return (
                           <div key={choice} className="flex items-center gap-3">
-                            <span className="text-xs font-bold w-6" style={{ color: isDark ? '#e5e7eb' : '#111827' }}>
+                            <span className="text-xs font-bold w-6" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                               {choice}:
                             </span>
                             <div className="flex-1 h-4 rounded-full overflow-hidden" style={{ 
                               backgroundColor: isDark ? '#1f2937' : '#e5e7eb',
-                              border: isDark ? '1px solid #4b5563' : 'none'
+                              border: isDark ? '1px solid #374151' : 'none'
                             }}>
                               <div 
                                 className="h-full transition-all duration-300"
                                 style={{ 
                                   width: `${percentage}%`,
-                                  backgroundColor: isDark ? '#34d399' : '#059669'
+                                  backgroundColor: isDark ? '#10b981' : '#059669'
                                 }}
                               />
                             </div>
-                            <span className="text-xs font-semibold w-12 text-right" style={{ color: isDark ? '#e5e7eb' : '#111827' }}>
+                            <span className="text-xs font-semibold w-12 text-right" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                               {percentage}%
                             </span>
                           </div>
