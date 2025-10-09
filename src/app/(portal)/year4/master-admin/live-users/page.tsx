@@ -18,12 +18,14 @@ export default async function LiveUsersPage() {
     redirect("/year4/master-admin");
   }
 
-  // Get all users with active sessions (expires in the future)
-  const now = new Date();
-  const activeSessions = await prisma.session.findMany({
+  // Get all users with activity in the last 5 minutes
+  const fiveMinutesAgo = new Date();
+  fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+  
+  const activeUsers = await prisma.userActivity.findMany({
     where: {
-      expires: {
-        gt: now, // Session hasn't expired
+      lastSeen: {
+        gte: fiveMinutesAgo, // Activity in last 5 minutes
       },
     },
     include: {
@@ -39,14 +41,11 @@ export default async function LiveUsersPage() {
       },
     },
     orderBy: {
-      expires: "desc", // Most recent activity first
+      lastSeen: "desc", // Most recent activity first
     },
   });
 
-  // Remove duplicate users (in case they have multiple sessions)
-  const uniqueUsers = Array.from(
-    new Map(activeSessions.map(s => [s.user.id, s.user])).values()
-  );
+  const uniqueUsers = activeUsers.map(activity => activity.user);
 
   return <LiveUsersClient users={uniqueUsers} />;
 }

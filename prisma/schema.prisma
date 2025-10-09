@@ -40,6 +40,7 @@ model User {
   questionModes         UserQuestionMode[]
   assignedConversations Conversation[]     @relation("AssignedConversations")
   answerVotes           AnswerVote[]       @relation("UserAnswerVotes")
+  activity              UserActivity?      @relation("UserActivity")
 
   @@index([approvalStatus], map: "idx_user_approval_status")
 }
@@ -489,4 +490,12 @@ model SimilarQuestionGroup {
 
   @@index([yearContext], map: "idx_similar_question_year")
   @@index([createdAt], map: "idx_similar_question_created")
+}
+
+model UserActivity {
+  userId   String   @id
+  lastSeen DateTime @default(now())
+  user     User     @relation("UserActivity", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lastSeen], map: "idx_user_activity_lastseen")
 }

@@ -36,6 +36,7 @@ export default async function MasterAdminHub() {
         {isWebsiteCreator(email) && (
           <Card href="/year5/master-admin/live-users" label="🔴 Live Users" description="View currently online users" />
         )}
+        <Card href="/year5/admin/similar-questions" label="⚠️ Similar Questions Alert" description="Review and manage questions with high similarity" />
         <Card href="/year5/admin/bulk-question-manager" label="Bulk Question Manager" description="Upload PDFs and manage multiple questions with references and tags" />
         <Card href="/year5/admin/view-questions" label="View Questions" description="Filter existing questions and open them for editing" />
         {/* Manual Question Management page removed */}

@@ -4,6 +4,7 @@
 import { ReactNode } from "react";
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import UserActivityTracker from "@/components/user-activity-tracker";
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export default function Providers({ children }: { children: ReactNode }) {
       refetchInterval={0}
     >
       <ThemeProvider>
+        <UserActivityTracker />
         {children}
       </ThemeProvider>
     </SessionProvider>
