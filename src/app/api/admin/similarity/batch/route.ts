@@ -14,11 +14,15 @@ interface BatchRequest {
 
 export async function POST(request: Request) {
   try {
+    console.error("🚀 [BATCH] Starting batch similarity check");
+    
     // Check authorization
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    console.error("✅ [BATCH] Authorization successful");
 
     const body = (await request.json()) as BatchRequest;
     const { yearContext, dateFrom, dateTo, hoursAgo = 24 } = body;
+    console.error(`📋 [BATCH] Request params: yearContext=${yearContext}, hoursAgo=${hoursAgo}`);
 
     // Calculate date range
     let startDate: Date;
@@ -62,7 +66,10 @@ export async function POST(request: Request) {
       },
     });
 
+    console.error(`📊 [BATCH] Found ${newQuestions.length} questions to check`);
+
     if (newQuestions.length === 0) {
+      console.error("⚠️ [BATCH] No questions found in date range");
       return NextResponse.json({
         success: true,
         message: "No questions found in the specified date range",
@@ -96,6 +103,11 @@ export async function POST(request: Request) {
       });
     }
 
+    console.error(`🔄 [BATCH] Grouped questions into ${questionsByRotation.size} rotations`);
+    for (const [rotation, questions] of questionsByRotation.entries()) {
+      console.error(`  📌 ${rotation}: ${questions.length} questions`);
+    }
+
     // Process each rotation and check for similar questions
     const results: Array<{
       questionId: string;
@@ -110,8 +122,11 @@ export async function POST(request: Request) {
     const maxRuntime = 8000; // 8 seconds max to leave buffer
 
     for (const [rotation, rotationQuestions] of questionsByRotation.entries()) {
+      console.error(`\n🔍 [BATCH] Processing rotation: ${rotation} (${rotationQuestions.length} new questions)`);
+      
       // Check timeout
       if (Date.now() - startTime > maxRuntime) {
+        console.error("⏱️ [BATCH] Timeout reached, stopping");
         break;
       }
 
@@ -142,8 +157,11 @@ export async function POST(request: Request) {
         },
       });
 
+      console.error(`  📚 [BATCH] Found ${existingQuestionsInRotation.length} existing questions in ${rotation} to compare against`);
+
       // Skip if no questions to compare against
       if (existingQuestionsInRotation.length === 0) {
+        console.error(`  ⚠️ [BATCH] No existing questions in ${rotation}, skipping`);
         continue;
       }
 
@@ -151,7 +169,10 @@ export async function POST(request: Request) {
 
       // Check each new question
       for (const newQuestion of rotationQuestions) {
+        console.error(`\n  🔎 [BATCH] Checking question #${newQuestion.customId} (${newQuestion.id.slice(0, 8)}...)`);
+        
         if (Date.now() - startTime > maxRuntime) {
+          console.error("  ⏱️ [BATCH] Timeout reached for this question, stopping");
           break;
         }
 
@@ -163,14 +184,21 @@ export async function POST(request: Request) {
             text: q.text ?? "",
           }));
 
-        if (questionsToCheck.length === 0) continue;
+        console.error(`    📋 [BATCH] Will compare against ${questionsToCheck.length} questions`);
+
+        if (questionsToCheck.length === 0) {
+          console.error("    ⚠️ [BATCH] No questions to check, skipping");
+          continue;
+        }
 
         // Find similar questions
+        console.error(`    🤖 [BATCH] Calling findSimilarQuestions with 40% threshold...`);
         const similarQuestions = await findSimilarQuestions(
           { id: newQuestion.id, text: newQuestion.text },
           questionsToCheck,
           40 // 40% similarity threshold
         );
+        console.error(`    ✅ [BATCH] findSimilarQuestions returned ${similarQuestions.length} matches`);
 
         if (similarQuestions.length > 0) {
           questionsWithDuplicates++;
@@ -210,6 +238,7 @@ export async function POST(request: Request) {
               (group.similarityScores as Record<string, number>) || {};
             const mergedScores = { ...existingScores, ...similarityScores };
 
+            console.error(`    🔄 [BATCH] Updating existing group ${group.id} with ${allQuestionIds.length} total questions`);
             await prisma.similarQuestionGroup.update({
               where: { id: group.id },
               data: {
@@ -218,8 +247,10 @@ export async function POST(request: Request) {
                 updatedAt: new Date(),
               },
             });
+            console.error(`    ✅ [BATCH] Group updated successfully`);
           } else {
             // Create new group
+            console.error(`    ➕ [BATCH] Creating new similarity group with ${questionIdsInSet.length} questions`);
             await prisma.similarQuestionGroup.create({
               data: {
                 yearContext,
@@ -228,6 +259,7 @@ export async function POST(request: Request) {
               },
             });
             newGroupsCreated++;
+            console.error(`    ✅ [BATCH] New group created successfully`);
           }
         }
 
@@ -243,6 +275,9 @@ export async function POST(request: Request) {
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
     const timeoutWarning = Date.now() - startTime > maxRuntime;
 
+    console.error(`\n🎉 [BATCH] Completed in ${totalTime}s`);
+    console.error(`📊 [BATCH] Results: ${results.length} questions processed, ${questionsWithDuplicates} with duplicates, ${newGroupsCreated} new groups created`);
+
     return NextResponse.json({
       success: true,
       message: `Processed ${results.length} questions in ${totalTime}s. Found ${questionsWithDuplicates} questions with potential duplicates.${timeoutWarning ? " (Timeout reached, run again to continue)" : ""}`,
@@ -253,6 +288,14 @@ export async function POST(request: Request) {
       details: results,
     });
   } catch (error) {
+    console.error("❌ [BATCH] Fatal error:", error);
+    if (error instanceof Error) {
+      console.error("❌ [BATCH] Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+    }
     return NextResponse.json(
       {
         success: false,
