@@ -1,6 +1,6 @@
 import prisma from "@/lib/db";
-import { requireRole } from "@/lib/rbac";
 import { findSimilarQuestions } from "@/lib/similarity";
+import { getToken } from "next-auth/jwt";
 
 // Use Edge Runtime for better timeout handling and streaming
 export const runtime = 'edge';
@@ -30,8 +30,22 @@ export async function POST(request: Request) {
     try {
       await sendUpdate('progress', '🚀 Starting batch similarity check...');
       
-      // Check authorization
-      await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+      // Check authorization using Edge-compatible method
+      const token = await getToken({ req: request });
+      if (!token) {
+        await sendUpdate('error', '❌ Unauthorized: No token found');
+        await writer.close();
+        return;
+      }
+      
+      const userRole = token.role as string;
+      const allowedRoles = ["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"];
+      if (!allowedRoles.includes(userRole)) {
+        await sendUpdate('error', `❌ Forbidden: Role ${userRole} not allowed`);
+        await writer.close();
+        return;
+      }
+      
       await sendUpdate('progress', '✅ Authorization successful');
 
       const body = (await request.json()) as BatchRequest;
