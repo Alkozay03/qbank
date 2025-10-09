@@ -175,51 +175,56 @@ export async function POST(request: Request) {
         if (similarQuestions.length > 0) {
           questionsWithDuplicates++;
 
+          // Get all question IDs in this similar set
+          const questionIdsInSet = [
+            newQuestion.id,
+            ...similarQuestions.map((sq) => sq.questionId),
+          ];
+
           // Check if any existing groups contain these questions
           const existingGroups = await prisma.similarQuestionGroup.findMany({
             where: {
-              questions: {
-                some: {
-                  id: {
-                    in: [newQuestion.id, ...similarQuestions.map((sq) => sq.id)],
-                  },
-                },
-              },
-            },
-            include: {
-              questions: {
-                select: { id: true },
+              yearContext,
+              questionIds: {
+                hasSome: questionIdsInSet,
               },
             },
           });
 
+          // Build similarity scores map
+          const similarityScores: Record<string, number> = {};
+          for (const sq of similarQuestions) {
+            const key = [newQuestion.id, sq.questionId].sort().join(":");
+            similarityScores[key] = sq.similarity;
+          }
+
           if (existingGroups.length > 0) {
-            // Update existing group
+            // Update existing group - merge all question IDs
             const group = existingGroups[0]!;
-            const allQuestionIds = new Set([
-              ...group.questions.map((q) => q.id),
-              newQuestion.id,
-              ...similarQuestions.map((sq) => sq.id),
-            ]);
+            const allQuestionIds = Array.from(
+              new Set([...group.questionIds, ...questionIdsInSet]),
+            );
+
+            // Merge similarity scores
+            const existingScores =
+              (group.similarityScores as Record<string, number>) || {};
+            const mergedScores = { ...existingScores, ...similarityScores };
 
             await prisma.similarQuestionGroup.update({
               where: { id: group.id },
               data: {
-                questions: {
-                  connect: Array.from(allQuestionIds).map((id) => ({ id })),
-                },
+                questionIds: allQuestionIds,
+                similarityScores: mergedScores,
+                updatedAt: new Date(),
               },
             });
           } else {
             // Create new group
             await prisma.similarQuestionGroup.create({
               data: {
-                questions: {
-                  connect: [
-                    { id: newQuestion.id },
-                    ...similarQuestions.map((sq) => ({ id: sq.id })),
-                  ],
-                },
+                yearContext,
+                questionIds: questionIdsInSet,
+                similarityScores,
               },
             });
             newGroupsCreated++;
