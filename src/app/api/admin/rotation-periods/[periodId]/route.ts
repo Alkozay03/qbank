@@ -22,7 +22,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       select: { role: true },
     });
 
-    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN")) {
+    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN" && user.role !== "WEBSITE_CREATOR")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -104,7 +104,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       select: { role: true },
     });
 
-    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN")) {
+    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN" && user.role !== "WEBSITE_CREATOR")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

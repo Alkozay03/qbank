@@ -15,7 +15,7 @@ export async function GET() {
       select: { role: true },
     });
 
-    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN")) {
+    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN" && user.role !== "WEBSITE_CREATOR")) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       select: { role: true },
     });
 
-    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN")) {
+    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN" && user.role !== "WEBSITE_CREATOR")) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
