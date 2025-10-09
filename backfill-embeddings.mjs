@@ -1,7 +1,7 @@
 // backfill-embeddings.mjs
 // Run with: node backfill-embeddings.mjs
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import OpenAI from "openai";
 
 const prisma = new PrismaClient();
@@ -34,39 +34,48 @@ async function backfillEmbeddings(limit = 100) {
     console.log("🔍 Finding questions without embeddings...");
     
     // Get questions without embeddings
+    // For JSON fields in Prisma, we can't use `null` directly
+    // We need to use Prisma.DbNull or check if the field is not set
     const questions = await prisma.question.findMany({
       where: {
         text: { not: null },
-        embedding: null,
+        OR: [
+          { embedding: { equals: Prisma.DbNull } },
+          { embedding: { equals: Prisma.JsonNull } }
+        ]
       },
       select: {
         id: true,
         customId: true,
         text: true,
+        embedding: true,
       },
       take: limit, // Process in batches
     });
+    
+    // Filter out questions that already have embeddings (belt and suspenders)
+    const filteredQuestions = questions.filter(q => !q.embedding || (Array.isArray(q.embedding) && q.embedding.length === 0));
 
-    if (questions.length === 0) {
-      console.log("✅ All questions have embeddings!");
+    if (filteredQuestions.length === 0) {
+      console.error("✅ All questions have embeddings!");
       return;
     }
 
-    console.log(`📊 Found ${questions.length} questions without embeddings`);
-    console.log(`⏱️  Estimated time: ${Math.ceil(questions.length * 0.5)} seconds`);
-    console.log("");
+    console.error(`📊 Found ${filteredQuestions.length} questions without embeddings`);
+    console.error(`⏱️  Estimated time: ${Math.ceil(filteredQuestions.length * 0.5)} seconds`);
+    console.error("");
 
     let processed = 0;
     let failed = 0;
 
-    for (const question of questions) {
+    for (const question of filteredQuestions) {
       try {
         if (!question.text) {
-          console.log(`⏭️  Skipping Q${question.customId} (no text)`);
+          console.error(`⏭️  Skipping Q${question.customId} (no text)`);
           continue;
         }
 
-        console.log(`Processing Q${question.customId}...`);
+        console.error(`Processing Q${question.customId}...`);
         
         const embedding = await getEmbedding(question.text);
         
@@ -78,7 +87,7 @@ async function backfillEmbeddings(limit = 100) {
         processed++;
         
         if (processed % 10 === 0) {
-          console.log(`📈 Progress: ${processed}/${questions.length}`);
+          console.error(`📈 Progress: ${processed}/${filteredQuestions.length}`);
         }
         
         // Small delay to respect rate limits
@@ -90,13 +99,13 @@ async function backfillEmbeddings(limit = 100) {
       }
     }
 
-    console.log("");
-    console.log("=" .repeat(50));
-    console.log(`✅ Backfill complete!`);
-    console.log(`   Processed: ${processed}`);
-    console.log(`   Failed: ${failed}`);
-    console.log(`   Remaining: ${questions.length - processed - failed}`);
-    console.log("=" .repeat(50));
+    console.error("");
+    console.error("=" .repeat(50));
+    console.error(`✅ Backfill complete!`);
+    console.error(`   Processed: ${processed}`);
+    console.error(`   Failed: ${failed}`);
+    console.error(`   Remaining: ${filteredQuestions.length - processed - failed}`);
+    console.error("=" .repeat(50));
 
   } catch (error) {
     console.error("Fatal error:", error);
@@ -108,12 +117,12 @@ async function backfillEmbeddings(limit = 100) {
 
 // Run the script
 const limit = process.argv[2] ? parseInt(process.argv[2]) : 100;
-console.log(`🚀 Starting backfill (limit: ${limit})...`);
-console.log("");
+console.error(`🚀 Starting backfill (limit: ${limit})...`);
+console.error("");
 
 backfillEmbeddings(limit)
   .then(() => {
-    console.log("✅ Done!");
+    console.error("✅ Done!");
     process.exit(0);
   })
   .catch((error) => {

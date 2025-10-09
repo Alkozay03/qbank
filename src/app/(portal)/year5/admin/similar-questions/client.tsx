@@ -233,8 +233,9 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
             }),
           });
 
-          if (response.ok) {
-            const result = await response.json();
+          const result = await response.json();
+          
+          if (response.ok && result.success) {
             processedQuestions++;
             
             if (result.similarFound > 0) {
@@ -249,7 +250,24 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
               console.error(`Progress: ${processedQuestions}/${questions.length} questions processed`);
             }
           } else {
-            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            // Handle API error with detailed message
+            const errorType = result.errorType || 'UNKNOWN';
+            const errorDetails = result.details || result.error || 'Unknown error';
+            
+            let userFriendlyError = `Q${question.customId}: ${errorDetails}`;
+            
+            // Add specific instructions based on error type
+            if (errorType === 'NO_ROTATION_TAG') {
+              userFriendlyError += '\n  → Add a rotation tag (peds, surgery, medicine, obgyn, psych, or fp)';
+            } else if (errorType === 'RATE_LIMIT') {
+              userFriendlyError += '\n  → Wait 60 seconds and try again';
+            } else if (errorType === 'CONFIG_ERROR') {
+              userFriendlyError += '\n  → Contact admin to configure OpenAI API key';
+            } else if (errorType === 'NO_TEXT') {
+              userFriendlyError += '\n  → Question must have text content';
+            }
+            
+            throw new Error(userFriendlyError);
           }
         } catch (error) {
           failedQuestions++;
