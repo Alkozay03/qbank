@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Eye, Check, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Eye, Check, Trash2, AlertTriangle, RefreshCw, Calendar } from "lucide-react";
 
 type Answer = {
   id: string;
@@ -46,6 +46,10 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
   const [selectedGroup, setSelectedGroup] = useState<SimilarGroup | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [batchCheckLoading, setBatchCheckLoading] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const handleViewGroup = (group: SimilarGroup) => {
     setSelectedGroup(group);
@@ -162,6 +166,69 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
     return group.similarityScores[key1] ?? group.similarityScores[key2] ?? 0;
   };
 
+  const handleBatchCheck = async (hoursAgo?: number) => {
+    if (batchCheckLoading) return;
+
+    const confirmMsg = hoursAgo
+      ? `Check all questions created in the last ${hoursAgo} hours for duplicates? This may take a few minutes.`
+      : `Check questions in the selected date range for duplicates? This may take a few minutes.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setBatchCheckLoading(true);
+    try {
+      const body: {
+        yearContext: "year4" | "year5";
+        hoursAgo?: number;
+        dateFrom?: string;
+        dateTo?: string;
+      } = {
+        yearContext,
+      };
+
+      if (hoursAgo) {
+        body.hoursAgo = hoursAgo;
+      } else if (dateFrom) {
+        body.dateFrom = new Date(dateFrom).toISOString();
+        if (dateTo) {
+          body.dateTo = new Date(dateTo).toISOString();
+        }
+      }
+
+      const response = await fetch("/api/admin/similarity/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Batch check failed");
+      }
+
+      // Show results
+      let message = result.message;
+      if (result.timeoutWarning) {
+        message += "\n\n⚠️ Note: Some questions may not have been processed due to timeout. Run the check again to continue.";
+      }
+
+      alert(message);
+
+      // Refresh the page to show new groups
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to run batch similarity check"
+      );
+    } finally {
+      setBatchCheckLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-blue-50">
       <div className="mx-auto max-w-7xl px-3 sm:px-4 py-6">
@@ -172,15 +239,107 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
           >
             <ArrowLeft className="h-5 w-5 text-slate-600" />
           </Link>
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold text-[#0ea5e9] flex items-center gap-2">
               <AlertTriangle className="h-8 w-8 text-amber-500" />
               Similar Questions Alert
             </h1>
             <p className="mt-1 text-slate-600">
-              Review and manage questions with high similarity (≥50%)
+              Review and manage questions with high similarity (≥40%)
             </p>
           </div>
+        </div>
+
+        {/* Batch Check Controls */}
+        <div className="bg-white rounded-xl shadow-lg border border-sky-200 p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <RefreshCw className="h-5 w-5 text-blue-500" />
+                Batch Similarity Check
+              </h2>
+              <p className="text-sm text-slate-600 mt-1">
+                Check recently added questions for duplicates by year and rotation
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            {/* Quick check buttons */}
+            <button
+              onClick={() => handleBatchCheck(24)}
+              disabled={batchCheckLoading}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${batchCheckLoading ? "animate-spin" : ""}`} />
+              Check Last 24 Hours
+            </button>
+
+            <button
+              onClick={() => handleBatchCheck(168)}
+              disabled={batchCheckLoading}
+              className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${batchCheckLoading ? "animate-spin" : ""}`} />
+              Check Last Week
+            </button>
+
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              disabled={batchCheckLoading}
+              className="px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Custom Date Range
+            </button>
+          </div>
+
+          {/* Date picker */}
+          {showDatePicker && (
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    From Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    To Date (optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => handleBatchCheck()}
+                    disabled={!dateFrom || batchCheckLoading}
+                    className="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Run Check
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {batchCheckLoading && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                🔍 Checking questions for duplicates... This may take a few minutes depending on the number of questions.
+              </p>
+            </div>
+          )}
         </div>
 
         {groups.length === 0 ? (
