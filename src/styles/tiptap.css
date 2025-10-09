@@ -23,8 +23,17 @@
   margin: 8px 0;
 }
 
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
 .ProseMirror li {
   margin: 4px 0;
+  display: list-item;
 }
 
 .ProseMirror strong {
@@ -35,6 +44,10 @@
 .ProseMirror em {
   font-style: italic;
   color: var(--color-text-secondary);
+}
+
+.ProseMirror u {
+  text-decoration: underline;
 }
 
 .ProseMirror img {

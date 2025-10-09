@@ -4,6 +4,8 @@ import React, { useMemo, useCallback } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -17,6 +19,10 @@ interface RichTextEditorProps {
   className?: string;
   allowBold?: boolean;
   preserveLineBreaks?: boolean;
+  hideImageButtons?: boolean;
+  hideTableButton?: boolean;
+  showUnderline?: boolean;
+  showTextAlign?: boolean;
 }
 
 const HTML_DETECTION_REGEX = /<\/?[a-z][\s\S]*>/i;
@@ -273,19 +279,36 @@ export default function RichTextEditor({
   className = "",
   allowBold = true,
   preserveLineBreaks = true,
+  hideImageButtons = false,
+  hideTableButton = false,
+  showUnderline = false,
+  showTextAlign = false,
 }: RichTextEditorProps) {
+  // Table modal state
+  const [showTableModal, setShowTableModal] = React.useState(false);
+  const [tableRows, setTableRows] = React.useState("3");
+  const [tableCols, setTableCols] = React.useState("3");
+  const [isTableActive, setIsTableActive] = React.useState(false);
+
+  // Store content in a ref to avoid recreating editor
+  const initialContentRef = React.useRef(content);
   const processedContent = useMemo(() => {
     if (!preserveLineBreaks) {
-      return content;
+      return initialContentRef.current;
     }
-    return toHtml(content);
-  }, [content, preserveLineBreaks]);
+    return toHtml(initialContentRef.current);
+  }, [preserveLineBreaks]);
 
-  // Store onChange in a ref to avoid recreating editor on every parent re-render
+  // Store onChange and other props in refs to avoid recreating editor
   const onChangeRef = React.useRef(onChange);
+  const allowBoldRef = React.useRef(allowBold);
+  const preserveLineBreaksRef = React.useRef(preserveLineBreaks);
+  
   React.useEffect(() => {
     onChangeRef.current = onChange;
-  }, [onChange]);
+    allowBoldRef.current = allowBold;
+    preserveLineBreaksRef.current = preserveLineBreaks;
+  }, [onChange, allowBold, preserveLineBreaks]);
 
   const editor = useEditor({
     extensions: [
@@ -299,6 +322,11 @@ export default function RichTextEditor({
           HTMLAttributes: { class: "prose-hard-break" },
         },
       }),
+      ...(showUnderline ? [Underline] : []),
+      ...(showTextAlign ? [TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right', 'justify'],
+      })] : []),
       Image.configure({ inline: true, allowBase64: true }),
       Table.configure({ resizable: true }),
       TableRow,
@@ -307,6 +335,7 @@ export default function RichTextEditor({
     ],
     content: processedContent,
     immediatelyRender: false, // Fix SSR hydration mismatch
+    shouldRerenderOnTransaction: false, // Prevent unnecessary re-renders
     editorProps: {
       attributes: {
         class: 'prose max-w-none focus:outline-none min-h-[120px] leading-relaxed',
@@ -314,23 +343,33 @@ export default function RichTextEditor({
     },
     onUpdate: ({ editor }: { editor: Editor }) => {
       let value = editor.getHTML();
-      if (preserveLineBreaks) {
+      if (preserveLineBreaksRef.current) {
         value = fromHtml(value);
       }
-      if (!allowBold) {
+      if (!allowBoldRef.current) {
         value = value.replace(/<\/?strong>/gi, "").replace(/<\/?b>/gi, "");
       }
-      // Use ref to avoid recreation on every onChange change
       onChangeRef.current(value);
+      
+      // Update table active state
+      setIsTableActive(editor.isActive("table"));
     },
-  }, [allowBold, preserveLineBreaks, processedContent]);
+    onSelectionUpdate: ({ editor }: { editor: Editor }) => {
+      // Update table active state when selection changes
+      setIsTableActive(editor.isActive("table"));
+    },
+  });
 
   // Update editor content when external content changes (but not from typing)
   React.useEffect(() => {
-    if (editor && !editor.isFocused) {
+    if (!editor || editor.isDestroyed) return;
+    
+    if (!editor.isFocused) {
       const currentContent = preserveLineBreaks ? fromHtml(editor.getHTML()) : editor.getHTML();
+      const newContent = preserveLineBreaks ? toHtml(content) : content;
+      
       if (currentContent !== content) {
-        editor.commands.setContent(toHtml(content));
+        editor.commands.setContent(newContent, { emitUpdate: false });
       }
     }
   }, [editor, content, preserveLineBreaks]);
@@ -419,8 +458,23 @@ export default function RichTextEditor({
   }, []);
 
   const addTable = useCallback(() => {
-    editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-  }, [editor]);
+    setShowTableModal(true);
+  }, []);
+
+  const insertTableWithDimensions = useCallback(() => {
+    const rows = parseInt(tableRows, 10);
+    const cols = parseInt(tableCols, 10);
+    
+    if (isNaN(rows) || isNaN(cols) || rows < 1 || rows > 20 || cols < 1 || cols > 10) {
+      alert("Invalid input. Rows must be 1-20 and columns must be 1-10.");
+      return;
+    }
+    
+    editor?.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+    setShowTableModal(false);
+    setTableRows("3");
+    setTableCols("3");
+  }, [editor, tableRows, tableCols]);
 
   if (!editor) {
     return null;
@@ -457,6 +511,21 @@ export default function RichTextEditor({
           Italic
         </button>
 
+        {showUnderline && (
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            disabled={!editor.can().chain().focus().toggleUnderline().run()}
+            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+              editor.isActive("underline")
+                ? "bg-primary text-inverse"
+                : "bg-theme-background text-readable hover:bg-hover"
+            }`}
+          >
+            Underline
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -481,30 +550,156 @@ export default function RichTextEditor({
           1. Numbers
         </button>
 
-        <button
-          type="button"
-          onClick={addImage}
-          className="px-3 py-1 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
-        >
-          + URL Image
-        </button>
+        {showTextAlign && (
+          <>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setTextAlign('left').run()}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                editor.isActive({ textAlign: 'left' })
+                  ? "bg-primary text-inverse"
+                  : "bg-theme-background text-readable hover:bg-hover"
+              }`}
+              title="Align Left"
+            >
+              ⬅️
+            </button>
 
-        <button
-          type="button"
-          onClick={addImageFile}
-          className="px-3 py-1 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
-        >
-          📁 Upload Image
-        </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setTextAlign('center').run()}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                editor.isActive({ textAlign: 'center' })
+                  ? "bg-primary text-inverse"
+                  : "bg-theme-background text-readable hover:bg-hover"
+              }`}
+              title="Align Center"
+            >
+              ↔️
+            </button>
 
-        <button
-          type="button"
-          onClick={addTable}
-          className="px-3 py-1 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
-        >
-          + Table
-        </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setTextAlign('right').run()}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                editor.isActive({ textAlign: 'right' })
+                  ? "bg-primary text-inverse"
+                  : "bg-theme-background text-readable hover:bg-hover"
+              }`}
+              title="Align Right"
+            >
+              ➡️
+            </button>
+
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                editor.isActive({ textAlign: 'justify' })
+                  ? "bg-primary text-inverse"
+                  : "bg-theme-background text-readable hover:bg-hover"
+              }`}
+              title="Justify"
+            >
+              ↔️↔️
+            </button>
+          </>
+        )}
+
+        {!hideImageButtons && (
+          <>
+            <button
+              type="button"
+              onClick={addImage}
+              className="px-3 py-1 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              + URL Image
+            </button>
+
+            <button
+              type="button"
+              onClick={addImageFile}
+              className="px-3 py-1 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              📁 Upload Image
+            </button>
+          </>
+        )}
+
+        {!hideTableButton && (
+          <button
+            type="button"
+            onClick={addTable}
+            className="px-3 py-1 rounded text-sm font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            + Table
+          </button>
+        )}
       </div>
+
+      {/* Table controls - show when cursor is in a table */}
+      {isTableActive && editor && (
+        <div className="flex gap-2 p-2 border-b border-border bg-gray-50 dark:bg-gray-800">
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addColumnBefore().run()}
+            className="px-2 py-1 rounded text-xs font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+            title="Add Column Before"
+          >
+            ← Column
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+            className="px-2 py-1 rounded text-xs font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+            title="Add Column After"
+          >
+            Column →
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+            className="px-2 py-1 rounded text-xs font-medium bg-white text-red-600 hover:bg-red-50 transition-colors"
+            title="Delete Column"
+          >
+            ✕ Column
+          </button>
+          <div className="w-px bg-gray-300" />
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addRowBefore().run()}
+            className="px-2 py-1 rounded text-xs font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+            title="Add Row Before"
+          >
+            ↑ Row
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            className="px-2 py-1 rounded text-xs font-medium bg-white text-gray-700 hover:bg-gray-100 transition-colors"
+            title="Add Row After"
+          >
+            Row ↓
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteRow().run()}
+            className="px-2 py-1 rounded text-xs font-medium bg-white text-red-600 hover:bg-red-50 transition-colors"
+            title="Delete Row"
+          >
+            ✕ Row
+          </button>
+          <div className="w-px bg-gray-300" />
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteTable().run()}
+            className="px-2 py-1 rounded text-xs font-medium bg-white text-red-600 hover:bg-red-50 transition-colors"
+            title="Delete Entire Table"
+          >
+            🗑️ Table
+          </button>
+        </div>
+      )}
 
       <div 
         className="p-4"
@@ -522,6 +717,67 @@ export default function RichTextEditor({
           placeholder={placeholder}
         />
       </div>
+
+      {/* Table Dimension Modal */}
+      {showTableModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowTableModal(false)}>
+          <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Insert Table</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Number of Rows (1-20)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={tableRows}
+                  onChange={(e) => setTableRows(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Number of Columns (1-10)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={tableCols}
+                  onChange={(e) => setTableCols(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={insertTableWithDimensions}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+              >
+                Insert
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTableModal(false);
+                  setTableRows("3");
+                  setTableCols("3");
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

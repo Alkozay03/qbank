@@ -1572,6 +1572,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 className="min-h-[150px]"
                 allowBold={false} // Don't allow bold in question text
                 preserveLineBreaks={true}
+                hideImageButtons={true} // Images handled in dedicated section below
               />
             </div>
           </div>
@@ -1695,6 +1696,9 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 className="min-h-[200px]"
                 allowBold={true} // Allow bold in explanations
                 preserveLineBreaks={true}
+                hideImageButtons={true} // Images handled in dedicated section below
+                showUnderline={true} // Allow underline in explanations
+                showTextAlign={true} // Allow text alignment in explanations
               />
             </div>
           </div>
@@ -1782,6 +1786,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 className="min-h-[100px]"
                 allowBold={true} // Allow bold in educational objectives
                 preserveLineBreaks={true}
+                hideImageButtons={true}
+                hideTableButton={true}
               />
             </div>
           </div>

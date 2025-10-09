@@ -16,7 +16,14 @@ export async function GET() {
 
   try {
     const [totalQuestions, correctResponses, totalResponses, testsCompleted, uniqueQuestionsSolved] = await Promise.all([
-      prisma.question.count(),
+      // Only count questions that have at least one occurrence (properly saved questions)
+      prisma.question.count({
+        where: {
+          occurrences: {
+            some: {},
+          },
+        },
+      }),
       prisma.response.count({
         where: {
           quizItem: { quiz: { userId, status: "Ended" } },
@@ -27,20 +34,21 @@ export async function GET() {
         where: { quizItem: { quiz: { userId, status: "Ended" } } },
       }),
       prisma.quiz.count({ where: { userId, status: "Ended" } }),
-      // Count unique QUESTIONS the user has answered (not quiz items)
-      prisma.response.findMany({
-        where: { quizItem: { quiz: { userId, status: "Ended" } } },
-        select: {
-          quizItem: {
-            select: { questionId: true }
-          }
+      // Count unique QUESTIONS the user has answered
+      prisma.quizItem.findMany({
+        where: { 
+          quiz: { userId, status: "Ended" },
+          responses: { some: {} }
         },
-        distinct: ['quizItemId']
+        select: {
+          questionId: true
+        },
+        distinct: ['questionId']
       }),
     ]);
 
-    // Get unique question IDs from the responses
-    const uniqueQuestionIds = new Set(uniqueQuestionsSolved.map(r => r.quizItem.questionId));
+    // Get unique question IDs from the quiz items
+    const uniqueQuestionIds = new Set(uniqueQuestionsSolved.map(r => r.questionId));
     const uniqueQuestionsCount = uniqueQuestionIds.size;
     const avgPercent = totalResponses > 0 ? Math.round((correctResponses / totalResponses) * 100) : 0;
     const usedPercent = totalQuestions > 0 ? Math.round((uniqueQuestionsCount / totalQuestions) * 100) : 0;

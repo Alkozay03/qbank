@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import FormattedText from "@/components/FormattedText";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 
 type HelpItem = {
   id: string;
@@ -109,6 +110,44 @@ export default function HelpEditor() {
     } catch (error) {
       console.error("Error deleting help item:", error);
       alert("Failed to delete help item");
+    }
+  };
+
+  // Handle drag and drop reorder
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
+
+    const items = Array.from(helpItems);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update local state immediately for smooth UI
+    setHelpItems(items);
+
+    // Update order indices
+    const updates = items.map((item, index) => ({
+      id: item.id,
+      orderIndex: index,
+    }));
+
+    try {
+      const response = await fetch("/api/admin/help/reorder", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ updates }),
+      });
+
+      if (!response.ok) {
+        // Revert on error
+        await fetchHelpItems();
+        alert("Failed to update order");
+      }
+    } catch (error) {
+      console.error("Error reordering items:", error);
+      await fetchHelpItems();
+      alert("Failed to update order");
     }
   };
 
@@ -332,42 +371,74 @@ Use double line breaks for new paragraphs"
               No help items created yet. Click &quot;Add Help Item&quot; to get started.
             </div>
           ) : (
-            <div className="space-y-4">
-              {helpItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="border border-[#E6F0F7] rounded-lg p-4 hover:bg-[#F7FBFF] transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-[#2F6F8F] mb-2">
-                        {item.title}
-                      </h3>
-                      <p className="text-slate-600 text-sm mb-3 line-clamp-2">
-                        {item.description}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        Created: {new Date(item.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="px-3 py-1 text-sm bg-[#7DB8D9] text-white rounded hover:bg-[#56A2CD] transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="help-items">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="space-y-4"
+                  >
+                    {helpItems.map((item, index) => (
+                      <Draggable key={item.id} draggableId={item.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`border border-[#E6F0F7] rounded-lg p-4 transition-all ${
+                              snapshot.isDragging 
+                                ? 'bg-blue-50 shadow-lg ring-2 ring-blue-300' 
+                                : 'hover:bg-[#F7FBFF]'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-start gap-3 flex-1">
+                                {/* Drag Handle */}
+                                <div
+                                  {...provided.dragHandleProps}
+                                  className="cursor-grab active:cursor-grabbing pt-1 text-gray-400 hover:text-gray-600"
+                                  title="Drag to reorder"
+                                >
+                                  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"/>
+                                  </svg>
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-[#2F6F8F] mb-2">
+                                    {item.title}
+                                  </h3>
+                                  <p className="text-slate-600 text-sm mb-3 line-clamp-2">
+                                    {item.description}
+                                  </p>
+                                  <p className="text-xs text-slate-400">
+                                    Created: {new Date(item.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 ml-4">
+                                <button
+                                  onClick={() => handleEdit(item)}
+                                  className="px-3 py-1 text-sm bg-[#7DB8D9] text-white rounded hover:bg-[#56A2CD] transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+              </Droppable>
+            </DragDropContext>
           )}
         </div>
       </div>
