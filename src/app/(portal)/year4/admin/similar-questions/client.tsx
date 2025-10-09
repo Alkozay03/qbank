@@ -539,12 +539,43 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
                 <AlertTriangle className="h-6 w-6 text-amber-500" />
                 Similar Questions Comparison
               </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-500 hover:text-slate-700 text-2xl font-bold"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Keep all ${selectedGroup.questions.length} questions? This will remove them from the similarity alert.`)) {
+                      return;
+                    }
+                    try {
+                      // Keep all questions
+                      for (const question of selectedGroup.questions) {
+                        await fetch(`/api/admin/similar-questions/keep`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ questionId: question.id }),
+                        });
+                      }
+                      // Remove group from UI
+                      setGroups((prevGroups) => prevGroups.filter((g) => g.id !== selectedGroup.id));
+                      setIsModalOpen(false);
+                      setSelectedGroup(null);
+                      alert("All questions kept successfully");
+                    } catch (error) {
+                      console.error(error);
+                      alert("Failed to keep all questions");
+                    }
+                  }}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium flex items-center gap-2"
+                >
+                  <Check className="h-4 w-4" />
+                  Keep All
+                </button>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-slate-500 hover:text-slate-700 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             {/* Modal Body */}
