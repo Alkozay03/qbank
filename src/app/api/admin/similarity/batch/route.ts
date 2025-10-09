@@ -32,9 +32,15 @@ interface BatchResult {
  * Groups questions by rotation and checks each new question against existing ones in the same rotation
  */
 export async function POST(request: Request) {
+  console.error(`🔍 [BATCH] ===== FUNCTION STARTED =====`);
+  
   try {
+    console.error(`🔍 [BATCH] Checking role...`);
+    
     // Require admin role
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    
+    console.error(`🔍 [BATCH] Role check passed!`);
 
     const body = (await request.json()) as BatchRequest;
     const { yearContext, dateFrom, dateTo, hoursAgo = 24 } = body;
