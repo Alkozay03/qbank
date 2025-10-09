@@ -6,22 +6,17 @@ import { Role } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
-    // Ensure only MASTER_ADMIN can access this route
-    const { email: _adminEmail } = await requireRole(["MASTER_ADMIN"]);
-    void _adminEmail; // Mark as intentionally unused
+    console.warn("🔵 [UPDATE ROLE] POST request received");
     
-    // Temporarily allow any MASTER_ADMIN user for debugging
-    // TODO: Re-enable email restriction after fixing role assignment
-    
-    // For now, just check if user has MASTER_ADMIN role
-    // if (_adminEmail === "u21103000@sharjah.ac.ae") {
-    //   // Allow access - you are the authorized master admin
-    // } else {
-    //   // Deny access to anyone else
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    // }
+    // Ensure only MASTER_ADMIN or WEBSITE_CREATOR can access this route
+    const userInfo = await requireRole(["MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    console.warn("🟢 [UPDATE ROLE] Permission granted:", {
+      email: userInfo.email,
+      role: userInfo.role
+    });
 
     const body = await req.json();
+    console.warn("🔍 [UPDATE ROLE] Request body:", body);
     const { email, role } = body;
 
     if (!email || !role) {
@@ -29,19 +24,29 @@ export async function POST(req: Request) {
     }
 
     // Validate role
-    if (!["MEMBER", "ADMIN", "MASTER_ADMIN"].includes(role)) {
+    if (!["MEMBER", "ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"].includes(role)) {
+      console.error("🔴 [UPDATE ROLE] Invalid role:", role);
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
+    console.warn("🔍 [UPDATE ROLE] Finding user:", email);
+    
     // Find the user
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true },
+      select: { id: true, role: true },
     });
 
     if (!user) {
+      console.error("🔴 [UPDATE ROLE] User not found:", email);
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    console.warn("🔵 [UPDATE ROLE] Updating user role:", {
+      email,
+      currentRole: user.role,
+      newRole: role
+    });
 
     // Update the user's role
     await prisma.user.update({
@@ -49,11 +54,23 @@ export async function POST(req: Request) {
       data: { role: role as Role },
     });
 
+    console.warn("🟢 [UPDATE ROLE] Role updated successfully:", {
+      email,
+      newRole: role
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error updating role:", error);
+    console.error("🔴 [UPDATE ROLE] Error updating role:", error);
+    console.error("🔴 [UPDATE ROLE] Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "An error occurred" },
+      { 
+        error: error instanceof Error ? error.message : "An error occurred",
+        details: "Failed to update user role"
+      },
       { status: 500 }
     );
   }

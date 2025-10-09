@@ -4,33 +4,48 @@ import { prisma } from "@/server/db";
 
 export async function POST(req: Request) {
   try {
-    // Ensure only MASTER_ADMIN can access
+    console.warn("🔵 [APPROVE USER] POST request received");
+    
+    // Ensure only MASTER_ADMIN or WEBSITE_CREATOR can access
     const session = await auth();
     if (!session?.user?.email) {
+      console.error("🔴 [APPROVE USER] No session found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const admin = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { role: true },
+      select: { role: true, email: true },
     });
 
-    if (!admin || admin.role !== "MASTER_ADMIN") {
+    if (!admin || (admin.role !== "MASTER_ADMIN" && admin.role !== "WEBSITE_CREATOR")) {
+      console.error("🔴 [APPROVE USER] Forbidden:", admin?.role);
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    console.warn("🟢 [APPROVE USER] Permission granted:", {
+      email: admin.email,
+      role: admin.role
+    });
+
     const body = await req.json();
     const { userId, email } = body;
+    console.warn("🔍 [APPROVE USER] Request body:", { userId, email });
 
     if (!userId || !email) {
+      console.error("🔴 [APPROVE USER] Missing userId or email");
       return NextResponse.json({ error: "Missing userId or email" }, { status: 400 });
     }
 
+    console.warn("🔵 [APPROVE USER] Approving user:", { userId, email });
+    
     // Update user status to APPROVED
     await prisma.user.update({
       where: { id: userId },
       data: { approvalStatus: "APPROVED" },
     });
+
+    console.warn("🟢 [APPROVE USER] User approved successfully:", email);
 
     // Trigger NextAuth's built-in magic link email
     // Note: The 24-hour reuse window fix prevents invalid token issues
