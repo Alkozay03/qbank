@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireRole } from "@/lib/rbac";
+import { findSimilarQuestions } from "@/lib/similarity";
 
 export const maxDuration = 10;
 
@@ -95,28 +96,156 @@ export async function POST(request: Request) {
       });
     }
 
-    // For now, just return what we found (no similarity checking yet)
-    const summary = Array.from(questionsByRotation.entries()).map(([rotation, questions]) => ({
-      rotation,
-      count: questions.length,
-      questionIds: questions.map(q => q.customId),
-    }));
+    // Process each rotation and check for similar questions
+    const results: Array<{
+      questionId: string;
+      customId: number | null;
+      rotation: string;
+      duplicatesFound: number;
+    }> = [];
+    
+    let newGroupsCreated = 0;
+    let questionsWithDuplicates = 0;
+    const startTime = Date.now();
+    const maxRuntime = 8000; // 8 seconds max to leave buffer
+
+    for (const [rotation, rotationQuestions] of questionsByRotation.entries()) {
+      // Check timeout
+      if (Date.now() - startTime > maxRuntime) {
+        break;
+      }
+
+      // Get existing questions in this rotation to compare against
+      const existingQuestionsInRotation = await prisma.question.findMany({
+        where: {
+          yearCaptured: {
+            in: [yearNumber, yearWithPrefix],
+          },
+          id: { notIn: rotationQuestions.map((q) => q.id) },
+          text: { not: null },
+          ...(rotation !== "No Rotation" && {
+            questionTags: {
+              some: {
+                tag: {
+                  type: "ROTATION",
+                  value: rotation,
+                },
+              },
+            },
+          }),
+        },
+        select: {
+          id: true,
+          text: true,
+          customId: true,
+        },
+      });
+
+      // If no existing questions, compare new questions against each other
+      let questionsToCompareAgainst = existingQuestionsInRotation;
+      if (existingQuestionsInRotation.length === 0 && rotationQuestions.length > 1) {
+        questionsToCompareAgainst = rotationQuestions;
+      } else if (existingQuestionsInRotation.length === 0) {
+        continue; // Skip if only 1 new question and no existing ones
+      }
+
+      // Check each new question
+      for (const newQuestion of rotationQuestions) {
+        if (Date.now() - startTime > maxRuntime) {
+          break;
+        }
+
+        // Filter out the question itself when comparing
+        const questionsToCheck = questionsToCompareAgainst
+          .filter((q) => q.id !== newQuestion.id)
+          .map((q) => ({
+            id: q.id,
+            text: q.text ?? "",
+          }));
+
+        if (questionsToCheck.length === 0) continue;
+
+        // Find similar questions
+        const similarQuestions = await findSimilarQuestions(
+          { id: newQuestion.id, text: newQuestion.text },
+          questionsToCheck,
+          40 // 40% similarity threshold
+        );
+
+        if (similarQuestions.length > 0) {
+          questionsWithDuplicates++;
+
+          // Check if any existing groups contain these questions
+          const existingGroups = await prisma.similarQuestionGroup.findMany({
+            where: {
+              questions: {
+                some: {
+                  id: {
+                    in: [newQuestion.id, ...similarQuestions.map((sq) => sq.id)],
+                  },
+                },
+              },
+            },
+            include: {
+              questions: {
+                select: { id: true },
+              },
+            },
+          });
+
+          if (existingGroups.length > 0) {
+            // Update existing group
+            const group = existingGroups[0]!;
+            const allQuestionIds = new Set([
+              ...group.questions.map((q) => q.id),
+              newQuestion.id,
+              ...similarQuestions.map((sq) => sq.id),
+            ]);
+
+            await prisma.similarQuestionGroup.update({
+              where: { id: group.id },
+              data: {
+                questions: {
+                  connect: Array.from(allQuestionIds).map((id) => ({ id })),
+                },
+              },
+            });
+          } else {
+            // Create new group
+            await prisma.similarQuestionGroup.create({
+              data: {
+                questions: {
+                  connect: [
+                    { id: newQuestion.id },
+                    ...similarQuestions.map((sq) => ({ id: sq.id })),
+                  ],
+                },
+              },
+            });
+            newGroupsCreated++;
+          }
+        }
+
+        results.push({
+          questionId: newQuestion.id,
+          customId: newQuestion.customId,
+          rotation,
+          duplicatesFound: similarQuestions.length,
+        });
+      }
+    }
+
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    const timeoutWarning = Date.now() - startTime > maxRuntime;
 
     return NextResponse.json({
       success: true,
-      message: `Found ${newQuestions.length} questions to check across ${questionsByRotation.size} rotations. Similarity checking coming soon!`,
-      processedQuestions: 0,
-      newGroupsCreated: 0,
-      questionsWithDuplicates: 0,
-      details: [],
-      debug: {
-        totalQuestions: newQuestions.length,
-        dateRange: {
-          from: startDate.toISOString(),
-          to: endDate.toISOString(),
-        },
-        rotationGroups: summary,
-      },
+      message: `Processed ${results.length} questions in ${totalTime}s. Found ${questionsWithDuplicates} questions with potential duplicates.${timeoutWarning ? " (Timeout reached, run again to continue)" : ""}`,
+      processedQuestions: results.length,
+      newGroupsCreated,
+      questionsWithDuplicates,
+      timeoutWarning,
+      details: results,
     });
   } catch (error) {
     return NextResponse.json(
