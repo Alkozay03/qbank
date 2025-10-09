@@ -189,30 +189,9 @@ export async function POST(req: Request) {
     console.error("🔵 [QUESTIONS POST] Setting question mode to 'unused'...");
     await setQuestionMode(q.id, "unused");
 
-    const openAiKey = process.env.OPENAI_API_KEY;
-    if (!openAiKey) {
-      console.error("🔴 [QUESTIONS POST] OPENAI_API_KEY not configured - skipping similarity checks");
-    } else {
-      console.error(
-        "� [QUESTIONS POST] OPENAI_API_KEY configured:",
-        `${openAiKey.substring(0, 7)}...`
-      );
-
-      try {
-        const { checkForSimilarQuestions } = await import("@/lib/similar-questions");
-        console.error("🔵 [QUESTIONS POST] Running similarity check for", {
-          customId: q.customId,
-          yearContext,
-        });
-        await checkForSimilarQuestions(
-          { id: q.id, text: q.text ?? "", customId: q.customId },
-          yearContext
-        );
-        console.error("🟢 [QUESTIONS POST] Similarity check finished for", q.customId);
-      } catch (similarityError) {
-        console.error("🔴 [QUESTIONS POST] Failed to check for similar questions:", similarityError);
-      }
-    }
+    // NOTE: Similarity checking is now manual-only via the Similar Questions page
+    // It does NOT run automatically on question creation
+    console.error("� [QUESTIONS POST] Similarity check skipped (manual-only feature)");
 
     console.error("🟢 [QUESTIONS POST] Success! Returning response");
     return NextResponse.json({ ok: true, customId: q.customId });
@@ -357,38 +336,9 @@ export async function PUT(req: Request) {
       await setQuestionMode(existing.id, derived);
     }
 
-    const normalizedExistingText = typeof existing.text === "string" ? existing.text.trim() : "";
-    const normalizedNewText = typeof body.text === "string" ? body.text.trim() : "";
-    const textChanged = normalizedExistingText !== normalizedNewText;
-
-    if (textChanged) {
-      const openAiKey = process.env.OPENAI_API_KEY;
-      if (!openAiKey) {
-        console.error("🔴 [QUESTIONS PUT] OPENAI_API_KEY not configured - skipping similarity checks");
-      } else {
-        console.error(
-          "🟢 [QUESTIONS PUT] OPENAI_API_KEY configured:",
-          `${openAiKey.substring(0, 7)}...`
-        );
-
-        try {
-          const { checkForSimilarQuestions } = await import("@/lib/similar-questions");
-          console.error("🔵 [QUESTIONS PUT] Running similarity check", {
-            customId: body.customId,
-            yearContext: storedYear === "5" ? "year5" : derivedContext,
-          });
-          await checkForSimilarQuestions(
-            { id: existing.id, text: body.text ?? "", customId: body.customId },
-            storedYear === "5" ? "year5" : derivedContext
-          );
-          console.error("🟢 [QUESTIONS PUT] Similarity check finished for", body.customId);
-        } catch (similarityError) {
-          console.error("🔴 [QUESTIONS PUT] Failed to check for similar questions:", similarityError);
-        }
-      }
-    } else {
-      console.error("🟡 [QUESTIONS PUT] Text unchanged - skipping similarity check");
-    }
+    // NOTE: Similarity checking is now manual-only via the Similar Questions page
+    // It does NOT run automatically on question updates
+    console.error("� [QUESTIONS PUT] Similarity check skipped (manual-only feature)");
 
     console.error("🟢 [QUESTIONS PUT] Success! Question updated");
     return NextResponse.json({ ok: true });

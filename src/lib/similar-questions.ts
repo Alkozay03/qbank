@@ -43,12 +43,12 @@ export async function checkForSimilarQuestions(
       return;
     }
 
-    // Find similar questions (>= 40% similarity - lowered threshold)
+    // Find similar questions (>= 50% similarity threshold)
     console.error(`🔍 [SIMILAR] Starting similarity comparison with OpenAI...`);
     const similarQuestions = await findSimilarQuestions(
       { id: newQuestion.id, text: newQuestion.text },
       existingQuestions.map((q) => ({ id: q.id, text: q.text ?? "" })),
-      40 // 40% threshold (lowered from 50%)
+      50 // 50% similarity threshold
     );
 
     console.error(`🔍 [SIMILAR] Comparison complete. Found ${similarQuestions.length} similar questions`);

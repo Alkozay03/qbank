@@ -213,12 +213,16 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
         return;
       }
 
-      // Process one question at a time
+      // Process one question at a time with checkpoints
       let processedQuestions = 0;
       let questionsWithDuplicates = 0;
       let newGroupsCreated = 0;
+      let failedQuestions = 0;
+      const errors: string[] = [];
 
-      for (const question of questions) {
+      for (let i = 0; i < questions.length; i++) {
+        const question = questions[i]!;
+        
         try {
           const response = await fetch("/api/admin/similarity/check-single", {
             method: "POST",
@@ -239,20 +243,46 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
                 newGroupsCreated++;
               }
             }
+            
+            // Show progress every 5 questions
+            if ((processedQuestions) % 5 === 0) {
+              console.error(`Progress: ${processedQuestions}/${questions.length} questions processed`);
+            }
+          } else {
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
           }
         } catch (error) {
-          console.error(`Error checking question ${question.id}:`, error);
+          failedQuestions++;
+          const errorMsg = `Question ${question.customId || question.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          
+          // If too many failures, ask user if they want to continue
+          if (failedQuestions >= 3) {
+            const shouldContinue = confirm(
+              `❌ ${failedQuestions} questions have failed to process.\n\n` +
+              `Successfully processed: ${processedQuestions}/${questions.length}\n\n` +
+              `Recent errors:\n${errors.slice(-3).join('\n')}\n\n` +
+              `Do you want to continue checking the remaining questions?`
+            );
+            
+            if (!shouldContinue) {
+              break;
+            }
+            
+            // Reset error counter if user wants to continue
+            failedQuestions = 0;
+          }
         }
       }
 
-      const lastResult = {
-        processedQuestions,
-        questionsWithDuplicates,
-        newGroupsCreated,
-      };
-
-      // Show final results
-      const message = `✅ Completed!\n\nProcessed: ${lastResult.processedQuestions || 0} questions\nFound duplicates: ${lastResult.questionsWithDuplicates || 0}\nNew groups created: ${lastResult.newGroupsCreated || 0}`;
+      // Show final results with error details
+      let message = `✅ Completed!\n\nProcessed: ${processedQuestions}/${questions.length} questions\nFound duplicates: ${questionsWithDuplicates}\nNew groups created: ${newGroupsCreated}`;
+      
+      if (errors.length > 0) {
+        message += `\n\n⚠️ Failed: ${errors.length} questions\n\nCheck console for error details.`;
+        console.error("Failed questions:", errors);
+      }
 
       alert(message);
 
@@ -286,7 +316,7 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
               Similar Questions Alert
             </h1>
             <p className="mt-1 text-slate-600">
-              Review and manage questions with high similarity (≥40%)
+              Review and manage questions with high similarity (≥50%)
             </p>
           </div>
         </div>
