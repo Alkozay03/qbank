@@ -26,7 +26,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | "">("");
+  const [role, setRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | "">("");
 
   // Detect which year we're in based on the URL
   const currentYear = pathname?.startsWith('/year5') ? 'year5' : 'year4';

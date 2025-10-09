@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ApprovalStatus, Role } from "@prisma/client";
+import { WEBSITE_CREATOR_EMAIL } from "@/lib/website-creator";
 
 type User = {
   id: string;
@@ -288,50 +289,57 @@ export default function UserListClient({ users }: Props) {
                       })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      {user.approvalStatus === "PENDING" && (
+                      {/* Website Creator cannot be approved/blocked/unapproved */}
+                      {user.email === WEBSITE_CREATOR_EMAIL ? (
+                        <span className="text-amber-600 font-semibold">Protected Account</span>
+                      ) : (
                         <>
-                          <button
-                            onClick={() => handleApprove(user.id, user.email)}
-                            disabled={isProcessing}
-                            className="text-green-600 hover:text-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {isProcessing ? "..." : "Approve"}
-                          </button>
-                          <button
-                            onClick={() => handleBlock(user.id)}
-                            disabled={isProcessing}
-                            className="text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {isProcessing ? "..." : "Block"}
-                          </button>
+                          {user.approvalStatus === "PENDING" && (
+                            <>
+                              <button
+                                onClick={() => handleApprove(user.id, user.email)}
+                                disabled={isProcessing}
+                                className="text-green-600 hover:text-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {isProcessing ? "..." : "Approve"}
+                              </button>
+                              <button
+                                onClick={() => handleBlock(user.id)}
+                                disabled={isProcessing}
+                                className="text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {isProcessing ? "..." : "Block"}
+                              </button>
+                            </>
+                          )}
+                          {user.approvalStatus === "APPROVED" && (
+                            <>
+                              <button
+                                onClick={() => handleUnapprove(user.id, user.email)}
+                                disabled={isProcessing}
+                                className="text-orange-600 hover:text-orange-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {isProcessing ? "..." : "Unapprove"}
+                              </button>
+                              <button
+                                onClick={() => handleBlock(user.id)}
+                                disabled={isProcessing}
+                                className="text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {isProcessing ? "..." : "Block"}
+                              </button>
+                            </>
+                          )}
+                          {user.approvalStatus === "BLOCKED" && (
+                            <button
+                              onClick={() => handleUnblock(user.id)}
+                              disabled={isProcessing}
+                              className="text-[#0ea5e9] hover:text-[#0284c7] font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {isProcessing ? "..." : "Unblock"}
+                            </button>
+                          )}
                         </>
-                      )}
-                      {user.approvalStatus === "APPROVED" && (
-                        <>
-                          <button
-                            onClick={() => handleUnapprove(user.id, user.email)}
-                            disabled={isProcessing}
-                            className="text-orange-600 hover:text-orange-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {isProcessing ? "..." : "Unapprove"}
-                          </button>
-                          <button
-                            onClick={() => handleBlock(user.id)}
-                            disabled={isProcessing}
-                            className="text-red-600 hover:text-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {isProcessing ? "..." : "Block"}
-                          </button>
-                        </>
-                      )}
-                      {user.approvalStatus === "BLOCKED" && (
-                        <button
-                          onClick={() => handleUnblock(user.id)}
-                          disabled={isProcessing}
-                          className="text-[#0ea5e9] hover:text-[#0284c7] font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {isProcessing ? "..." : "Unblock"}
-                        </button>
                       )}
                     </td>
                   </tr>

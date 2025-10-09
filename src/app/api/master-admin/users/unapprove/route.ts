@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
+import { WEBSITE_CREATOR_EMAIL } from "@/lib/website-creator";
 
 export async function POST(req: Request) {
   try {
@@ -24,6 +25,14 @@ export async function POST(req: Request) {
 
     if (!userId || !email) {
       return NextResponse.json({ error: "Missing userId or email" }, { status: 400 });
+    }
+
+    // Protect the website creator - cannot be unapproved
+    if (email === WEBSITE_CREATOR_EMAIL) {
+      return NextResponse.json(
+        { error: "Website Creator account cannot be unapproved or modified" },
+        { status: 403 }
+      );
     }
 
     // Update user status back to PENDING

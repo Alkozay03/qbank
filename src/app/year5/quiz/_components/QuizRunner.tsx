@@ -181,7 +181,7 @@ type Item = {
 type Viewer = {
   name: string | null;
   email: string | null;
-  role: "MEMBER" | "ADMIN" | "MASTER_ADMIN" | null;
+  role: "MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | null;
 };
 
 type QuestionFirstAttemptStats = {

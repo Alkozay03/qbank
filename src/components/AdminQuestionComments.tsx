@@ -11,7 +11,7 @@ export type AdminQuestionComment = {
   body: string;
   imageUrl: string | null;
   createdAt: string;
-  createdByRole?: "MEMBER" | "ADMIN" | "MASTER_ADMIN" | null;
+  createdByRole?: "MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | null;
   createdByEmail?: string | null;
   createdByGradYear?: number | null;
   origin?: "runner" | "editor" | null;
@@ -42,7 +42,7 @@ export default function AdminQuestionComments({ questionId }: Props) {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [userRole, setUserRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | null>(null);
+  const [userRole, setUserRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
 
   // New state for sorting and reply functionality
@@ -109,7 +109,7 @@ export default function AdminQuestionComments({ questionId }: Props) {
         }
         const data = (await res.json().catch(() => ({}))) as {
           email?: string;
-          role?: "MEMBER" | "ADMIN" | "MASTER_ADMIN";
+          role?: "MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR";
           name?: string | null;
           firstName?: string | null;
           lastName?: string | null;
@@ -336,7 +336,7 @@ export default function AdminQuestionComments({ questionId }: Props) {
     (comment: AdminQuestionComment) => {
       if (!comment) return false;
       if (comment.createdByEmail && userEmail && comment.createdByEmail === userEmail) return true;
-      if (userRole === "ADMIN" || userRole === "MASTER_ADMIN") return true;
+      if (userRole === "ADMIN" || userRole === "MASTER_ADMIN" || userRole === "WEBSITE_CREATOR") return true;
       return false;
     },
     [userEmail, userRole]
@@ -563,7 +563,7 @@ export default function AdminQuestionComments({ questionId }: Props) {
           const created = new Date(comment.createdAt);
           const absolute = Number.isNaN(created.getTime()) ? "" : absoluteFormatter.format(created);
           const relative = formatRelativeTime(comment.createdAt);
-          const isStaff = comment.createdByRole === "ADMIN" || comment.createdByRole === "MASTER_ADMIN";
+          const isStaff = comment.createdByRole === "ADMIN" || comment.createdByRole === "MASTER_ADMIN" || comment.createdByRole === "WEBSITE_CREATOR";
           const gradLabel =
             typeof comment.createdByGradYear === "number" && Number.isFinite(comment.createdByGradYear)
               ? `Class of < ${comment.createdByGradYear}`
@@ -765,7 +765,7 @@ export default function AdminQuestionComments({ questionId }: Props) {
                     const replyCreated = new Date(reply.createdAt);
                     const replyAbsolute = Number.isNaN(replyCreated.getTime()) ? "" : absoluteFormatter.format(replyCreated);
                     const replyRelative = formatRelativeTime(reply.createdAt);
-                    const replyIsStaff = reply.createdByRole === "ADMIN" || reply.createdByRole === "MASTER_ADMIN";
+                    const replyIsStaff = reply.createdByRole === "ADMIN" || reply.createdByRole === "MASTER_ADMIN" || reply.createdByRole === "WEBSITE_CREATOR";
                     const replyGradLabel =
                       typeof reply.createdByGradYear === "number" && Number.isFinite(reply.createdByGradYear)
                         ? `Class of ${reply.createdByGradYear}`

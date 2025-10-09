@@ -4,6 +4,7 @@ import { ClerkshipAdapter } from "@/lib/adapter";
 import Email from "next-auth/providers/email";
 import { setDevMagic } from "@/lib/dev-magic";
 import { prisma } from "@/server/db";
+import { WEBSITE_CREATOR_EMAIL } from "@/lib/website-creator";
 
 // allow only u########@sharjah.ac.ae
 function isAllowedEmail(email?: string | null) {
@@ -396,7 +397,24 @@ export const authOptions: NextAuthConfig = {
           if (typeof process !== 'undefined' && process.stderr) {
             process.stderr.write(`🎫 [JWT] User data: ${dbUser.approvalStatus}, ${dbUser.role}, ${dbUser.firstName} ${dbUser.lastName}\n`);
           }
-          (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
+          
+          // ✅ WEBSITE CREATOR AUTO-APPROVAL: Always set to APPROVED, no matter what
+          if (user.email === WEBSITE_CREATOR_EMAIL) {
+            (token as { approvalStatus?: string }).approvalStatus = "APPROVED";
+            // Ensure the database also reflects this (in case it was changed)
+            if (dbUser.approvalStatus !== "APPROVED") {
+              await prisma.user.update({
+                where: { email: user.email },
+                data: { approvalStatus: "APPROVED" },
+              });
+              if (typeof process !== 'undefined' && process.stderr) {
+                process.stderr.write(`🎫 [JWT] ✅ Website Creator auto-approved\n`);
+              }
+            }
+          } else {
+            (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
+          }
+          
           (token as { role?: string }).role = dbUser.role;
           (token as { firstName?: string | null }).firstName = dbUser.firstName;
           (token as { lastName?: string | null }).lastName = dbUser.lastName;
@@ -416,7 +434,23 @@ export const authOptions: NextAuthConfig = {
           });
           
           if (dbUser) {
-            (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
+            // ✅ WEBSITE CREATOR AUTO-APPROVAL: Always set to APPROVED, no matter what
+            if (email === WEBSITE_CREATOR_EMAIL) {
+              (token as { approvalStatus?: string }).approvalStatus = "APPROVED";
+              // Ensure the database also reflects this (in case it was changed)
+              if (dbUser.approvalStatus !== "APPROVED") {
+                await prisma.user.update({
+                  where: { email },
+                  data: { approvalStatus: "APPROVED" },
+                });
+                if (typeof process !== 'undefined' && process.stderr) {
+                  process.stderr.write(`🎫 [JWT] ✅ Website Creator auto-approved on refresh\n`);
+                }
+              }
+            } else {
+              (token as { approvalStatus?: string }).approvalStatus = dbUser.approvalStatus;
+            }
+            
             (token as { role?: string }).role = dbUser.role;
             (token as { firstName?: string | null }).firstName = dbUser.firstName;
             (token as { lastName?: string | null }).lastName = dbUser.lastName;
