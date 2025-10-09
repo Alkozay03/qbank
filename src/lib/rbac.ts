@@ -45,7 +45,12 @@ export async function requireRole(
   if (!user) throw new HttpError(401, "Unauthorized");
 
   const allow = new Set(allowed.map(normalizeRole));
+  console.error("🔍 [RBAC] User role:", user.role);
+  console.error("🔍 [RBAC] Allowed roles:", Array.from(allow));
+  console.error("🔍 [RBAC] Role check:", allow.has(user.role));
+  
   if (!allow.has(user.role)) {
+    console.error("🔴 [RBAC] FORBIDDEN! User role not in allowed set");
     throw new HttpError(403, "Forbidden");
   }
 

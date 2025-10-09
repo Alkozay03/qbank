@@ -10,32 +10,68 @@ import { requireRole } from "@/lib/rbac";
  * Creates an empty draft question with just an ID so comments can be added
  */
 export async function POST() {
-  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+  try {
+    console.error("🔵 [DRAFT API] POST request received");
+    console.error("🔵 [DRAFT API] Checking permissions...");
+    
+    const userInfo = await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    console.error("🟢 [DRAFT API] Permission granted:", userInfo);
 
-  // Create a minimal draft question
-  const question = await prisma.question.create({
-    data: {
-      text: "[Draft - Not yet saved]",
-      explanation: "",
-      objective: "",
-      references: null,
-      answers: {
-        create: [
-          { text: "Option A", isCorrect: false },
-          { text: "Option B", isCorrect: false },
-          { text: "Option C", isCorrect: false },
-          { text: "Option D", isCorrect: false },
-          { text: "Option E", isCorrect: false },
-        ],
+    console.error("🔵 [DRAFT API] Creating draft question in database...");
+    
+    // Create a minimal draft question
+    const question = await prisma.question.create({
+      data: {
+        text: "[Draft - Not yet saved]",
+        explanation: "",
+        objective: "",
+        references: null,
+        answers: {
+          create: [
+            { text: "Option A", isCorrect: false },
+            { text: "Option B", isCorrect: false },
+            { text: "Option C", isCorrect: false },
+            { text: "Option D", isCorrect: false },
+            { text: "Option E", isCorrect: false },
+          ],
+        },
       },
-    },
-  });
+    });
 
-  return NextResponse.json({ 
-    ok: true, 
-    questionId: question.id,
-    customId: question.customId 
-  });
+    console.error("🟢 [DRAFT API] Draft question created successfully:", {
+      id: question.id,
+      customId: question.customId,
+      text: question.text
+    });
+
+    return NextResponse.json({ 
+      ok: true, 
+      questionId: question.id,
+      customId: question.customId 
+    });
+  } catch (error) {
+    console.error("🔴 [DRAFT API] Error creating draft question:", error);
+    
+    if (error instanceof Error) {
+      console.error("🔴 [DRAFT API] Error name:", error.name);
+      console.error("🔴 [DRAFT API] Error message:", error.message);
+      console.error("🔴 [DRAFT API] Error stack:", error.stack);
+    }
+
+    // Check if it's an RBAC error
+    if (error && typeof error === 'object' && 'status' in error) {
+      const httpError = error as { status: number; message: string };
+      return NextResponse.json(
+        { error: httpError.message || "Permission denied" },
+        { status: httpError.status }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Failed to create draft question" },
+      { status: 500 }
+    );
+  }
 }
 
 /**
@@ -43,16 +79,22 @@ export async function POST() {
  * Deletes a draft question (used when user cancels)
  */
 export async function DELETE(req: Request) {
-  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
-
-  const url = new URL(req.url);
-  const questionId = url.searchParams.get("id");
-
-  if (!questionId) {
-    return NextResponse.json({ error: "Question ID required" }, { status: 400 });
-  }
-
   try {
+    console.error("🔵 [DRAFT DELETE] DELETE request received");
+    
+    const userInfo = await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    console.error("🟢 [DRAFT DELETE] Permission granted:", userInfo);
+
+    const url = new URL(req.url);
+    const questionId = url.searchParams.get("id");
+
+    if (!questionId) {
+      console.error("🔴 [DRAFT DELETE] No question ID provided");
+      return NextResponse.json({ error: "Question ID required" }, { status: 400 });
+    }
+
+    console.error("🔵 [DRAFT DELETE] Attempting to delete question:", questionId);
+
     // Check if question exists and is a draft
     const question = await prisma.question.findUnique({
       where: { id: questionId },
@@ -60,21 +102,33 @@ export async function DELETE(req: Request) {
     });
 
     if (!question) {
+      console.error("🔴 [DRAFT DELETE] Question not found:", questionId);
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
     }
 
     // Only delete if it's still a draft (hasn't been saved with real content)
-    if (question.text === "[Draft - Not yet saved]") {
+    if (question.text === "[Draft - Not yet saved]" || question.text === "") {
       await prisma.question.delete({
         where: { id: questionId },
       });
+      console.error("🟢 [DRAFT DELETE] Draft deleted successfully:", questionId);
       return NextResponse.json({ ok: true, deleted: true });
     }
 
     // If it's been edited, don't delete it
+    console.error("⚠️ [DRAFT DELETE] Question has been edited, not deleting:", questionId);
     return NextResponse.json({ ok: true, deleted: false, message: "Question has been edited, not deleting" });
   } catch (error) {
-    console.error("Error deleting draft question:", error);
+    console.error("🔴 [DRAFT DELETE] Error deleting draft question:", error);
+    
+    if (error && typeof error === 'object' && 'status' in error) {
+      const httpError = error as { status: number; message: string };
+      return NextResponse.json(
+        { error: httpError.message || "Permission denied" },
+        { status: httpError.status }
+      );
+    }
+    
     return NextResponse.json({ error: "Failed to delete draft question" }, { status: 500 });
   }
 }

@@ -88,77 +88,115 @@ export async function GET(req: Request) {
  * Creates a question with a unique numeric customId and attaches tags/refs.
  */
 export async function POST(req: Request) {
-  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+  try {
+    console.error("🔵 [QUESTIONS POST] Request received");
+    
+    const userInfo = await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    console.error("🟢 [QUESTIONS POST] Permission granted:", userInfo);
 
-  const body = (await req.json()) as {
-    text: string;
-    answers: Array<{ text: string; isCorrect: boolean }>;
-    explanation?: string | null;
-    objective?: string | null;
-    refs?: Array<{ url: string }>;
-    references?: string | null;
-    tags?: Array<{ type: keyof typeof TagType; value: string }>;
-  };
+    const body = (await req.json()) as {
+      text: string;
+      answers: Array<{ text: string; isCorrect: boolean }>;
+      explanation?: string | null;
+      objective?: string | null;
+      refs?: Array<{ url: string }>;
+      references?: string | null;
+      tags?: Array<{ type: keyof typeof TagType; value: string }>;
+    };
 
-  if (!body?.text || !Array.isArray(body.answers) || body.answers.length === 0) {
-    return NextResponse.json({ error: "text and answers[] are required" }, { status: 400 });
-  }
-
-  // generate a unique short id, retry a few times if collision
-  let customId = generateShortNumericId();
-  for (let i = 0; i < 4; i++) {
-    const exists = await prisma.question.findUnique({ where: { customId } });
-    if (!exists) break;
-    customId = generateShortNumericId();
-  }
-
-  const q = await prisma.question.create({
-    data: {
-      customId,
-      text: body.text,
-      explanation: body.explanation ?? null,
-      objective: body.objective ?? null,
-      references: normalizeReferenceInput(body.references, body.refs),
-      answers: {
-        create: body.answers.map((a) => ({ text: a.text, isCorrect: a.isCorrect })),
-      },
-    },
-  });
-
-  // attach tags
-  if (Array.isArray(body.tags) && body.tags.length) {
-    for (const t of body.tags) {
-      const type = TagType[t.type] ?? TagType.TOPIC; // fallback, but ideally validated client-side
-      const tag = await prisma.tag.upsert({
-        where: { type_value: { type, value: t.value } },
-        update: {},
-        create: { type, value: t.value },
-      });
-      await prisma.questionTag.create({ data: { questionId: q.id, tagId: tag.id } });
-    }
-  }
-
-  // Ensure new questions always start as unused
-  await setQuestionMode(q.id, "unused");
-
-  // Check for similar questions in the background (don't block response)
-  // Determine year context from the request URL or yearCaptured field
-  const urlPath = new URL(req.url).pathname;
-  const yearContext: "year4" | "year5" = urlPath.includes("year5") || q.yearCaptured === "5" ? "year5" : "year4";
-  
-  // Run similarity check asynchronously (don't await)
-  import("@/lib/similar-questions")
-    .then(({ checkForSimilarQuestions }) => {
-      return checkForSimilarQuestions(
-        { id: q.id, text: q.text ?? "", customId: q.customId },
-        yearContext
-      );
-    })
-    .catch((error) => {
-      console.error("Failed to check for similar questions:", error);
+    console.error("🔵 [QUESTIONS POST] Request body:", {
+      hasText: !!body?.text,
+      textLength: body?.text?.length,
+      answersCount: body?.answers?.length,
+      hasExplanation: !!body?.explanation,
+      tagsCount: body?.tags?.length
     });
 
-  return NextResponse.json({ ok: true, customId: q.customId });
+    if (!body?.text || !Array.isArray(body.answers) || body.answers.length === 0) {
+      console.error("🔴 [QUESTIONS POST] Invalid request body");
+      return NextResponse.json({ error: "text and answers[] are required" }, { status: 400 });
+    }
+
+    // generate a unique short id, retry a few times if collision
+    console.error("🔵 [QUESTIONS POST] Generating unique customId...");
+    let customId = generateShortNumericId();
+    for (let i = 0; i < 4; i++) {
+      const exists = await prisma.question.findUnique({ where: { customId } });
+      if (!exists) break;
+      customId = generateShortNumericId();
+    }
+    console.error("🔵 [QUESTIONS POST] Generated customId:", customId);
+
+    console.error("🔵 [QUESTIONS POST] Creating question in database...");
+    const q = await prisma.question.create({
+      data: {
+        customId,
+        text: body.text,
+        explanation: body.explanation ?? null,
+        objective: body.objective ?? null,
+        references: normalizeReferenceInput(body.references, body.refs),
+        answers: {
+          create: body.answers.map((a) => ({ text: a.text, isCorrect: a.isCorrect })),
+        },
+      },
+    });
+    console.error("🟢 [QUESTIONS POST] Question created:", { id: q.id, customId: q.customId });
+
+    // attach tags
+    if (Array.isArray(body.tags) && body.tags.length) {
+      console.error("🔵 [QUESTIONS POST] Attaching", body.tags.length, "tags...");
+      for (const t of body.tags) {
+        const type = TagType[t.type] ?? TagType.TOPIC; // fallback, but ideally validated client-side
+        const tag = await prisma.tag.upsert({
+          where: { type_value: { type, value: t.value } },
+          update: {},
+          create: { type, value: t.value },
+        });
+        await prisma.questionTag.create({ data: { questionId: q.id, tagId: tag.id } });
+      }
+      console.error("🟢 [QUESTIONS POST] Tags attached successfully");
+    }
+
+    // Ensure new questions always start as unused
+    console.error("🔵 [QUESTIONS POST] Setting question mode to 'unused'...");
+    await setQuestionMode(q.id, "unused");
+
+    // Check for similar questions in the background (don't block response)
+    // Determine year context from the request URL or yearCaptured field
+    const urlPath = new URL(req.url).pathname;
+    const yearContext: "year4" | "year5" = urlPath.includes("year5") || q.yearCaptured === "5" ? "year5" : "year4";
+    
+    console.error("🔵 [QUESTIONS POST] Starting background similarity check for", yearContext);
+    // Run similarity check asynchronously (don't await)
+    import("@/lib/similar-questions")
+      .then(({ checkForSimilarQuestions }) => {
+        return checkForSimilarQuestions(
+          { id: q.id, text: q.text ?? "", customId: q.customId },
+          yearContext
+        );
+      })
+      .catch((error) => {
+        console.error("Failed to check for similar questions:", error);
+      });
+
+    console.error("🟢 [QUESTIONS POST] Success! Returning response");
+    return NextResponse.json({ ok: true, customId: q.customId });
+  } catch (error) {
+    console.error("🔴 [QUESTIONS POST] Error:", error);
+    
+    if (error && typeof error === 'object' && 'status' in error) {
+      const httpError = error as { status: number; message: string };
+      return NextResponse.json(
+        { error: httpError.message || "Permission denied" },
+        { status: httpError.status }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: "Failed to create question" },
+      { status: 500 }
+    );
+  }
 }
 
 /**
@@ -167,25 +205,42 @@ export async function POST(req: Request) {
  * Replaces answers and tags/refs.
  */
 export async function PUT(req: Request) {
-  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+  try {
+    console.error("🔵 [QUESTIONS PUT] Request received");
+    
+    const userInfo = await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    console.error("🟢 [QUESTIONS PUT] Permission granted:", userInfo);
 
-  const body = (await req.json()) as {
-    customId: number;
-    text: string;
-    answers: Array<{ text: string; isCorrect: boolean }>;
-    explanation?: string | null;
-    objective?: string | null;
-    refs?: Array<{ url: string }>;
-    references?: string | null;
-    tags?: Array<{ type: keyof typeof TagType; value: string }>;
-  };
+    const body = (await req.json()) as {
+      customId: number;
+      text: string;
+      answers: Array<{ text: string; isCorrect: boolean }>;
+      explanation?: string | null;
+      objective?: string | null;
+      refs?: Array<{ url: string }>;
+      references?: string | null;
+      tags?: Array<{ type: keyof typeof TagType; value: string }>;
+    };
 
-  if (!Number.isFinite(body?.customId)) {
-    return NextResponse.json({ error: "customId required" }, { status: 400 });
-  }
+    console.error("🔵 [QUESTIONS PUT] Request body:", {
+      customId: body?.customId,
+      hasText: !!body?.text,
+      answersCount: body?.answers?.length,
+      tagsCount: body?.tags?.length
+    });
 
-  const existing = await prisma.question.findUnique({ where: { customId: body.customId } });
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!Number.isFinite(body?.customId)) {
+      console.error("🔴 [QUESTIONS PUT] Invalid customId");
+      return NextResponse.json({ error: "customId required" }, { status: 400 });
+    }
+
+    console.error("🔵 [QUESTIONS PUT] Finding existing question:", body.customId);
+    const existing = await prisma.question.findUnique({ where: { customId: body.customId } });
+    if (!existing) {
+      console.error("🔴 [QUESTIONS PUT] Question not found:", body.customId);
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    console.error("🟢 [QUESTIONS PUT] Found existing question:", existing.id);
 
   const previousMode = await getCurrentQuestionMode(existing.id);
 
@@ -232,15 +287,32 @@ export async function PUT(req: Request) {
     }
   }
 
-  const normalizedMode = canonicalizeQuestionMode(providedMode);
-  if (normalizedMode) {
-    await setQuestionMode(existing.id, normalizedMode);
-  } else if (previousMode) {
-    await setQuestionMode(existing.id, previousMode);
-  } else {
-    const derived = await deriveModeFromHistory(existing.id);
-    await setQuestionMode(existing.id, derived);
-  }
+    const normalizedMode = canonicalizeQuestionMode(providedMode);
+    if (normalizedMode) {
+      await setQuestionMode(existing.id, normalizedMode);
+    } else if (previousMode) {
+      await setQuestionMode(existing.id, previousMode);
+    } else {
+      const derived = await deriveModeFromHistory(existing.id);
+      await setQuestionMode(existing.id, derived);
+    }
 
-  return NextResponse.json({ ok: true });
+    console.error("🟢 [QUESTIONS PUT] Success! Question updated");
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("🔴 [QUESTIONS PUT] Error:", error);
+    
+    if (error && typeof error === 'object' && 'status' in error) {
+      const httpError = error as { status: number; message: string };
+      return NextResponse.json(
+        { error: httpError.message || "Permission denied" },
+        { status: httpError.status }
+      );
+    }
+    
+    return NextResponse.json(
+      { error: "Failed to update question" },
+      { status: 500 }
+    );
+  }
 }
