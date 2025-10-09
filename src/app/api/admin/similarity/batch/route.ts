@@ -1,10 +1,10 @@
 import prisma from "@/lib/db";
 import { findSimilarQuestions } from "@/lib/similarity";
-import { getToken } from "next-auth/jwt";
+import { requireRole } from "@/lib/rbac";
 
-// Use Edge Runtime for better timeout handling and streaming
-export const runtime = 'edge';
-export const maxDuration = 25; // Edge allows up to 25 seconds
+// Use Node.js runtime with extended timeout and streaming
+export const maxDuration = 60; // Vercel allows up to 60 seconds on Pro plan (10s on Hobby)
+export const dynamic = 'force-dynamic';
 
 interface BatchRequest {
   yearContext: "year4" | "year5";
@@ -30,22 +30,8 @@ export async function POST(request: Request) {
     try {
       await sendUpdate('progress', '🚀 Starting batch similarity check...');
       
-      // Check authorization using Edge-compatible method
-      const token = await getToken({ req: request });
-      if (!token) {
-        await sendUpdate('error', '❌ Unauthorized: No token found');
-        await writer.close();
-        return;
-      }
-      
-      const userRole = token.role as string;
-      const allowedRoles = ["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"];
-      if (!allowedRoles.includes(userRole)) {
-        await sendUpdate('error', `❌ Forbidden: Role ${userRole} not allowed`);
-        await writer.close();
-        return;
-      }
-      
+      // Check authorization
+      await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
       await sendUpdate('progress', '✅ Authorization successful');
 
       const body = (await request.json()) as BatchRequest;
