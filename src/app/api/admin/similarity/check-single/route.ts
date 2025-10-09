@@ -1,10 +1,39 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
-import { findSimilarQuestions } from "@/lib/similarity";
+import { getEmbedding } from "@/lib/similarity";
 import { requireRole } from "@/lib/rbac";
 
 export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
+
+/**
+ * Calculate cosine similarity between two embedding vectors
+ */
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  if (vecA.length !== vecB.length) {
+    throw new Error("Vectors must have the same length");
+  }
+
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i]! * vecB[i]!;
+    normA += vecA[i]! * vecA[i]!;
+    normB += vecB[i]! * vecB[i]!;
+  }
+
+  normA = Math.sqrt(normA);
+  normB = Math.sqrt(normB);
+
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+
+  return dotProduct / (normA * normB);
+}
 
 interface SingleCheckRequest {
   questionId: string;
@@ -17,13 +46,14 @@ export async function POST(request: Request) {
 
     const { questionId, yearContext } = (await request.json()) as SingleCheckRequest;
 
-    // Get the question
+    // Get the question with its embedding
     const question = await prisma.question.findUnique({
       where: { id: questionId },
       select: {
         id: true,
         customId: true,
         text: true,
+        embedding: true,
         questionTags: {
           include: { tag: true },
         },
@@ -35,6 +65,37 @@ export async function POST(request: Request) {
         success: false, 
         questionId,
         similarFound: 0 
+      });
+    }
+    
+    // If no embedding exists, compute it now
+    let questionEmbedding: number[] | null = null;
+    if (question.embedding && Array.isArray(question.embedding)) {
+      questionEmbedding = question.embedding as number[];
+    } else if (process.env.OPENAI_API_KEY) {
+      try {
+        console.error(`Computing embedding for question ${question.customId}...`);
+        questionEmbedding = await getEmbedding(question.text);
+        // Save it for future use
+        await prisma.question.update({
+          where: { id: question.id },
+          data: { embedding: questionEmbedding },
+        });
+      } catch (error) {
+        console.error("Failed to compute embedding:", error);
+        return NextResponse.json({ 
+          success: false, 
+          questionId,
+          similarFound: 0,
+          reason: "Failed to compute embedding"
+        });
+      }
+    } else {
+      return NextResponse.json({ 
+        success: false, 
+        questionId,
+        similarFound: 0,
+        reason: "No embedding and no OpenAI key"
       });
     }
 
@@ -69,6 +130,7 @@ export async function POST(request: Request) {
         id: { not: questionId },
         yearCaptured: { in: [yearNumber, yearWithPrefix] },
         text: { not: null },
+        embedding: { not: Prisma.JsonNull }, // Only compare questions that have embeddings
         createdAt: { gte: twentyFourHoursAgo }, // Only questions from last 24 hours
         questionTags: {
           some: {
@@ -81,15 +143,31 @@ export async function POST(request: Request) {
       select: {
         id: true,
         text: true,
+        embedding: true,
+        customId: true,
       },
     });
 
-    // Find similar questions using AI
-    const similarQuestions = await findSimilarQuestions(
-      { id: question.id, text: question.text },
-      existingQuestions.map(q => ({ id: q.id, text: q.text! })),
-      50 // 50% similarity threshold
-    );
+    // Compare embeddings (instant, no API calls!)
+    const similarQuestions: Array<{ questionId: string; similarity: number }> = [];
+    const threshold = 50; // 50% similarity threshold
+    
+    for (const existingQ of existingQuestions) {
+      if (!existingQ.embedding || !Array.isArray(existingQ.embedding)) continue;
+      
+      const existingEmbedding = existingQ.embedding as number[];
+      const similarity = cosineSimilarity(questionEmbedding, existingEmbedding);
+      const similarityPercent = Math.round(similarity * 100);
+      
+      if (similarityPercent >= threshold) {
+        similarQuestions.push({
+          questionId: existingQ.id,
+          similarity: similarityPercent,
+        });
+      }
+    }
+    
+    console.error(`Found ${similarQuestions.length} similar questions (>= ${threshold}%)`);
 
     let groupCreated = false;
 

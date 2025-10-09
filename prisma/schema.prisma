@@ -95,6 +95,7 @@ model Question {
   explanationImageUrl String?
   references          String?
   isAnswerConfirmed   Boolean              @default(true)
+  embedding           Json?                // Pre-computed OpenAI embedding vector for similarity checks
   extraction          AIExtraction?
   answers             Answer[]
   comments            QuestionComment[]

@@ -155,18 +155,39 @@ export async function POST(req: Request) {
     console.error("🔵 [QUESTIONS POST] Generated customId:", customId);
 
     console.error("🔵 [QUESTIONS POST] Creating question in database...");
-    const q = await prisma.question.create({
-      data: {
-        customId,
-        text: body.text,
-        explanation: body.explanation ?? null,
-        objective: body.objective ?? null,
-        references: normalizeReferenceInput(body.references, body.refs),
-        yearCaptured: storedYear,
-        answers: {
-          create: body.answers.map((a) => ({ text: a.text, isCorrect: a.isCorrect })),
-        },
+    
+    // Pre-compute embedding if text is provided and OpenAI key exists
+    let embedding: number[] | null = null;
+    if (body.text && process.env.OPENAI_API_KEY) {
+      try {
+        console.error("🔵 [QUESTIONS POST] Computing embedding for similarity...");
+        const { getEmbedding } = await import("@/lib/similarity");
+        embedding = await getEmbedding(body.text);
+        console.error("🟢 [QUESTIONS POST] Embedding computed successfully");
+      } catch (embeddingError) {
+        console.error("🔴 [QUESTIONS POST] Failed to compute embedding:", embeddingError);
+        // Continue without embedding - not critical for question creation
+      }
+    }
+    
+    const questionData: Prisma.QuestionCreateInput = {
+      customId,
+      text: body.text,
+      explanation: body.explanation ?? null,
+      objective: body.objective ?? null,
+      references: normalizeReferenceInput(body.references, body.refs),
+      yearCaptured: storedYear,
+      answers: {
+        create: body.answers.map((a) => ({ text: a.text, isCorrect: a.isCorrect })),
       },
+    };
+    
+    if (embedding) {
+      questionData.embedding = embedding;
+    }
+    
+    const q = await prisma.question.create({
+      data: questionData,
     });
     console.error("🟢 [QUESTIONS POST] Question created:", { id: q.id, customId: q.customId });
 
@@ -277,6 +298,22 @@ export async function PUT(req: Request) {
 
     const previousMode = await getCurrentQuestionMode(existing.id);
 
+    // Check if text changed - if so, recompute embedding
+    const textChanged = existing.text?.trim() !== body.text?.trim();
+    let newEmbedding: number[] | null = null;
+    
+    if (textChanged && body.text && process.env.OPENAI_API_KEY) {
+      try {
+        console.error("🔵 [QUESTIONS PUT] Text changed, recomputing embedding...");
+        const { getEmbedding } = await import("@/lib/similarity");
+        newEmbedding = await getEmbedding(body.text);
+        console.error("🟢 [QUESTIONS PUT] Embedding recomputed successfully");
+      } catch (embeddingError) {
+        console.error("🔴 [QUESTIONS PUT] Failed to recompute embedding:", embeddingError);
+        // Continue without new embedding - not critical
+      }
+    }
+
     const updateData: Prisma.QuestionUpdateInput = {
       text: body.text,
       explanation: body.explanation ?? null,
@@ -286,6 +323,10 @@ export async function PUT(req: Request) {
 
     if (storedYear) {
       updateData.yearCaptured = storedYear;
+    }
+    
+    if (newEmbedding) {
+      updateData.embedding = newEmbedding;
     }
 
     await prisma.question.update({
