@@ -142,6 +142,8 @@ export async function POST(request: Request) {
       );
       const rotation = rotationTag?.tag.value ?? "No Rotation";
 
+      console.error(`🔍 [BATCH] Q${question.customId}: rotation="${rotation}", tags=${question.questionTags.length}`);
+
       if (!questionsByRotation.has(rotation)) {
         questionsByRotation.set(rotation, []);
       }
@@ -218,8 +220,14 @@ export async function POST(request: Request) {
         `🔍 [BATCH] Found ${existingQuestionsInRotation.length} existing questions in ${rotation}`
       );
 
-      if (existingQuestionsInRotation.length === 0) {
-        console.error(`🔍 [BATCH] No existing questions to compare in ${rotation}, skipping`);
+      // If there are no existing questions but multiple new questions,
+      // compare new questions against each other
+      let questionsToCompareAgainst = existingQuestionsInRotation;
+      if (existingQuestionsInRotation.length === 0 && rotationQuestions.length > 1) {
+        console.error(`🔍 [BATCH] No existing questions, will compare new questions against each other`);
+        questionsToCompareAgainst = rotationQuestions;
+      } else if (existingQuestionsInRotation.length === 0) {
+        console.error(`🔍 [BATCH] No existing questions and only 1 new question in ${rotation}, skipping`);
         continue;
       }
 
@@ -254,12 +262,17 @@ export async function POST(request: Request) {
               );
 
               // Find similar questions
-              const similarQuestions = await findSimilarQuestions(
-                { id: newQuestion.id, text: newQuestion.text },
-                existingQuestionsInRotation.map((q) => ({
+              // Filter out the current question itself when comparing against new questions
+              const questionsToCheck = questionsToCompareAgainst
+                .filter(q => q.id !== newQuestion.id)
+                .map((q) => ({
                   id: q.id,
                   text: q.text ?? "",
-                })),
+                }));
+              
+              const similarQuestions = await findSimilarQuestions(
+                { id: newQuestion.id, text: newQuestion.text },
+                questionsToCheck,
                 40 // 40% threshold
               );
 
