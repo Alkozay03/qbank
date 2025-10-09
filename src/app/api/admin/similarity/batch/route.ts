@@ -1,311 +1,184 @@
+import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { findSimilarQuestions } from "@/lib/similarity";
 import { requireRole } from "@/lib/rbac";
 
-// Use Node.js runtime with extended timeout and streaming
-export const maxDuration = 60; // Vercel allows up to 60 seconds on Pro plan (10s on Hobby)
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 interface BatchRequest {
   yearContext: "year4" | "year5";
-  dateFrom?: string;
-  dateTo?: string;
-  hoursAgo?: number;
+  questionId: string; // Process ONE question at a time
 }
 
 export async function POST(request: Request) {
-  // Create a streaming response
-  const encoder = new TextEncoder();
-  const stream = new TransformStream();
-  const writer = stream.writable.getWriter();
+  try {
+    await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    
+    const body = (await request.json()) as BatchRequest;
+    const { yearContext, questionId } = body;
 
-  // Helper to send updates
-  const sendUpdate = async (type: 'progress' | 'result' | 'complete' | 'error', message: string, data?: unknown) => {
-    const update = { type, message, data, timestamp: new Date().toISOString() };
-    await writer.write(encoder.encode(`data: ${JSON.stringify(update)}\n\n`));
-  };
-
-  // Start processing in the background
-  (async () => {
-    try {
-      await sendUpdate('progress', '🚀 Starting batch similarity check...');
-      
-      // Check authorization
-      await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
-      await sendUpdate('progress', '✅ Authorization successful');
-
-      const body = (await request.json()) as BatchRequest;
-      const { yearContext, dateFrom, dateTo, hoursAgo = 24 } = body;
-      await sendUpdate('progress', `📋 Parameters: ${yearContext}, checking last ${hoursAgo} hours`);
-
-      // Calculate date range
-      let startDate: Date;
-      const endDate = dateTo ? new Date(dateTo) : new Date();
-
-      if (dateFrom) {
-        startDate = new Date(dateFrom);
-      } else {
-        startDate = new Date();
-        startDate.setHours(startDate.getHours() - hoursAgo);
-      }
-
-      // Support both "4" and "Y4" year formats
-      const yearNumber = yearContext === "year4" ? "4" : "5";
-      const yearWithPrefix = yearContext === "year4" ? "Y4" : "Y5";
-
-      // Get questions in date range
-      const newQuestions = await prisma.question.findMany({
-        where: {
-          yearCaptured: {
-            in: [yearNumber, yearWithPrefix],
-          },
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
-          },
-          text: { not: null },
-        },
-        select: {
-          id: true,
-          customId: true,
-          text: true,
-          questionTags: {
-            include: {
-              tag: true,
-            },
+    // Get the question to check
+    const question = await prisma.question.findUnique({
+      where: { id: questionId },
+      select: {
+        id: true,
+        customId: true,
+        text: true,
+        yearCaptured: true,
+        questionTags: {
+          include: {
+            tag: true,
           },
         },
-        orderBy: {
-          createdAt: "asc",
-        },
-      });
+      },
+    });
 
-      await sendUpdate('progress', `📊 Found ${newQuestions.length} questions to check`);
-
-      if (newQuestions.length === 0) {
-        await sendUpdate('complete', 'No questions found in the specified date range', {
-          processedQuestions: 0,
-          newGroupsCreated: 0,
-          questionsWithDuplicates: 0,
-          details: [],
-        });
-        await writer.close();
-        return;
-      }
-
-      // Group questions by rotation
-      const questionsByRotation = new Map<
-        string,
-        Array<{ id: string; customId: number | null; text: string }>
-      >();
-
-      for (const question of newQuestions) {
-        const rotationTag = question.questionTags.find(
-          (qt) => qt.tag.type === "ROTATION"
-        );
-        const rotation = rotationTag?.tag.value ?? "No Rotation";
-
-        if (!questionsByRotation.has(rotation)) {
-          questionsByRotation.set(rotation, []);
-        }
-
-        questionsByRotation.get(rotation)!.push({
-          id: question.id,
-          customId: question.customId,
-          text: question.text ?? "",
-        });
-      }
-
-      await sendUpdate('progress', `🔄 Grouped into ${questionsByRotation.size} rotations`);
-
-      // Process each rotation and check for similar questions
-      const results: Array<{
-        questionId: string;
-        customId: number | null;
-        rotation: string;
-        duplicatesFound: number;
-      }> = [];
-      
-      let newGroupsCreated = 0;
-      let questionsWithDuplicates = 0;
-      const startTime = Date.now();
-      const maxRuntime = 20000; // 20 seconds max to leave buffer for edge runtime
-
-      for (const [rotation, rotationQuestions] of questionsByRotation.entries()) {
-        await sendUpdate('progress', `🔍 Processing rotation: ${rotation} (${rotationQuestions.length} questions)`);
-        
-        // Check timeout
-        if (Date.now() - startTime > maxRuntime) {
-          await sendUpdate('progress', '⏱️ Timeout approaching, wrapping up...');
-          break;
-        }
-
-        // Get ALL questions in this rotation (excluding the new ones we're checking)
-        // This includes questions from ANY time period, not just recent ones
-        const existingQuestionsInRotation = await prisma.question.findMany({
-          where: {
-            yearCaptured: {
-              in: [yearNumber, yearWithPrefix],
-            },
-            id: { notIn: rotationQuestions.map((q) => q.id) }, // Exclude new questions
-            text: { not: null },
-            ...(rotation !== "No Rotation" && {
-              questionTags: {
-                some: {
-                  tag: {
-                    type: "ROTATION",
-                    value: rotation,
-                  },
-                },
-              },
-            }),
-          },
-          select: {
-            id: true,
-            text: true,
-            customId: true,
-          },
-        });
-
-        await sendUpdate('progress', `  📚 Found ${existingQuestionsInRotation.length} existing questions to compare against`);
-
-        // Skip if no questions to compare against
-        if (existingQuestionsInRotation.length === 0) {
-          await sendUpdate('progress', `  ⚠️ No existing questions in ${rotation}, skipping`);
-          continue;
-        }
-
-        const questionsToCompareAgainst = existingQuestionsInRotation;
-
-        // Check each new question
-        for (const newQuestion of rotationQuestions) {
-          await sendUpdate('progress', `  🔎 Checking question #${newQuestion.customId}...`);
-          
-          if (Date.now() - startTime > maxRuntime) {
-            await sendUpdate('progress', '  ⏱️ Timeout reached, stopping');
-            break;
-          }
-
-          // Filter out the question itself when comparing
-          const questionsToCheck = questionsToCompareAgainst
-            .filter((q) => q.id !== newQuestion.id)
-            .map((q) => ({
-              id: q.id,
-              text: q.text ?? "",
-            }));
-
-          if (questionsToCheck.length === 0) {
-            continue;
-          }
-
-          // Find similar questions
-          const similarQuestions = await findSimilarQuestions(
-            { id: newQuestion.id, text: newQuestion.text },
-            questionsToCheck,
-            40 // 40% similarity threshold
-          );
-          
-          if (similarQuestions.length > 0) {
-            await sendUpdate('result', `  ✅ Question #${newQuestion.customId}: Found ${similarQuestions.length} similar question(s)`);
-            questionsWithDuplicates++;
-
-            // Get all question IDs in this similar set
-            const questionIdsInSet = [
-              newQuestion.id,
-              ...similarQuestions.map((sq) => sq.questionId),
-            ];
-
-            // Check if any existing groups contain these questions
-            const existingGroups = await prisma.similarQuestionGroup.findMany({
-              where: {
-                yearContext,
-                questionIds: {
-                  hasSome: questionIdsInSet,
-                },
-              },
-            });
-
-            // Build similarity scores map
-            const similarityScores: Record<string, number> = {};
-            for (const sq of similarQuestions) {
-              const key = [newQuestion.id, sq.questionId].sort().join(":");
-              similarityScores[key] = sq.similarity;
-            }
-
-            if (existingGroups.length > 0) {
-              // Update existing group - merge all question IDs
-              const group = existingGroups[0]!;
-              const allQuestionIds = Array.from(
-                new Set([...group.questionIds, ...questionIdsInSet]),
-              );
-
-              // Merge similarity scores
-              const existingScores =
-                (group.similarityScores as Record<string, number>) || {};
-              const mergedScores = { ...existingScores, ...similarityScores };
-
-              await prisma.similarQuestionGroup.update({
-                where: { id: group.id },
-                data: {
-                  questionIds: allQuestionIds,
-                  similarityScores: mergedScores,
-                  updatedAt: new Date(),
-                },
-              });
-            } else {
-              // Create new group
-              await prisma.similarQuestionGroup.create({
-                data: {
-                  yearContext,
-                  questionIds: questionIdsInSet,
-                  similarityScores,
-                },
-              });
-              newGroupsCreated++;
-            }
-          }
-
-          results.push({
-            questionId: newQuestion.id,
-            customId: newQuestion.customId,
-            rotation,
-            duplicatesFound: similarQuestions.length,
-          });
-        }
-      }
-
-      const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-      const timeoutWarning = Date.now() - startTime > maxRuntime;
-
-      // Send final completion message
-      await sendUpdate('complete', `🎉 Completed in ${totalTime}s`, {
-        success: true,
-        processedQuestions: results.length,
-        newGroupsCreated,
-        questionsWithDuplicates,
-        timeoutWarning,
-        details: results,
-      });
-
-    } catch (error) {
-      // Send error message
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      await sendUpdate('error', `❌ Error: ${errorMessage}`, {
+    if (!question || !question.text) {
+      return NextResponse.json({
         success: false,
-        error: errorMessage,
+        error: "Question not found or has no text",
       });
-    } finally {
-      // Always close the stream
-      await writer.close();
     }
-  })();
 
-  // Return the streaming response
-  return new Response(stream.readable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
+    // Get rotation
+    const rotationTag = question.questionTags.find(
+      (qt) => qt.tag.type === "ROTATION"
+    );
+    const rotation = rotationTag?.tag.value ?? "No Rotation";
+
+    // Support both "4" and "Y4" year formats
+    const yearNumber = yearContext === "year4" ? "4" : "5";
+    const yearWithPrefix = yearContext === "year4" ? "Y4" : "Y5";
+
+    // Get ALL other questions in this rotation to compare against
+    const existingQuestions = await prisma.question.findMany({
+      where: {
+        yearCaptured: {
+          in: [yearNumber, yearWithPrefix],
+        },
+        id: { not: questionId }, // Exclude the question itself
+        text: { not: null },
+        ...(rotation !== "No Rotation" && {
+          questionTags: {
+            some: {
+              tag: {
+                type: "ROTATION",
+                value: rotation,
+              },
+            },
+          },
+        }),
+      },
+      select: {
+        id: true,
+        text: true,
+        customId: true,
+      },
+    });
+
+    if (existingQuestions.length === 0) {
+      return NextResponse.json({
+        success: true,
+        questionId,
+        customId: question.customId,
+        rotation,
+        similarCount: 0,
+        message: "No existing questions to compare against",
+      });
+    }
+
+    // Find similar questions
+    const similarQuestions = await findSimilarQuestions(
+      { id: question.id, text: question.text },
+      existingQuestions.map((q) => ({
+        id: q.id,
+        text: q.text ?? "",
+      })),
+      40 // 40% similarity threshold
+    );
+
+    let groupAction = "none";
+
+    if (similarQuestions.length > 0) {
+      // Get all question IDs in this similar set
+      const questionIdsInSet = [
+        question.id,
+        ...similarQuestions.map((sq) => sq.questionId),
+      ];
+
+      // Check if any existing groups contain these questions
+      const existingGroups = await prisma.similarQuestionGroup.findMany({
+        where: {
+          yearContext,
+          questionIds: {
+            hasSome: questionIdsInSet,
+          },
+        },
+      });
+
+      // Build similarity scores map
+      const similarityScores: Record<string, number> = {};
+      for (const sq of similarQuestions) {
+        const key = [question.id, sq.questionId].sort().join(":");
+        similarityScores[key] = sq.similarity;
+      }
+
+      if (existingGroups.length > 0) {
+        // Update existing group - merge all question IDs
+        const group = existingGroups[0]!;
+        const allQuestionIds = Array.from(
+          new Set([...group.questionIds, ...questionIdsInSet]),
+        );
+
+        // Merge similarity scores
+        const existingScores =
+          (group.similarityScores as Record<string, number>) || {};
+        const mergedScores = { ...existingScores, ...similarityScores };
+
+        await prisma.similarQuestionGroup.update({
+          where: { id: group.id },
+          data: {
+            questionIds: allQuestionIds,
+            similarityScores: mergedScores,
+            updatedAt: new Date(),
+          },
+        });
+        groupAction = "updated";
+      } else {
+        // Create new group
+        await prisma.similarQuestionGroup.create({
+          data: {
+            yearContext,
+            questionIds: questionIdsInSet,
+            similarityScores,
+          },
+        });
+        groupAction = "created";
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      questionId,
+      customId: question.customId,
+      rotation,
+      similarCount: similarQuestions.length,
+      groupAction,
+      similarQuestions: similarQuestions.map((sq) => ({
+        id: sq.questionId,
+        similarity: sq.similarity,
+      })),
+    });
+
+  } catch (error) {
+    console.error("Batch similarity error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
 }

@@ -177,83 +177,82 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
 
     setBatchCheckLoading(true);
     try {
-      const body: {
-        yearContext: "year4" | "year5";
-        hoursAgo?: number;
-        dateFrom?: string;
-        dateTo?: string;
-      } = {
-        yearContext,
-      };
+      // First, get the list of questions to check
+      let startDate: Date;
+      const endDate = dateTo ? new Date(dateTo) : new Date();
 
-      if (hoursAgo) {
-        body.hoursAgo = hoursAgo;
-      } else if (dateFrom) {
-        body.dateFrom = new Date(dateFrom).toISOString();
-        if (dateTo) {
-          body.dateTo = new Date(dateTo).toISOString();
-        }
+      if (dateFrom) {
+        startDate = new Date(dateFrom);
+      } else {
+        startDate = new Date();
+        startDate.setHours(startDate.getHours() - (hoursAgo || 24));
       }
 
-      const response = await fetch("/api/admin/similarity/batch", {
+      const yearNumber = yearContext === "year4" ? "4" : "5";
+      const yearWithPrefix = yearContext === "year4" ? "Y4" : "Y5";
+
+      // Get questions from the API that match criteria
+      const questionsResponse = await fetch("/api/admin/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          yearCaptured: [yearNumber, yearWithPrefix],
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error("Batch check failed");
+      if (!questionsResponse.ok) {
+        throw new Error("Failed to fetch questions");
       }
 
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let lastResult: { success?: boolean; processedQuestions?: number; newGroupsCreated?: number; questionsWithDuplicates?: number; timeoutWarning?: boolean } = {};
+      const questions = (await questionsResponse.json()) as Array<{ id: string; customId: number | null }>;
 
-      if (reader) {
+      if (questions.length === 0) {
+        alert("No questions found in the specified date range");
+        return;
+      }
+
+      // Process one question at a time
+      let processedQuestions = 0;
+      let questionsWithDuplicates = 0;
+      let newGroupsCreated = 0;
+
+      for (const question of questions) {
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          const response = await fetch("/api/admin/similarity/check-single", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              questionId: question.id,
+              yearContext,
+            }),
+          });
 
-            // Decode the chunk and add to buffer
-            buffer += decoder.decode(value, { stream: true });
-
-            // Process complete messages (separated by \n\n)
-            const messages = buffer.split("\n\n");
-            buffer = messages.pop() || ""; // Keep incomplete message in buffer
-
-            for (const message of messages) {
-              if (message.startsWith("data: ")) {
-                try {
-                  const data = JSON.parse(message.slice(6));
-                  
-                  // Update UI based on message type
-                  if (data.type === "progress" || data.type === "result") {
-                    // Progress update - could show in UI later
-                  } else if (data.type === "complete") {
-                    lastResult = data.data;
-                  } else if (data.type === "error") {
-                    throw new Error(data.message || "Unknown error");
-                  }
-                } catch (e) {
-                  console.error("Failed to parse message:", e);
-                }
+          if (response.ok) {
+            const result = await response.json();
+            processedQuestions++;
+            
+            if (result.similarFound > 0) {
+              questionsWithDuplicates++;
+              if (result.groupCreated) {
+                newGroupsCreated++;
               }
             }
           }
-        } finally {
-          reader.releaseLock();
+        } catch (error) {
+          console.error(`Error checking question ${question.id}:`, error);
         }
       }
 
+      const lastResult = {
+        processedQuestions,
+        questionsWithDuplicates,
+        newGroupsCreated,
+      };
+
       // Show final results
-      let message = `✅ Completed!\n\nProcessed: ${lastResult.processedQuestions || 0} questions\nFound duplicates: ${lastResult.questionsWithDuplicates || 0}\nNew groups created: ${lastResult.newGroupsCreated || 0}`;
-      
-      if (lastResult.timeoutWarning) {
-        message += "\n\n⚠️ Note: Timeout reached. Run the check again to continue.";
-      }
+      const message = `✅ Completed!\n\nProcessed: ${lastResult.processedQuestions || 0} questions\nFound duplicates: ${lastResult.questionsWithDuplicates || 0}\nNew groups created: ${lastResult.newGroupsCreated || 0}`;
 
       alert(message);
 
