@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/db";
-// import { requireRole } from "@/lib/rbac"; // TEMP: Disabled to test
+import prisma from "@/lib/db";
+import { requireRole } from "@/lib/rbac";
 import { findSimilarQuestions } from "@/lib/similarity";
 
 export const maxDuration = 10; // Hobby plan limit
@@ -32,11 +32,9 @@ interface BatchResult {
  * Groups questions by rotation and checks each new question against existing ones in the same rotation
  */
 export async function POST(request: Request) {
-  console.error(`🔍 [BATCH] ===== FUNCTION STARTED =====`);
-  
-  // TEMPORARY: Skip role check to test if it's the problem
   try {
-    console.error(`🔍 [BATCH] Skipping role check temporarily...`);
+    // Check authorization
+    await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
     const body = (await request.json()) as BatchRequest;
     const { yearContext, dateFrom, dateTo, hoursAgo = 24 } = body;
