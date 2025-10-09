@@ -15,12 +15,12 @@ export class HttpError extends Error {
 }
 
 /**
- * Normalize inputs like "ADMIN" | Role.ADMIN | "MEMBER" -> "ADMIN" | "MEMBER" | "MASTER_ADMIN"
+ * Normalize inputs like "ADMIN" | Role.ADMIN | "MEMBER" -> "ADMIN" | "MEMBER" | "MASTER_ADMIN" | "WEBSITE_CREATOR"
  */
 function normalizeRole(r: Role | keyof typeof Role | string): Role {
   const s = typeof r === "string" ? r.toUpperCase() : r;
-  // Prisma Role enum values are "MEMBER" | "ADMIN" | "MASTER_ADMIN"
-  if (s === "ADMIN" || s === "MEMBER" || s === "MASTER_ADMIN") return s as Role;
+  // Prisma Role enum values are "MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR"
+  if (s === "ADMIN" || s === "MEMBER" || s === "MASTER_ADMIN" || s === "WEBSITE_CREATOR") return s as Role;
   throw new Error(`Unknown role: ${String(r)}`);
 }
 

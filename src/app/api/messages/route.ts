@@ -35,8 +35,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
     }
 
-    // Check access: regular users can only access their own conversations, master admin can access all
-    if (user.role !== "MASTER_ADMIN" && conversation.userId !== user.id) {
+    // Check access: regular users can only access their own conversations, admins can access all
+    const isAdmin = ["WEBSITE_CREATOR", "MASTER_ADMIN", "ADMIN"].includes(user.role);
+    if (!isAdmin && conversation.userId !== user.id) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Mark messages as read based on user role
-    if (user.role === "MASTER_ADMIN") {
+    if (isAdmin) {
       // Mark admin's unread messages as read
       await prisma.conversation.update({
         where: { id: conversationId },
@@ -118,7 +119,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Check access
-    if (user.role !== "MASTER_ADMIN" && conversation.userId !== user.id) {
+    const isAdmin = ["WEBSITE_CREATOR", "MASTER_ADMIN", "ADMIN"].includes(user.role);
+    if (!isAdmin && conversation.userId !== user.id) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
@@ -144,7 +146,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Update conversation's last message time and unread counts
-    if (user.role === "MASTER_ADMIN") {
+    if (isAdmin) {
       // Admin sent message, increment user's unread count
       await prisma.conversation.update({
         where: { id: conversationId },

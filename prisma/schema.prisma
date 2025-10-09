@@ -343,13 +343,15 @@ model ExtractionImage {
 }
 
 /// IMPORTANT: We map Prisma enum values to the existing Postgres enum labels:
-/// - MEMBER       -> "User"         (existing)
-/// - ADMIN        -> "Admin"        (existing)
-/// - MASTER_ADMIN -> "MASTER_ADMIN" (we will add this label via migration)
+/// - MEMBER          -> "User"            (existing)
+/// - ADMIN           -> "Admin"           (existing)
+/// - MASTER_ADMIN    -> "MASTER_ADMIN"    (existing)
+/// - WEBSITE_CREATOR -> "WEBSITE_CREATOR" (we will add this label via migration)
 enum Role {
-  MEMBER       @map("User")
-  ADMIN        @map("Admin")
-  MASTER_ADMIN @map("MASTER_ADMIN")
+  MEMBER          @map("User")
+  ADMIN           @map("Admin")
+  MASTER_ADMIN    @map("MASTER_ADMIN")
+  WEBSITE_CREATOR @map("WEBSITE_CREATOR")
 
   @@map("Role")
 }

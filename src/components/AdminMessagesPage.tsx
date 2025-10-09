@@ -451,13 +451,15 @@ export default function AdminMessagesPage() {
                       <p className="text-primary">No messages yet. Send the first message!</p>
                     </div>
                   ) : (
-                    messages.map((message) => (
+                    messages.map((message) => {
+                      const isAdminMessage = ["WEBSITE_CREATOR", "MASTER_ADMIN", "ADMIN"].includes(message.sender.role);
+                      return (
                       <div
                         key={message.id}
-                        className={`flex ${message.sender.role === "MASTER_ADMIN" ? "justify-end" : "justify-start"}`}
+                        className={`flex ${isAdminMessage ? "justify-end" : "justify-start"}`}
                       >
                         <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-md ${
-                          message.sender.role === "MASTER_ADMIN"
+                          isAdminMessage
                             ? "theme-gradient text-white rounded-br-sm"
                             : "bg-white text-primary rounded-bl-sm border-2 border-primary/10"
                         }`}>
@@ -474,13 +476,14 @@ export default function AdminMessagesPage() {
                           )}
                           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                           <p className={`text-xs mt-2 opacity-70 ${
-                            message.sender.role === "MASTER_ADMIN" ? "text-inverse" : "text-secondary"
+                            isAdminMessage ? "text-inverse" : "text-secondary"
                           }`}>
                             {formatTime(message.createdAt)}
                           </p>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                   <div ref={messagesEndRef} />
                 </div>

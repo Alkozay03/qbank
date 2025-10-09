@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
+import { hasElevatedAdminPrivileges } from "@/lib/website-creator";
 
 export default async function MasterAdminHub() {
-  // Only allow access to MASTER_ADMIN
+  // Only allow access to WEBSITE_CREATOR and MASTER_ADMIN
   const session = await auth();
   const email = session?.user?.email;
   
@@ -13,13 +14,13 @@ export default async function MasterAdminHub() {
     redirect("/login");
   }
 
-  // Verify that the user is a MASTER_ADMIN
+  // Verify that the user has elevated admin privileges
   const user = await prisma.user.findUnique({
     where: { email },
     select: { role: true },
   });
 
-  if (!user || user.role !== "MASTER_ADMIN") {
+  if (!user || !hasElevatedAdminPrivileges(user.role)) {
     redirect("/year4");
   }
 

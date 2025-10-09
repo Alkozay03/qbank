@@ -147,8 +147,8 @@ export default function Sidebar({
           </button>
         )}
 
-        {/* Master Admin Settings (only for MASTER_ADMIN) */}
-        {role === "MASTER_ADMIN" && (
+        {/* Master Admin Settings (only for WEBSITE_CREATOR and MASTER_ADMIN) */}
+        {(role === "WEBSITE_CREATOR" || role === "MASTER_ADMIN") && (
           <button
             onClick={() => router.push(`/${currentYear}/master-admin`)}
             className="group w-full flex items-center rounded-xl text-left text-primary px-2 py-2.5 gap-2 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:shadow-md"

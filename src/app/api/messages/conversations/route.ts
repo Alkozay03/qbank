@@ -123,12 +123,12 @@ export async function POST(req: Request) {
     }
 
     // Only regular users can start new conversations
-    if (user.role === "MASTER_ADMIN" || user.role === "ADMIN") {
+    if (user.role === "WEBSITE_CREATOR" || user.role === "MASTER_ADMIN" || user.role === "ADMIN") {
       return NextResponse.json({ error: "Admins cannot start conversations" }, { status: 403 });
     }
 
     const body = await req.json();
-    const messageType = body.messageType || "HELP_CREATOR";
+    const messageType = body.messageType || "MASTER_ADMIN"; // Default to master admin for backward compatibility
 
     // Check if user already has an active conversation
     const existingConversation = await prisma.conversation.findFirst({
@@ -145,8 +145,40 @@ export async function POST(req: Request) {
     // Determine recipient based on message type
     let recipientId: string | null = null;
     
-    if (messageType === "CONTACT_ADMIN") {
-      // Find all active admins (not master admin, just regular admins)
+    if (messageType === "WEBSITE_CREATOR") {
+      // Assign to the hardcoded website creator
+      const websiteCreator = await prisma.user.findFirst({
+        where: {
+          email: "u21103000@sharjah.ac.ae",
+          role: "WEBSITE_CREATOR",
+        },
+        select: { id: true },
+      });
+      recipientId = websiteCreator?.id || null;
+    } else if (messageType === "MASTER_ADMIN") {
+      // Randomly select one master admin (excluding website creator)
+      const masterAdmins = await prisma.user.findMany({
+        where: {
+          role: "MASTER_ADMIN",
+          approvalStatus: "APPROVED",
+        },
+        select: { id: true },
+      });
+
+      if (masterAdmins.length > 0) {
+        // Randomly select a master admin
+        const randomMasterAdmin = masterAdmins[Math.floor(Math.random() * masterAdmins.length)];
+        recipientId = randomMasterAdmin.id;
+      } else {
+        // If no master admins, fall back to website creator
+        const websiteCreator = await prisma.user.findFirst({
+          where: { role: "WEBSITE_CREATOR" },
+          select: { id: true },
+        });
+        recipientId = websiteCreator?.id || null;
+      }
+    } else if (messageType === "CONTACT_ADMIN") {
+      // Randomly select one regular admin
       const admins = await prisma.user.findMany({
         where: {
           role: "ADMIN",
@@ -160,20 +192,27 @@ export async function POST(req: Request) {
         const randomAdmin = admins[Math.floor(Math.random() * admins.length)];
         recipientId = randomAdmin.id;
       } else {
-        // If no regular admins, fall back to master admin
-        const masterAdmin = await prisma.user.findFirst({
-          where: { role: "MASTER_ADMIN" },
+        // If no regular admins, randomly select a master admin
+        const masterAdmins = await prisma.user.findMany({
+          where: {
+            role: "MASTER_ADMIN",
+            approvalStatus: "APPROVED",
+          },
           select: { id: true },
         });
-        recipientId = masterAdmin?.id || null;
+        
+        if (masterAdmins.length > 0) {
+          const randomMasterAdmin = masterAdmins[Math.floor(Math.random() * masterAdmins.length)];
+          recipientId = randomMasterAdmin.id;
+        } else {
+          // Final fallback: website creator
+          const websiteCreator = await prisma.user.findFirst({
+            where: { role: "WEBSITE_CREATOR" },
+            select: { id: true },
+          });
+          recipientId = websiteCreator?.id || null;
+        }
       }
-    } else {
-      // HELP_CREATOR - assign to master admin
-      const masterAdmin = await prisma.user.findFirst({
-        where: { role: "MASTER_ADMIN" },
-        select: { id: true },
-      });
-      recipientId = masterAdmin?.id || null;
     }
 
     // Create new conversation

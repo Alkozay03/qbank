@@ -23,8 +23,8 @@ export default function MessagesPage() {
     fetchUserRole();
   }, []);
 
-  // Show admin interface for master admin and regular admin, user interface for everyone else
-  if (userRole === "MASTER_ADMIN" || userRole === "ADMIN") {
+  // Show admin interface for website creator, master admin and regular admin, user interface for everyone else
+  if (userRole === "WEBSITE_CREATOR" || userRole === "MASTER_ADMIN" || userRole === "ADMIN") {
     return <AdminMessagesPage />;
   }
 
