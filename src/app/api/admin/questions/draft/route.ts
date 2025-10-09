@@ -10,7 +10,7 @@ import { requireRole } from "@/lib/rbac";
  * Creates an empty draft question with just an ID so comments can be added
  */
 export async function POST() {
-  await requireRole(["ADMIN", "MASTER_ADMIN"]);
+  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
   // Create a minimal draft question
   const question = await prisma.question.create({
@@ -43,7 +43,7 @@ export async function POST() {
  * Deletes a draft question (used when user cancels)
  */
 export async function DELETE(req: Request) {
-  await requireRole(["ADMIN", "MASTER_ADMIN"]);
+  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
   const url = new URL(req.url);
   const questionId = url.searchParams.get("id");

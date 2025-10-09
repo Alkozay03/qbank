@@ -122,7 +122,7 @@ async function findPossibleDuplicate(text: string) {
 }
 
 export async function POST(req: Request) {
-  await requireRole(["ADMIN", "MASTER_ADMIN"]);
+  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
   try {
     const body = (await req.json()) as unknown as {
       questions?: Array<{

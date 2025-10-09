@@ -45,7 +45,7 @@ function normalizeReferenceInput(
  * Returns a question with answers, tags, and resource refs.
  */
 export async function GET(req: Request) {
-  await requireRole(["ADMIN", "MASTER_ADMIN"]);
+  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
   const { searchParams } = new URL(req.url);
   const customIdParam = searchParams.get("customId");
@@ -88,7 +88,7 @@ export async function GET(req: Request) {
  * Creates a question with a unique numeric customId and attaches tags/refs.
  */
 export async function POST(req: Request) {
-  await requireRole(["ADMIN", "MASTER_ADMIN"]);
+  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
   const body = (await req.json()) as {
     text: string;
@@ -167,7 +167,7 @@ export async function POST(req: Request) {
  * Replaces answers and tags/refs.
  */
 export async function PUT(req: Request) {
-  await requireRole(["ADMIN", "MASTER_ADMIN"]);
+  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
   const body = (await req.json()) as {
     customId: number;
