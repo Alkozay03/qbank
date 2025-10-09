@@ -123,6 +123,12 @@ async function findPossibleDuplicate(text: string) {
 
 export async function POST(req: Request) {
   await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+  
+  // Determine year context from request URL or referer header
+  const referer = req.headers.get("referer") || "";
+  const yearContext: "year4" | "year5" = referer.includes("year5") ? "year5" : "year4";
+  console.warn(`🔵 [BULK] Processing bulk questions for ${yearContext}`);
+  
   try {
     const body = (await req.json()) as unknown as {
       questions?: Array<{
@@ -188,6 +194,21 @@ export async function POST(req: Request) {
 
         const normalizedMode = canonicalizeQuestionMode(providedMode) ?? "unused";
         await setQuestionMode(q.id, normalizedMode);
+
+        // Check for similar questions in the background (don't block response)
+        // yearContext was determined at the start of POST from referer header
+        console.warn(`🔵 [BULK] Starting background similarity check for question ${customId} (${yearContext})`);
+        // Run similarity check asynchronously (don't await)
+        import("@/lib/similar-questions")
+          .then(({ checkForSimilarQuestions }) => {
+            return checkForSimilarQuestions(
+              { id: q.id, text: q.text ?? "", customId: q.customId },
+              yearContext
+            );
+          })
+          .catch((error) => {
+            console.error("🔴 [BULK] Failed to check for similar questions:", error);
+          });
 
         results.push({ index: i, status: "created", customId });
       } catch (e: unknown) {
