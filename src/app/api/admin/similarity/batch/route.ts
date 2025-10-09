@@ -115,13 +115,14 @@ export async function POST(request: Request) {
         break;
       }
 
-      // Get existing questions in this rotation to compare against
+      // Get ALL questions in this rotation (excluding the new ones we're checking)
+      // This includes questions from ANY time period, not just recent ones
       const existingQuestionsInRotation = await prisma.question.findMany({
         where: {
           yearCaptured: {
             in: [yearNumber, yearWithPrefix],
           },
-          id: { notIn: rotationQuestions.map((q) => q.id) },
+          id: { notIn: rotationQuestions.map((q) => q.id) }, // Exclude new questions
           text: { not: null },
           ...(rotation !== "No Rotation" && {
             questionTags: {
@@ -141,13 +142,12 @@ export async function POST(request: Request) {
         },
       });
 
-      // If no existing questions, compare new questions against each other
-      let questionsToCompareAgainst = existingQuestionsInRotation;
-      if (existingQuestionsInRotation.length === 0 && rotationQuestions.length > 1) {
-        questionsToCompareAgainst = rotationQuestions;
-      } else if (existingQuestionsInRotation.length === 0) {
-        continue; // Skip if only 1 new question and no existing ones
+      // Skip if no questions to compare against
+      if (existingQuestionsInRotation.length === 0) {
+        continue;
       }
+
+      const questionsToCompareAgainst = existingQuestionsInRotation;
 
       // Check each new question
       for (const newQuestion of rotationQuestions) {
