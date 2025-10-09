@@ -57,6 +57,33 @@ export async function POST(request: Request) {
 
     // Get all questions created in this date range
     const yearValue = yearContext === "year4" ? "4" : "5";
+    
+    // Debug: Check what questions exist in the database
+    const allRecentQuestions = await prisma.question.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        id: true,
+        customId: true,
+        yearCaptured: true,
+        createdAt: true,
+        text: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 10, // Just show last 10
+    });
+    
+    console.error(`🔍 [BATCH] Debug - Found ${allRecentQuestions.length} total questions in date range (any year):`);
+    allRecentQuestions.forEach(q => {
+      console.error(`  - Q${q.customId}: year=${q.yearCaptured}, created=${q.createdAt.toISOString()}, hasText=${!!q.text}`);
+    });
+    
     const newQuestions = await prisma.question.findMany({
       where: {
         yearCaptured: yearValue,
@@ -81,7 +108,7 @@ export async function POST(request: Request) {
       },
     });
 
-    console.error(`🔍 [BATCH] Found ${newQuestions.length} new questions to check`);
+    console.error(`🔍 [BATCH] Found ${newQuestions.length} new questions to check (yearCaptured=${yearValue})`);
 
     if (newQuestions.length === 0) {
       return NextResponse.json({
