@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     const { yearContext, dateFrom, dateTo, hoursAgo = 24 } = body;
 
     console.error(`🔍 [BATCH] Starting batch similarity check for ${yearContext}`);
+    console.error(`🔍 [BATCH] Request params:`, { yearContext, dateFrom, dateTo, hoursAgo });
 
     // Calculate date range
     let startDate: Date;
@@ -54,9 +55,12 @@ export async function POST(request: Request) {
     }
 
     console.error(`🔍 [BATCH] Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.error(`🔍 [BATCH] Current server time: ${new Date().toISOString()}`);
 
     // Get all questions created in this date range
-    const yearValue = yearContext === "year4" ? "4" : "5";
+    // Questions can have yearCaptured as "4", "5", "Y4", "Y5", etc.
+    const yearNumber = yearContext === "year4" ? "4" : "5";
+    const yearWithPrefix = yearContext === "year4" ? "Y4" : "Y5";
     
     // Debug: Check what questions exist in the database
     const allRecentQuestions = await prisma.question.findMany({
@@ -81,12 +85,16 @@ export async function POST(request: Request) {
     
     console.error(`🔍 [BATCH] Debug - Found ${allRecentQuestions.length} total questions in date range (any year):`);
     allRecentQuestions.forEach(q => {
-      console.error(`  - Q${q.customId}: year=${q.yearCaptured}, created=${q.createdAt.toISOString()}, hasText=${!!q.text}`);
+      console.error(`  - Q${q.customId}: year=${q.yearCaptured}, created=${q.createdAt.toISOString()}, hasText=${!!q.text}, textLength=${q.text?.length || 0}`);
     });
+    
+    console.error(`🔍 [BATCH] Now filtering for yearCaptured in ["${yearNumber}", "${yearWithPrefix}"] with text not null...`);
     
     const newQuestions = await prisma.question.findMany({
       where: {
-        yearCaptured: yearValue,
+        yearCaptured: {
+          in: [yearNumber, yearWithPrefix], // Support both "4" and "Y4" formats
+        },
         createdAt: {
           gte: startDate,
           lte: endDate,
@@ -108,7 +116,7 @@ export async function POST(request: Request) {
       },
     });
 
-    console.error(`🔍 [BATCH] Found ${newQuestions.length} new questions to check (yearCaptured=${yearValue})`);
+    console.error(`🔍 [BATCH] Found ${newQuestions.length} new questions to check (yearCaptured in [${yearNumber}, ${yearWithPrefix}])`);
 
     if (newQuestions.length === 0) {
       return NextResponse.json({
@@ -183,7 +191,9 @@ export async function POST(request: Request) {
       // Get all existing questions in this rotation (excluding the new ones)
       const existingQuestionsInRotation = await prisma.question.findMany({
         where: {
-          yearCaptured: yearValue,
+          yearCaptured: {
+            in: [yearNumber, yearWithPrefix], // Support both formats
+          },
           id: { notIn: rotationQuestions.map((q) => q.id) },
           text: { not: null },
           ...(rotation !== "No Rotation" && {
