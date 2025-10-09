@@ -144,7 +144,14 @@ export async function POST(req: Request) {
     const items = Array.isArray(body?.questions) ? body!.questions : [];
     if (!items.length) return NextResponse.json({ error: "questions[] required" }, { status: 400 });
 
-    const results: Array<{ index: number; status: "created" | "duplicate" | "error"; customId?: number; error?: string }> = [];
+    const results: Array<{ 
+      index: number; 
+      status: "created" | "duplicate" | "error"; 
+      customId?: number; 
+      error?: string;
+      questionId?: string;
+      questionText?: string;
+    }> = [];
 
     for (let i = 0; i < items.length; i++) {
       const it = items[i] ?? {};
@@ -195,26 +202,49 @@ export async function POST(req: Request) {
         const normalizedMode = canonicalizeQuestionMode(providedMode) ?? "unused";
         await setQuestionMode(q.id, normalizedMode);
 
-        // Check for similar questions in the background (don't block response)
-        // yearContext was determined at the start of POST from referer header
-        console.warn(`🔵 [BULK] Starting background similarity check for question ${customId} (${yearContext})`);
-        // Run similarity check asynchronously (don't await)
-        import("@/lib/similar-questions")
-          .then(({ checkForSimilarQuestions }) => {
-            return checkForSimilarQuestions(
-              { id: q.id, text: q.text ?? "", customId: q.customId },
-              yearContext
-            );
-          })
-          .catch((error) => {
-            console.error("🔴 [BULK] Failed to check for similar questions:", error);
-          });
-
-        results.push({ index: i, status: "created", customId });
+        results.push({ index: i, status: "created", customId, questionId: q.id, questionText: text });
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "failed";
         results.push({ index: i, status: "error", error: msg });
       }
+    }
+
+    // After all questions are created, check for similarities
+    // This must happen BEFORE returning the response or Vercel kills the function
+    const createdQuestions = results.filter(r => r.status === "created");
+    console.warn(`🔵 [BULK] All questions created. Starting similarity checks for ${createdQuestions.length} questions...`);
+    
+    // Check if OpenAI API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      console.error(`🔴 [BULK] OPENAI_API_KEY not configured - skipping similarity checks`);
+    } else {
+      console.warn(`🟢 [BULK] OPENAI_API_KEY is configured (${process.env.OPENAI_API_KEY.substring(0, 10)}...)`);
+      
+      const { checkForSimilarQuestions } = await import("@/lib/similar-questions");
+      
+      for (const result of createdQuestions) {
+        if (result.questionId && result.questionText) {
+          try {
+            console.warn(`🔵 [BULK] Checking similarities for question ${result.customId} (${yearContext})`);
+            await checkForSimilarQuestions(
+              { id: result.questionId, text: result.questionText, customId: result.customId ?? null },
+              yearContext
+            );
+            console.warn(`🟢 [BULK] Similarity check complete for question ${result.customId}`);
+          } catch (error) {
+            console.error(`🔴 [BULK] Failed to check similarities for question ${result.customId}:`, error);
+            if (error instanceof Error) {
+              console.error(`🔴 [BULK] Error details:`, {
+                message: error.message,
+                stack: error.stack
+              });
+            }
+            // Don't fail the whole request - just log the error
+          }
+        }
+      }
+      
+      console.warn(`🟢 [BULK] All similarity checks complete`);
     }
 
     return NextResponse.json({ ok: true, results });
