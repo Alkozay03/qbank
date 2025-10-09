@@ -10,8 +10,13 @@ export async function checkForSimilarQuestions(
   yearContext: "year4" | "year5"
 ): Promise<void> {
   try {
+    console.warn(`🔍 [SIMILAR] Starting check for question ${newQuestion.customId} (${yearContext})`);
+    console.warn(`🔍 [SIMILAR] Question text length: ${newQuestion.text?.length || 0} chars`);
+    console.warn(`🔍 [SIMILAR] Question text preview: "${newQuestion.text?.substring(0, 100)}..."`);
+    
     // Skip if question text is empty or too short
     if (!newQuestion.text || newQuestion.text.length < 20) {
+      console.warn(`🔴 [SIMILAR] Skipping - text too short or empty`);
       return;
     }
 
@@ -26,23 +31,42 @@ export async function checkForSimilarQuestions(
       select: {
         id: true,
         text: true,
+        customId: true,
       },
     });
 
+    console.warn(`🔍 [SIMILAR] Found ${existingQuestions.length} existing ${yearContext} questions to compare`);
+
     // If no existing questions, nothing to compare
     if (existingQuestions.length === 0) {
+      console.warn(`🔴 [SIMILAR] No existing questions to compare`);
       return;
     }
 
-    // Find similar questions (>= 50% similarity)
+    // Find similar questions (>= 40% similarity - lowered threshold)
+    console.warn(`🔍 [SIMILAR] Starting similarity comparison with OpenAI...`);
     const similarQuestions = await findSimilarQuestions(
       { id: newQuestion.id, text: newQuestion.text },
       existingQuestions.map((q) => ({ id: q.id, text: q.text ?? "" })),
-      50 // 50% threshold
+      40 // 40% threshold (lowered from 50%)
     );
+
+    console.warn(`🔍 [SIMILAR] Comparison complete. Found ${similarQuestions.length} similar questions`);
+    
+    if (similarQuestions.length > 0) {
+      console.warn(`🟡 [SIMILAR] Similar questions:`, similarQuestions.map(sq => {
+        const question = existingQuestions.find(eq => eq.id === sq.questionId);
+        return {
+          customId: question?.customId,
+          similarity: sq.similarity + '%',
+          textPreview: question?.text?.substring(0, 50) + '...'
+        };
+      }));
+    }
 
     // If no similar questions found, we're done
     if (similarQuestions.length === 0) {
+      console.warn(`🟢 [SIMILAR] No duplicates found - question is unique`);
       return;
     }
 

@@ -38,15 +38,27 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
  */
 export async function getEmbedding(text: string): Promise<number[]> {
   try {
+    console.warn(`🔵 [OPENAI] Requesting embedding for text (${text.length} chars)`);
+    
     const response = await openai.embeddings.create({
       model: "text-embedding-3-small", // Cheaper and faster model
       input: text,
       encoding_format: "float",
     });
 
-    return response.data[0]?.embedding ?? [];
+    const embedding = response.data[0]?.embedding ?? [];
+    console.warn(`🟢 [OPENAI] Received embedding with ${embedding.length} dimensions`);
+    
+    return embedding;
   } catch (error) {
-    console.error("Error getting embedding from OpenAI:", error);
+    console.error("🔴 [OPENAI] Error getting embedding:", error);
+    if (error instanceof Error) {
+      console.error("🔴 [OPENAI] Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+    }
     throw new Error("Failed to generate embedding");
   }
 }
@@ -87,29 +99,40 @@ export async function findSimilarQuestions(
   threshold: number = 50 // Default 50% similarity
 ): Promise<Array<{ questionId: string; similarity: number }>> {
   try {
+    console.warn(`🔍 [SIMILARITY] Comparing against ${existingQuestions.length} questions with ${threshold}% threshold`);
+    
     // Get embedding for the new question
+    console.warn(`🔍 [SIMILARITY] Getting embedding for new question...`);
     const newQuestionEmbedding = await getEmbedding(newQuestion.text);
 
     // Calculate similarity with all existing questions
+    console.warn(`🔍 [SIMILARITY] Getting embeddings for ${existingQuestions.length} existing questions...`);
     const similarities = await Promise.all(
-      existingQuestions.map(async (question) => {
+      existingQuestions.map(async (question, index) => {
+        console.warn(`🔍 [SIMILARITY] Processing question ${index + 1}/${existingQuestions.length}`);
         const questionEmbedding = await getEmbedding(question.text);
         const similarity = cosineSimilarity(
           newQuestionEmbedding,
           questionEmbedding
         );
 
+        const similarityPercent = Math.round(similarity * 100);
+        console.warn(`🔍 [SIMILARITY] Question ${index + 1} similarity: ${similarityPercent}%`);
+
         return {
           questionId: question.id,
-          similarity: Math.round(similarity * 100),
+          similarity: similarityPercent,
         };
       })
     );
 
     // Filter questions that meet the threshold
-    return similarities.filter((item) => item.similarity >= threshold);
+    const filtered = similarities.filter((item) => item.similarity >= threshold);
+    console.warn(`🟢 [SIMILARITY] Found ${filtered.length} questions above ${threshold}% threshold`);
+    
+    return filtered;
   } catch (error) {
-    console.error("Error finding similar questions:", error);
+    console.error("🔴 [SIMILARITY] Error finding similar questions:", error);
     throw error;
   }
 }
