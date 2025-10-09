@@ -2,10 +2,11 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
+import { hasElevatedAdminPrivileges } from "@/lib/website-creator";
 import RoleManagerClient from "./client";
 
 export default async function RoleManager() {
-  // Only allow access to MASTER_ADMIN with specific email
+  // Only allow access to WEBSITE_CREATOR and MASTER_ADMIN
   const session = await auth();
   const email = session?.user?.email;
   
@@ -13,13 +14,13 @@ export default async function RoleManager() {
     redirect("/login");
   }
 
-  // Verify that the user is a MASTER_ADMIN
+  // Verify that the user has elevated admin privileges
   const user = await prisma.user.findUnique({
     where: { email },
     select: { role: true },
   });
 
-  if (!user || user.role !== "MASTER_ADMIN") {
+  if (!user || !hasElevatedAdminPrivileges(user.role)) {
     redirect("/year5");
   }
 
