@@ -201,16 +201,58 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
         body: JSON.stringify(body),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.message || "Batch check failed");
+        throw new Error("Batch check failed");
       }
 
-      // Show results
-      let message = result.message;
-      if (result.timeoutWarning) {
-        message += "\n\n⚠️ Note: Some questions may not have been processed due to timeout. Run the check again to continue.";
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let lastResult: { success?: boolean; processedQuestions?: number; newGroupsCreated?: number; questionsWithDuplicates?: number; timeoutWarning?: boolean } = {};
+
+      if (reader) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            // Decode the chunk and add to buffer
+            buffer += decoder.decode(value, { stream: true });
+
+            // Process complete messages (separated by \n\n)
+            const messages = buffer.split("\n\n");
+            buffer = messages.pop() || ""; // Keep incomplete message in buffer
+
+            for (const message of messages) {
+              if (message.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(message.slice(6));
+                  
+                  // Update UI based on message type
+                  if (data.type === "progress" || data.type === "result") {
+                    // Progress update - could show in UI later
+                  } else if (data.type === "complete") {
+                    lastResult = data.data;
+                  } else if (data.type === "error") {
+                    throw new Error(data.message || "Unknown error");
+                  }
+                } catch (e) {
+                  console.error("Failed to parse message:", e);
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
+
+      // Show final results
+      let message = `✅ Completed!\n\nProcessed: ${lastResult.processedQuestions || 0} questions\nFound duplicates: ${lastResult.questionsWithDuplicates || 0}\nNew groups created: ${lastResult.newGroupsCreated || 0}`;
+      
+      if (lastResult.timeoutWarning) {
+        message += "\n\n⚠️ Note: Timeout reached. Run the check again to continue.";
       }
 
       alert(message);
