@@ -192,7 +192,7 @@ export default function SimilarQuestionsClient({ groups: initialGroups, yearCont
       const yearWithPrefix = yearContext === "year4" ? "Y4" : "Y5";
 
       // Get questions from the API that match criteria
-      const questionsResponse = await fetch("/api/admin/questions", {
+      const questionsResponse = await fetch("/api/admin/questions/list", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
