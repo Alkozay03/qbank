@@ -1191,6 +1191,11 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       questionText: editedQuestion.questionText?.substring(0, 50)
     });
     
+    // CRITICAL: Mark as saved BEFORE we start saving to prevent cleanup from deleting the draft
+    setHasBeenSaved(true);
+    hasBeenSavedRef.current = true;
+    console.warn('🟢 [MODAL] hasBeenSaved set to true BEFORE save - DRAFT WILL NOT BE DELETED');
+    
     setSaving(true);
     setSaveError(null);
     try {
@@ -1217,8 +1222,6 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       await onSave(normalised, questionIndex);
       
       console.warn('🟢 [MODAL] onSave completed successfully');
-      setHasBeenSaved(true); // Mark as saved so we don't delete it on close
-      console.warn('🟢 [MODAL] hasBeenSaved set to true - DRAFT WILL NOT BE DELETED ON CLOSE');
       
       // DON'T close the modal - let user add comments or finalize
       // onClose(); 
