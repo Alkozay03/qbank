@@ -141,6 +141,23 @@ export async function POST(req: Request) {
   // Ensure new questions always start as unused
   await setQuestionMode(q.id, "unused");
 
+  // Check for similar questions in the background (don't block response)
+  // Determine year context from the request URL or yearCaptured field
+  const urlPath = new URL(req.url).pathname;
+  const yearContext: "year4" | "year5" = urlPath.includes("year5") || q.yearCaptured === "5" ? "year5" : "year4";
+  
+  // Run similarity check asynchronously (don't await)
+  import("@/lib/similar-questions")
+    .then(({ checkForSimilarQuestions }) => {
+      return checkForSimilarQuestions(
+        { id: q.id, text: q.text ?? "", customId: q.customId },
+        yearContext
+      );
+    })
+    .catch((error) => {
+      console.error("Failed to check for similar questions:", error);
+    });
+
   return NextResponse.json({ ok: true, customId: q.customId });
 }
 

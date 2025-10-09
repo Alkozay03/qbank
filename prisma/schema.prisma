@@ -478,3 +478,15 @@ model AnswerVote {
   @@index([isArchived], map: "idx_answer_vote_archived")
   @@map("AnswerVote")
 }
+
+model SimilarQuestionGroup {
+  id               String   @id @default(cuid())
+  questionIds      String[] // Array of question IDs that are similar
+  similarityScores Json     // Map of question pairs to their similarity scores
+  yearContext      String   // "year4" or "year5" - keeps year4 and year5 separate
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([yearContext], map: "idx_similar_question_year")
+  @@index([createdAt], map: "idx_similar_question_created")
+}

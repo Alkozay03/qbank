@@ -10,6 +10,7 @@ export default async function Year4AdminHub() {
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card href="/year4/admin/bulk-question-manager" label="Bulk Question Manager" description="Upload PDFs and manage multiple questions with references and tags" />
             <Card href="/year4/admin/view-questions" label="View Questions" description="Filter existing questions and jump into edits" />
+            <Card href="/year4/admin/similar-questions" label="⚠️ Similar Questions Alert" description="Review and manage questions with high similarity" />
             <Card href="/year4/admin/schedule-editor" label="Schedule Editor" description="Create and manage weekly schedules" />
             <Card href="/year4/admin/rotation-schedule" label="Rotation Schedule Manager" description="Manage rotation periods and voting schedules" />
             {/* Manual Question Builder removed; use AI builder for bulk import */}
