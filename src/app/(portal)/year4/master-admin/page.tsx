@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
-import { hasElevatedAdminPrivileges } from "@/lib/website-creator";
+import { hasElevatedAdminPrivileges, isWebsiteCreator } from "@/lib/website-creator";
 
 export default async function MasterAdminHub() {
   // Only allow access to WEBSITE_CREATOR and MASTER_ADMIN
@@ -33,6 +33,9 @@ export default async function MasterAdminHub() {
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card href="/year4/master-admin/role-manager" label="Role Manager" description="Manage user roles and permissions" />
         <Card href="/year4/master-admin/user-list" label="User List" description="View and manage all users" />
+        {isWebsiteCreator(email) && (
+          <Card href="/year4/master-admin/live-users" label="🔴 Live Users" description="View currently online users" />
+        )}
         <Card href="/year4/admin/bulk-question-manager" label="Bulk Question Manager" description="Upload PDFs and manage multiple questions with references and tags" />
         <Card href="/year4/admin/view-questions" label="View Questions" description="Filter existing questions and open them for editing" />
         {/* Manual Question Management page removed */}

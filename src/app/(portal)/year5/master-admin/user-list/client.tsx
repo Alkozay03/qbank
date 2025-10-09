@@ -270,7 +270,9 @@ export default function UserListClient({ users }: Props) {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === "MASTER_ADMIN"
+                          user.role === "WEBSITE_CREATOR"
+                            ? "bg-red-100 text-red-700"
+                            : user.role === "MASTER_ADMIN"
                             ? "bg-sky-100 text-[#0284c7]"
                             : user.role === "ADMIN"
                             ? "bg-blue-100 text-blue-700"
