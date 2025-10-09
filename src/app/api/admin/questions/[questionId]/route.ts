@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import { TagType } from "@prisma/client";
+import { requireRole } from "@/lib/rbac";
 import {
   canonicalizeQuestionMode,
   deriveModeFromHistory,
@@ -116,19 +116,8 @@ export async function GET(
 ) {
   try {
     const { questionId } = await Promise.resolve(context.params);
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { role: true },
-    });
-
-    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    // Verify user has permission to read questions
+    await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
     const question = await prisma.question.findUnique({
       where: { id: questionId },
@@ -210,19 +199,9 @@ export async function PUT(
 ) {
   try {
     const { questionId } = await Promise.resolve(context.params);
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { role: true },
-    });
-
-    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    
+    // Verify user has permission to update questions
+    await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
     if (!questionId) {
       return NextResponse.json({ error: "Question ID required" }, { status: 400 });
@@ -410,19 +389,8 @@ export async function DELETE(
   { params }: { params: Promise<{ questionId: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { role: true },
-    });
-
-    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN")) {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-    }
+    // Verify user has permission to delete questions
+    await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
     const resolvedParams = await params;
     const questionId = resolvedParams.questionId;
@@ -442,7 +410,7 @@ export async function DELETE(
       where: { id: questionId },
     });
 
-    console.warn(`🗑️ [DELETE] Question ${questionId} deleted by ${session.user.email}`);
+    console.warn(`🗑️ [DELETE] Question ${questionId} deleted`);
 
     return NextResponse.json({ success: true, message: "Question deleted successfully" });
   } catch (error) {
