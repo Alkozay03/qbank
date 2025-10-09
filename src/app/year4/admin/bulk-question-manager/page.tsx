@@ -1186,9 +1186,11 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const stableQuestionId = editedQuestion.dbId ? String(editedQuestion.dbId) : null;
-  // Track if this is an unsaved draft - check for the specific draft marker text
+  // Track if this is an unsaved draft - check for the specific draft marker text OR if questionText is empty
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isDraft, _setIsDraft] = useState(() => question.questionText === '[Draft - Not yet saved]');
+  const [isDraft, _setIsDraft] = useState(() => 
+    question.questionText === '[Draft - Not yet saved]' || question.questionText === ''
+  );
   // If it's NOT a draft (existing question), mark as already saved so button shows "Finalize & Close"
   const [hasBeenSaved, setHasBeenSaved] = useState(() => !isDraft);
   // Use ref to track hasBeenSaved for cleanup - fixes closure problem!
