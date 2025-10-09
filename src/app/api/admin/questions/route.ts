@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireRole } from "@/lib/rbac";
 import { generateShortNumericId } from "@/lib/ids";
-import { TagType } from "@prisma/client";
+import { TagType, Prisma } from "@prisma/client";
 import {
   canonicalizeQuestionMode,
   deriveModeFromHistory,
@@ -38,6 +38,15 @@ function normalizeReferenceInput(
 
   if (!values.size) return null;
   return Array.from(values).join("\n");
+}
+
+function resolveYearContext(raw?: string | null): "4" | "5" | "" {
+  if (typeof raw !== "string") return "";
+  const normalized = raw.trim().toLowerCase();
+  if (!normalized) return "";
+  if (normalized === "5" || normalized === "y5" || normalized === "year5") return "5";
+  if (normalized === "4" || normalized === "y4" || normalized === "year4") return "4";
+  return "";
 }
 
 /**
@@ -102,6 +111,7 @@ export async function POST(req: Request) {
       refs?: Array<{ url: string }>;
       references?: string | null;
       tags?: Array<{ type: keyof typeof TagType; value: string }>;
+      questionYear?: string | null;
     };
 
     console.error("🔵 [QUESTIONS POST] Request body:", {
@@ -109,13 +119,30 @@ export async function POST(req: Request) {
       textLength: body?.text?.length,
       answersCount: body?.answers?.length,
       hasExplanation: !!body?.explanation,
-      tagsCount: body?.tags?.length
+      tagsCount: body?.tags?.length,
+      questionYear: body?.questionYear ?? null,
     });
 
     if (!body?.text || !Array.isArray(body.answers) || body.answers.length === 0) {
       console.error("🔴 [QUESTIONS POST] Invalid request body");
       return NextResponse.json({ error: "text and answers[] are required" }, { status: 400 });
     }
+
+    const referer = req.headers.get("referer") ?? "";
+    const refererLower = referer.toLowerCase();
+    const normalizedBodyYear = resolveYearContext(body?.questionYear);
+    const yearContext: "year4" | "year5" =
+      refererLower.includes("/year5") || refererLower.includes("year5") || normalizedBodyYear === "5"
+        ? "year5"
+        : "year4";
+    const storedYear = normalizedBodyYear || (yearContext === "year5" ? "5" : "4");
+
+    console.error("🔵 [QUESTIONS POST] Derived year context:", {
+      referer,
+      bodyYear: body?.questionYear ?? null,
+      resolvedContext: yearContext,
+      storedYear,
+    });
 
     // generate a unique short id, retry a few times if collision
     console.error("🔵 [QUESTIONS POST] Generating unique customId...");
@@ -135,6 +162,7 @@ export async function POST(req: Request) {
         explanation: body.explanation ?? null,
         objective: body.objective ?? null,
         references: normalizeReferenceInput(body.references, body.refs),
+        yearCaptured: storedYear,
         answers: {
           create: body.answers.map((a) => ({ text: a.text, isCorrect: a.isCorrect })),
         },
@@ -161,23 +189,30 @@ export async function POST(req: Request) {
     console.error("🔵 [QUESTIONS POST] Setting question mode to 'unused'...");
     await setQuestionMode(q.id, "unused");
 
-    // Check for similar questions in the background (don't block response)
-    // Determine year context from the request URL or yearCaptured field
-    const urlPath = new URL(req.url).pathname;
-    const yearContext: "year4" | "year5" = urlPath.includes("year5") || q.yearCaptured === "5" ? "year5" : "year4";
-    
-    console.error("🔵 [QUESTIONS POST] Starting background similarity check for", yearContext);
-    // Run similarity check asynchronously (don't await)
-    import("@/lib/similar-questions")
-      .then(({ checkForSimilarQuestions }) => {
-        return checkForSimilarQuestions(
+    const openAiKey = process.env.OPENAI_API_KEY;
+    if (!openAiKey) {
+      console.error("🔴 [QUESTIONS POST] OPENAI_API_KEY not configured - skipping similarity checks");
+    } else {
+      console.error(
+        "� [QUESTIONS POST] OPENAI_API_KEY configured:",
+        `${openAiKey.substring(0, 7)}...`
+      );
+
+      try {
+        const { checkForSimilarQuestions } = await import("@/lib/similar-questions");
+        console.error("🔵 [QUESTIONS POST] Running similarity check for", {
+          customId: q.customId,
+          yearContext,
+        });
+        await checkForSimilarQuestions(
           { id: q.id, text: q.text ?? "", customId: q.customId },
           yearContext
         );
-      })
-      .catch((error) => {
-        console.error("Failed to check for similar questions:", error);
-      });
+        console.error("🟢 [QUESTIONS POST] Similarity check finished for", q.customId);
+      } catch (similarityError) {
+        console.error("🔴 [QUESTIONS POST] Failed to check for similar questions:", similarityError);
+      }
+    }
 
     console.error("🟢 [QUESTIONS POST] Success! Returning response");
     return NextResponse.json({ ok: true, customId: q.customId });
@@ -220,13 +255,15 @@ export async function PUT(req: Request) {
       refs?: Array<{ url: string }>;
       references?: string | null;
       tags?: Array<{ type: keyof typeof TagType; value: string }>;
+      questionYear?: string | null;
     };
 
     console.error("🔵 [QUESTIONS PUT] Request body:", {
       customId: body?.customId,
       hasText: !!body?.text,
       answersCount: body?.answers?.length,
-      tagsCount: body?.tags?.length
+      tagsCount: body?.tags?.length,
+      questionYear: body?.questionYear ?? null,
     });
 
     if (!Number.isFinite(body?.customId)) {
@@ -242,50 +279,73 @@ export async function PUT(req: Request) {
     }
     console.error("🟢 [QUESTIONS PUT] Found existing question:", existing.id);
 
-  const previousMode = await getCurrentQuestionMode(existing.id);
+    const referer = req.headers.get("referer") ?? "";
+    const refererLower = referer.toLowerCase();
+    const normalizedBodyYear = resolveYearContext(body?.questionYear);
+    const existingYear = resolveYearContext(existing.yearCaptured ?? null);
+    const derivedContext: "year4" | "year5" =
+      refererLower.includes("/year5") || refererLower.includes("year5") || normalizedBodyYear === "5" || existingYear === "5"
+        ? "year5"
+        : "year4";
+    const storedYear = normalizedBodyYear || existingYear || (derivedContext === "year5" ? "5" : "4");
+    console.error("🔵 [QUESTIONS PUT] Derived year context:", {
+      referer,
+      normalizedBodyYear,
+      existingYear,
+      storedYear,
+      derivedContext,
+    });
 
-  await prisma.question.update({
-    where: { id: existing.id },
-    data: {
+    const previousMode = await getCurrentQuestionMode(existing.id);
+
+    const updateData: Prisma.QuestionUpdateInput = {
       text: body.text,
       explanation: body.explanation ?? null,
       objective: body.objective ?? null,
       references: normalizeReferenceInput(body.references, body.refs),
-    },
-  });
+    };
 
-  // Replace answers
-  await prisma.answer.deleteMany({ where: { questionId: existing.id } });
-  if (Array.isArray(body.answers) && body.answers.length) {
-    await prisma.answer.createMany({
-      data: body.answers.map((a) => ({
-        questionId: existing.id,
-        text: a.text,
-        isCorrect: a.isCorrect,
-      })),
-    });
-  }
-
-  // Replace tags & refs
-  await prisma.questionTag.deleteMany({ where: { questionId: existing.id } });
-
-  let providedMode: string | null = null;
-
-  if (Array.isArray(body.tags) && body.tags.length) {
-    for (const t of body.tags) {
-      const type = TagType[t.type] ?? TagType.TOPIC;
-      if (type === TagType.MODE) {
-        providedMode = typeof t.value === "string" ? t.value : null;
-        continue;
-      }
-      const tag = await prisma.tag.upsert({
-        where: { type_value: { type, value: t.value } },
-        update: {},
-        create: { type, value: t.value },
-      });
-      await prisma.questionTag.create({ data: { questionId: existing.id, tagId: tag.id } });
+    if (storedYear) {
+      updateData.yearCaptured = storedYear;
     }
-  }
+
+    await prisma.question.update({
+      where: { id: existing.id },
+      data: updateData,
+    });
+
+    // Replace answers
+    await prisma.answer.deleteMany({ where: { questionId: existing.id } });
+    if (Array.isArray(body.answers) && body.answers.length) {
+      await prisma.answer.createMany({
+        data: body.answers.map((a) => ({
+          questionId: existing.id,
+          text: a.text,
+          isCorrect: a.isCorrect,
+        })),
+      });
+    }
+
+    // Replace tags & refs
+    await prisma.questionTag.deleteMany({ where: { questionId: existing.id } });
+
+    let providedMode: string | null = null;
+
+    if (Array.isArray(body.tags) && body.tags.length) {
+      for (const t of body.tags) {
+        const type = TagType[t.type] ?? TagType.TOPIC;
+        if (type === TagType.MODE) {
+          providedMode = typeof t.value === "string" ? t.value : null;
+          continue;
+        }
+        const tag = await prisma.tag.upsert({
+          where: { type_value: { type, value: t.value } },
+          update: {},
+          create: { type, value: t.value },
+        });
+        await prisma.questionTag.create({ data: { questionId: existing.id, tagId: tag.id } });
+      }
+    }
 
     const normalizedMode = canonicalizeQuestionMode(providedMode);
     if (normalizedMode) {
@@ -295,6 +355,39 @@ export async function PUT(req: Request) {
     } else {
       const derived = await deriveModeFromHistory(existing.id);
       await setQuestionMode(existing.id, derived);
+    }
+
+    const normalizedExistingText = typeof existing.text === "string" ? existing.text.trim() : "";
+    const normalizedNewText = typeof body.text === "string" ? body.text.trim() : "";
+    const textChanged = normalizedExistingText !== normalizedNewText;
+
+    if (textChanged) {
+      const openAiKey = process.env.OPENAI_API_KEY;
+      if (!openAiKey) {
+        console.error("🔴 [QUESTIONS PUT] OPENAI_API_KEY not configured - skipping similarity checks");
+      } else {
+        console.error(
+          "🟢 [QUESTIONS PUT] OPENAI_API_KEY configured:",
+          `${openAiKey.substring(0, 7)}...`
+        );
+
+        try {
+          const { checkForSimilarQuestions } = await import("@/lib/similar-questions");
+          console.error("🔵 [QUESTIONS PUT] Running similarity check", {
+            customId: body.customId,
+            yearContext: storedYear === "5" ? "year5" : derivedContext,
+          });
+          await checkForSimilarQuestions(
+            { id: existing.id, text: body.text ?? "", customId: body.customId },
+            storedYear === "5" ? "year5" : derivedContext
+          );
+          console.error("🟢 [QUESTIONS PUT] Similarity check finished for", body.customId);
+        } catch (similarityError) {
+          console.error("🔴 [QUESTIONS PUT] Failed to check for similar questions:", similarityError);
+        }
+      }
+    } else {
+      console.error("🟡 [QUESTIONS PUT] Text unchanged - skipping similarity check");
     }
 
     console.error("🟢 [QUESTIONS PUT] Success! Question updated");

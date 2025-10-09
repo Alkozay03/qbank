@@ -160,8 +160,8 @@ export async function POST(req: Request) {
       try {
         const text = String(it.text ?? "").trim();
         const explanation = (it.explanation as string | null | undefined) ?? null;
-    const answers = normalizeAnswers(it.answers);
-    const references = normalizeReferences(it.refs);
+        const answers = normalizeAnswers(it.answers);
+        const references = normalizeReferences(it.refs);
         const tags = normalizeTags(it.tags);
 
         if (!text) { results.push({ index: i, status: "error", error: "text required" }); continue; }
@@ -170,8 +170,16 @@ export async function POST(req: Request) {
         const dup = await findPossibleDuplicate(text);
         if (dup) { results.push({ index: i, status: "duplicate", customId: dup.customId ?? undefined }); continue; }
 
-    const customId = await generateShortNumericId();
-    const q = await prisma.question.create({ data: { customId, text, explanation, references } });
+        const customId = await generateShortNumericId();
+        const q = await prisma.question.create({
+          data: {
+            customId,
+            text,
+            explanation,
+            references,
+            yearCaptured: yearContext === "year5" ? "5" : "4",
+          },
+        });
 
         if (answers.length) {
           await prisma.answer.createMany({ data: answers.map((a) => ({ questionId: q.id, text: a.text, isCorrect: a.isCorrect })) });
