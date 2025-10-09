@@ -10,13 +10,13 @@ export async function checkForSimilarQuestions(
   yearContext: "year4" | "year5"
 ): Promise<void> {
   try {
-    console.warn(`🔍 [SIMILAR] Starting check for question ${newQuestion.customId} (${yearContext})`);
-    console.warn(`🔍 [SIMILAR] Question text length: ${newQuestion.text?.length || 0} chars`);
-    console.warn(`🔍 [SIMILAR] Question text preview: "${newQuestion.text?.substring(0, 100)}..."`);
+    console.error(`🔍 [SIMILAR] Starting check for question ${newQuestion.customId} (${yearContext})`);
+    console.error(`🔍 [SIMILAR] Question text length: ${newQuestion.text?.length || 0} chars`);
+    console.error(`🔍 [SIMILAR] Question text preview: "${newQuestion.text?.substring(0, 100)}..."`);
     
     // Skip if question text is empty or too short
     if (!newQuestion.text || newQuestion.text.length < 20) {
-      console.warn(`🔴 [SIMILAR] Skipping - text too short or empty`);
+      console.error(`🔴 [SIMILAR] Skipping - text too short or empty`);
       return;
     }
 
@@ -35,26 +35,26 @@ export async function checkForSimilarQuestions(
       },
     });
 
-    console.warn(`🔍 [SIMILAR] Found ${existingQuestions.length} existing ${yearContext} questions to compare`);
+    console.error(`🔍 [SIMILAR] Found ${existingQuestions.length} existing ${yearContext} questions to compare`);
 
     // If no existing questions, nothing to compare
     if (existingQuestions.length === 0) {
-      console.warn(`🔴 [SIMILAR] No existing questions to compare`);
+      console.error(`🔴 [SIMILAR] No existing questions to compare`);
       return;
     }
 
     // Find similar questions (>= 40% similarity - lowered threshold)
-    console.warn(`🔍 [SIMILAR] Starting similarity comparison with OpenAI...`);
+    console.error(`🔍 [SIMILAR] Starting similarity comparison with OpenAI...`);
     const similarQuestions = await findSimilarQuestions(
       { id: newQuestion.id, text: newQuestion.text },
       existingQuestions.map((q) => ({ id: q.id, text: q.text ?? "" })),
       40 // 40% threshold (lowered from 50%)
     );
 
-    console.warn(`🔍 [SIMILAR] Comparison complete. Found ${similarQuestions.length} similar questions`);
+    console.error(`🔍 [SIMILAR] Comparison complete. Found ${similarQuestions.length} similar questions`);
     
     if (similarQuestions.length > 0) {
-      console.warn(`🟡 [SIMILAR] Similar questions:`, similarQuestions.map(sq => {
+      console.error(`🟡 [SIMILAR] Similar questions:`, similarQuestions.map(sq => {
         const question = existingQuestions.find(eq => eq.id === sq.questionId);
         return {
           customId: question?.customId,
@@ -66,7 +66,7 @@ export async function checkForSimilarQuestions(
 
     // If no similar questions found, we're done
     if (similarQuestions.length === 0) {
-      console.warn(`🟢 [SIMILAR] No duplicates found - question is unique`);
+      console.error(`🟢 [SIMILAR] No duplicates found - question is unique`);
       return;
     }
 

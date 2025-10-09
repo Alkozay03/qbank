@@ -122,12 +122,14 @@ async function findPossibleDuplicate(text: string) {
 }
 
 export async function POST(req: Request) {
+  console.error(`🔵 [BULK] POST request received`);
   await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+  console.error(`🔵 [BULK] Permission check passed`);
   
   // Determine year context from request URL or referer header
   const referer = req.headers.get("referer") || "";
   const yearContext: "year4" | "year5" = referer.includes("year5") ? "year5" : "year4";
-  console.warn(`🔵 [BULK] Processing bulk questions for ${yearContext}`);
+  console.error(`🔵 [BULK] Processing bulk questions for ${yearContext}`);
   
   try {
     const body = (await req.json()) as unknown as {
@@ -212,25 +214,25 @@ export async function POST(req: Request) {
     // After all questions are created, check for similarities
     // This must happen BEFORE returning the response or Vercel kills the function
     const createdQuestions = results.filter(r => r.status === "created");
-    console.warn(`🔵 [BULK] All questions created. Starting similarity checks for ${createdQuestions.length} questions...`);
+    console.error(`🔵 [BULK] All questions created. Starting similarity checks for ${createdQuestions.length} questions...`);
     
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
       console.error(`🔴 [BULK] OPENAI_API_KEY not configured - skipping similarity checks`);
     } else {
-      console.warn(`🟢 [BULK] OPENAI_API_KEY is configured (${process.env.OPENAI_API_KEY.substring(0, 10)}...)`);
+      console.error(`🟢 [BULK] OPENAI_API_KEY is configured (${process.env.OPENAI_API_KEY.substring(0, 10)}...)`);
       
       const { checkForSimilarQuestions } = await import("@/lib/similar-questions");
       
       for (const result of createdQuestions) {
         if (result.questionId && result.questionText) {
           try {
-            console.warn(`🔵 [BULK] Checking similarities for question ${result.customId} (${yearContext})`);
+            console.error(`🔵 [BULK] Checking similarities for question ${result.customId} (${yearContext})`);
             await checkForSimilarQuestions(
               { id: result.questionId, text: result.questionText, customId: result.customId ?? null },
               yearContext
             );
-            console.warn(`🟢 [BULK] Similarity check complete for question ${result.customId}`);
+            console.error(`🟢 [BULK] Similarity check complete for question ${result.customId}`);
           } catch (error) {
             console.error(`🔴 [BULK] Failed to check similarities for question ${result.customId}:`, error);
             if (error instanceof Error) {
@@ -244,7 +246,7 @@ export async function POST(req: Request) {
         }
       }
       
-      console.warn(`🟢 [BULK] All similarity checks complete`);
+      console.error(`🟢 [BULK] All similarity checks complete`);
     }
 
     return NextResponse.json({ ok: true, results });
