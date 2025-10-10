@@ -238,13 +238,10 @@ export async function POST(request: Request) {
     // Step 6: Fetch candidate questions for comparison
     const yearNumber = yearContext === "year4" ? "4" : "5";
     const yearWithPrefix = yearContext === "year4" ? "Y4" : "Y5";
-    
-    // Calculate 24 hours ago
-    const twentyFourHoursAgo = new Date();
-    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
-    console.error(`🔵 [SIMILARITY] Fetching candidate questions...`);
-    console.error(`   Filters: year=${yearNumber}, rotation=${rotation}, since=${twentyFourHoursAgo.toISOString()}`);
+    console.error(`🔵 [SIMILARITY] Fetching ALL candidate questions for comparison...`);
+    console.error(`   Filters: year=${yearNumber}, rotation=${rotation}`);
+    console.error(`   📝 NOTE: Comparing against ALL questions in this rotation/year, not just recent ones`);
     
     let existingQuestions;
     try {
@@ -254,7 +251,7 @@ export async function POST(request: Request) {
           yearCaptured: { in: [yearNumber, yearWithPrefix] },
           text: { not: null },
           embedding: { not: Prisma.JsonNull }, // Only compare questions that have embeddings
-          createdAt: { gte: twentyFourHoursAgo }, // Only questions from last 24 hours
+          // ✅ REMOVED createdAt filter - compare against ALL existing questions
           questionTags: {
             some: {
               tag: {
@@ -270,7 +267,7 @@ export async function POST(request: Request) {
           customId: true,
         },
       });
-      console.error(`🟢 [SIMILARITY] Found ${existingQuestions.length} candidate questions to compare`);
+      console.error(`🟢 [SIMILARITY] Found ${existingQuestions.length} candidate questions to compare (all time)`);
     } catch (fetchError) {
       console.error("🔴 [SIMILARITY] Failed to fetch candidate questions:", fetchError);
       return NextResponse.json({
@@ -292,7 +289,7 @@ export async function POST(request: Request) {
         customId: question.customId,
         similarFound: 0,
         groupCreated: false,
-        message: "No questions found in the same rotation and year from last 24 hours"
+        message: "No other questions found in the same rotation and year to compare against"
       });
     }
 
