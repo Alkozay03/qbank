@@ -61,6 +61,16 @@ export async function middleware(req: NextRequest) {
         req.cookies.get("authjs.session-token")?.value ||
         req.cookies.get("__Secure-authjs.session-token")?.value
       );
+      
+      // Debug logging
+      console.warn("[MIDDLEWARE] Home page access:", {
+        hasToken: !!token,
+        hasSessionCookie,
+        cookies: Object.fromEntries(
+          Array.from(req.cookies.getAll()).map(c => [c.name, c.value.substring(0, 20) + '...'])
+        )
+      });
+      
       if (token || hasSessionCookie) {
         // If PENDING, go to pending-approval, else go to years
         if (token) {
@@ -69,6 +79,7 @@ export async function middleware(req: NextRequest) {
             return NextResponse.redirect(new URL("/pending-approval", req.url));
           }
         }
+        console.warn("[MIDDLEWARE] Redirecting logged-in user from / to /years");
         return NextResponse.redirect(new URL("/years", req.url));
       }
     }
