@@ -195,7 +195,7 @@ export default function ViewQuestionsPage() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const [userRole, setUserRole] = useState<"ADMIN" | "MASTER_ADMIN" | null>(null);
+  const [userRole, setUserRole] = useState<"ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | null>(null);
 
 
 
@@ -432,7 +432,7 @@ export default function ViewQuestionsPage() {
 
   const handleBack = () => {
     // Navigate based on user role
-    if (userRole === "MASTER_ADMIN") {
+    if (userRole === "MASTER_ADMIN" || userRole === "WEBSITE_CREATOR") {
       router.push("/year5/master-admin");
     } else {
       router.push("/year5/admin");
