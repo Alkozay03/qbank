@@ -172,10 +172,16 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
   }));
 
   const questionStats = statsByQuestion[currentItem.question.id];
+  
+  // Find the correct answer choice to get its percentage
+  const correctChoice = currentItem.question.choices.find(ch => ch.isCorrect === true);
+  const correctChoiceStats = correctChoice ? questionStats?.choiceFirstAttempts?.[correctChoice.id] : null;
+  
+  // Use the percentage of students who chose the correct answer (not questionStats.percent which uses isCorrect flag)
   const percentLabel =
-    questionStats && questionStats.percent !== null
-      ? `${questionStats.percent}%`
-      : "—%";
+    correctChoiceStats && typeof correctChoiceStats.percent === 'number'
+      ? `${correctChoiceStats.percent}%`
+      : (questionStats && questionStats.percent !== null ? `${questionStats.percent}%` : "—%");
 
   return (
     <div className={`mt-5 rounded-2xl border p-4 ${!isDark ? 'bg-white' : ''}`} 
