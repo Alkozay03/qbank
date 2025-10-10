@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
       select: { id: true, role: true },
     });
 
-    if (!admin || admin.role !== "MASTER_ADMIN") {
-      return NextResponse.json({ error: "Only master admins can start conversations" }, { status: 403 });
+    if (!admin || !["MASTER_ADMIN", "ADMIN", "WEBSITE_CREATOR"].includes(admin.role)) {
+      return NextResponse.json({ error: "Only admins can start conversations" }, { status: 403 });
     }
 
     const { email } = await req.json();
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User not found with that email" }, { status: 404 });
     }
 
-    if (targetUser.role === "MASTER_ADMIN") {
+    if (["MASTER_ADMIN", "ADMIN", "WEBSITE_CREATOR"].includes(targetUser.role)) {
       return NextResponse.json({ error: "Cannot start conversation with another admin" }, { status: 400 });
     }
 
