@@ -1,11 +1,21 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
 import { getGradientTextClasses } from "@/utils/gradients";
 
 export default function Home() {
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Redirect logged-in users to /years
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      router.push("/years");
+    }
+  }, [status, session, router]);
 
   return (
     <>
