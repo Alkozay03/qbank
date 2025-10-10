@@ -1,22 +1,19 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import Link from "next/link";
 import BackgroundWrapper from "@/components/BackgroundWrapper";
 import { getGradientTextClasses } from "@/utils/gradients";
 
-export default function Home() {
-  const router = useRouter();
-  const { data: session, status } = useSession();
-
-  // Redirect logged-in users to /years
-  useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      router.push("/years");
-    }
-  }, [status, session, router]);
-
+export default async function Home() {
+  // Check authentication on the server - this runs BEFORE rendering
+  const session = await auth();
+  
+  // Redirect logged-in users immediately (no flash!)
+  if (session?.user) {
+    redirect("/years");
+  }
+  
+  // Only render the sign-in page if not logged in
   return (
     <>
       <BackgroundWrapper />
@@ -32,27 +29,14 @@ export default function Home() {
             Your guide to success!
           </p>
 
-          {/* Sign-in button */}
-          <button
-            onClick={() => router.push("/login")}
-            className="bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-semibold text-xl px-12 py-5 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out"
-            style={{ transform: 'scale(1)', transition: 'all 0.3s ease-in-out' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'scale(0.95)';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
+          {/* Sign-in button - using Link instead of button for server component */}
+          <Link
+            href="/login"
+            className="inline-block bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-semibold text-xl px-12 py-5 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out hover:scale-105 active:scale-95"
             aria-label="Sign in"
           >
             Sign in
-          </button>
+          </Link>
         </div>
       </main>
     </>
