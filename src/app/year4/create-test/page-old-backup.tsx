@@ -1,8 +1,9 @@
 "use client";
 
 import Shell from "@/components/Shell";
-import SimpleTooltip from "@/components/SimpleTooltip";
-import { useEffect, useState } from "react";
+import CascadingFilterSystem from "@/components/CascadingFilterSystem";
+import NoQuestionsModal from "@/components/NoQuestionsModal";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 type Option = { key: string; label: string; hint?: string };
@@ -103,10 +104,6 @@ export default function CreateTest() {
     topics?: Record<string, number>;
   } | null>(null);
 
-  // Progressive disclosure locks
-  const allowRotations = selModes.length > 0;
-  const allowResources = selRotations.length > 0;
-  const allowDisciplines = selResources.length > 0;
   const allowSystems = selDisciplines.length > 0;
 
   // validation
@@ -317,76 +314,55 @@ export default function CreateTest() {
         </Card>
 
         {/* Rotations */}
-        <Card locked={!allowRotations}>
+        <Card>
           <HeaderRow
             title="Rotation"
             withAll
-            disabledAll={!allowRotations}
             onAll={(_checked) => toggleAll(setSelRotations, rotations, _checked)}
           />
           <CheckGrid
             list={rotations}
             selected={selRotations}
             onToggle={(optKey) => toggle(setSelRotations, optKey)}
-            disabled={!allowRotations}
             counts={counts}
             section="rotations"
           />
-          {!allowRotations && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one question mode to choose rotations.
-            </p>
-          )}
         </Card>
 
         {/* Resources */}
-        <Card locked={!allowResources}>
+        <Card>
           <HeaderRow
             title="Resources"
             withAll
-            disabledAll={!allowResources}
             onAll={(_checked) => toggleAll(setSelResources, resources, _checked)}
           />
           <CheckGrid
             list={resources}
             selected={selResources}
             onToggle={(optKey) => toggle(setSelResources, optKey)}
-            disabled={!allowResources}
             counts={counts}
             section="resources"
           />
-          {!allowResources && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one rotation to choose resources.
-            </p>
-          )}
         </Card>
 
         {/* Disciplines */}
-        <Card locked={!allowDisciplines}>
+        <Card>
           <HeaderRow
             title="Discipline"
             withAll
-            disabledAll={!allowDisciplines}
             onAll={(_checked) => toggleAll(setSelDisciplines, disciplines, _checked)}
           />
           <CheckGrid
             list={disciplines}
             selected={selDisciplines}
             onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
-            disabled={!allowDisciplines}
             counts={counts}
             section="disciplines"
           />
-          {!allowDisciplines && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one resource to choose disciplines.
-            </p>
-          )}
         </Card>
 
         {/* Systems */}
-        <Card locked={!allowSystems}>
+        <Card>
           <HeaderRow
             title="System"
             withAll
@@ -510,7 +486,6 @@ function CheckGrid({
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {list.map((o) => {
         const isSelected = selected.includes(o.key);
-        const displayCount = disabled ? '—' : (counts?.[section]?.[o.key] ?? 0);
         return (
           <label
             key={o.key}
@@ -533,7 +508,7 @@ function CheckGrid({
                 }
               `}>
                 <span className={isSelected ? 'theme-gradient-text' : ''}>
-                  {displayCount}
+                  {counts?.[section]?.[o.key] ?? 0}
                 </span>
               </span>
               <div className="relative inline-flex items-center justify-center w-4 h-4">
@@ -563,12 +538,9 @@ function CheckGrid({
   );
 }
 
-function Card({ children, locked }: { children: React.ReactNode; locked?: boolean }) {
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`
-      rounded-2xl bg-primary-light border-2 border-primary p-6 shadow-lg transition-all duration-300
-      ${locked ? 'opacity-50 pointer-events-none' : ''}
-    `}>
+    <div className="rounded-2xl bg-primary-light border-2 border-primary p-6 shadow-lg">
       {children}
     </div>
   );

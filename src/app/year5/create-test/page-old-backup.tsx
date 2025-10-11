@@ -16,10 +16,10 @@ const modes: Option[] = [
 ];
 
 const rotations: Option[] = [
-  { key: "im", label: "Internal Medicine" },
-  { key: "gs", label: "General Surgery" },
-  { key: "peds", label: "Pediatrics" },
-  { key: "obgyn", label: "Obstetrics and Gynaecology" },
+  { key: "fm", label: "Family Medicine" },
+  { key: "psych", label: "Psychiatry" },
+  { key: "gs2", label: "General Surgery 2" },
+  { key: "im2", label: "Internal Medicine 2" },
 ];
 
 const resources: Option[] = [
@@ -103,10 +103,6 @@ export default function CreateTest() {
     topics?: Record<string, number>;
   } | null>(null);
 
-  // Progressive disclosure locks
-  const allowRotations = selModes.length > 0;
-  const allowResources = selRotations.length > 0;
-  const allowDisciplines = selResources.length > 0;
   const allowSystems = selDisciplines.length > 0;
 
   // validation
@@ -154,6 +150,7 @@ export default function CreateTest() {
           headers: { "Content-Type": "application/json" },
           signal: controller.signal,
           body: JSON.stringify({ 
+            year: "Y5",  // Year 5 specific
             selectedModes: selModes,
             rotationKeys: selRotations,
             resourceValues: selResources,
@@ -181,6 +178,7 @@ export default function CreateTest() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
+            year: "Y5",  // Year 5 specific
             selectedModes: [],
             rotationKeys: [], 
             resourceValues: [], 
@@ -228,7 +226,7 @@ export default function CreateTest() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          year: "Y4",
+          year: "Y5",  // Changed from Y4 to Y5
           rotationKeys: effectiveRot,       // ["im","gs",...]
           resources: effectiveRes,          // kept for future use
           disciplines: selDisciplines,      // kept for future use
@@ -240,7 +238,7 @@ export default function CreateTest() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create quiz");
-      router.push(`/year4/quiz/${data.id}`);
+      router.push(`/year5/quiz/${data.id}`);  // Changed from year4 to year5
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Error creating quiz";
       alert(msg);
@@ -317,76 +315,55 @@ export default function CreateTest() {
         </Card>
 
         {/* Rotations */}
-        <Card locked={!allowRotations}>
+        <Card>
           <HeaderRow
             title="Rotation"
             withAll
-            disabledAll={!allowRotations}
             onAll={(_checked) => toggleAll(setSelRotations, rotations, _checked)}
           />
           <CheckGrid
             list={rotations}
             selected={selRotations}
             onToggle={(optKey) => toggle(setSelRotations, optKey)}
-            disabled={!allowRotations}
             counts={counts}
             section="rotations"
           />
-          {!allowRotations && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one question mode to choose rotations.
-            </p>
-          )}
         </Card>
 
         {/* Resources */}
-        <Card locked={!allowResources}>
+        <Card>
           <HeaderRow
             title="Resources"
             withAll
-            disabledAll={!allowResources}
             onAll={(_checked) => toggleAll(setSelResources, resources, _checked)}
           />
           <CheckGrid
             list={resources}
             selected={selResources}
             onToggle={(optKey) => toggle(setSelResources, optKey)}
-            disabled={!allowResources}
             counts={counts}
             section="resources"
           />
-          {!allowResources && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one rotation to choose resources.
-            </p>
-          )}
         </Card>
 
         {/* Disciplines */}
-        <Card locked={!allowDisciplines}>
+        <Card>
           <HeaderRow
             title="Discipline"
             withAll
-            disabledAll={!allowDisciplines}
             onAll={(_checked) => toggleAll(setSelDisciplines, disciplines, _checked)}
           />
           <CheckGrid
             list={disciplines}
             selected={selDisciplines}
             onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
-            disabled={!allowDisciplines}
             counts={counts}
             section="disciplines"
           />
-          {!allowDisciplines && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one resource to choose disciplines.
-            </p>
-          )}
         </Card>
 
         {/* Systems */}
-        <Card locked={!allowSystems}>
+        <Card>
           <HeaderRow
             title="System"
             withAll
@@ -510,7 +487,6 @@ function CheckGrid({
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {list.map((o) => {
         const isSelected = selected.includes(o.key);
-        const displayCount = disabled ? '—' : (counts?.[section]?.[o.key] ?? 0);
         return (
           <label
             key={o.key}
@@ -533,7 +509,7 @@ function CheckGrid({
                 }
               `}>
                 <span className={isSelected ? 'theme-gradient-text' : ''}>
-                  {displayCount}
+                  {counts?.[section]?.[o.key] ?? 0}
                 </span>
               </span>
               <div className="relative inline-flex items-center justify-center w-4 h-4">
@@ -563,16 +539,10 @@ function CheckGrid({
   );
 }
 
-function Card({ children, locked }: { children: React.ReactNode; locked?: boolean }) {
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`
-      rounded-2xl bg-primary-light border-2 border-primary p-6 shadow-lg transition-all duration-300
-      ${locked ? 'opacity-50 pointer-events-none' : ''}
-    `}>
+    <div className="rounded-2xl bg-primary-light border-2 border-primary p-6 shadow-lg">
       {children}
     </div>
   );
 }
-
-
-

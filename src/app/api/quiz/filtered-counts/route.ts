@@ -44,9 +44,11 @@ export async function POST(req: Request) {
     const selectedModes = body.selectedModes ?? [];
 
     // First, get all questions that match the static tag filters
+    // Using OR within each category (IN clause handles OR), AND across categories
     const staticFilterConditions: Prisma.Sql[] = [];
     
     if (rotValues.length) {
+      // OR within rotations: questions with ANY of the selected rotations
       staticFilterConditions.push(
         Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qr
@@ -59,6 +61,7 @@ export async function POST(req: Request) {
     }
 
     if (resValues.length) {
+      // OR within resources: questions with ANY of the selected resources
       staticFilterConditions.push(
         Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qr2
@@ -71,6 +74,7 @@ export async function POST(req: Request) {
     }
 
     if (discValues.length) {
+      // OR within disciplines: questions with ANY of the selected disciplines
       staticFilterConditions.push(
         Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qs
@@ -83,6 +87,7 @@ export async function POST(req: Request) {
     }
 
     if (sysValues.length) {
+      // OR within systems: questions with ANY of the selected systems
       staticFilterConditions.push(
         Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qy
@@ -175,23 +180,84 @@ export async function POST(req: Request) {
       }
     });
 
-    // If mode filters are applied, further filter the questions by their cached modes
-    let modeFilteredQuestionIds = matchingQuestionIds;
-    if (selectedModes.length > 0) {
-      modeFilteredQuestionIds = matchingQuestionIds.filter(questionId => {
-        const mode = modeMap.get(questionId);
+    // Count tags with proper OR within category logic
+    // For each tag category, calculate counts based on UPSTREAM filters only (not same category)
+    
+    // Helper: Get questions matching specific upstream filters
+    async function getQuestionsWithFilters(includeMode: boolean, includeRotation: boolean, includeResource: boolean, includeDiscipline: boolean) {
+      const conditions: Prisma.Sql[] = [];
+      
+      // Always include year filter
+      if (year) {
+        conditions.push(
+          Prisma.sql`EXISTS (
+            SELECT 1 FROM "QuestionOccurrence" qo
+            WHERE qo."questionId" = q.id AND qo.year = ${year}
+          )`
+        );
+      }
+      
+      // Conditionally add other filters
+      if (includeRotation && rotValues.length) {
+        conditions.push(
+          Prisma.sql`EXISTS (
+            SELECT 1 FROM "QuestionTag" qr
+            JOIN "Tag" tr ON tr.id = qr."tagId"
+            WHERE qr."questionId" = q.id
+              AND tr.type = ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)}
+              AND tr.value IN (${Prisma.join(rotValues.map((value) => Prisma.sql`${value}`))})
+          )`
+        );
+      }
+      
+      if (includeResource && resValues.length) {
+        conditions.push(
+          Prisma.sql`EXISTS (
+            SELECT 1 FROM "QuestionTag" qr2
+            JOIN "Tag" tr2 ON tr2.id = qr2."tagId"
+            WHERE qr2."questionId" = q.id
+              AND tr2.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
+              AND tr2.value IN (${Prisma.join(resValues.map((value) => Prisma.sql`${value}`))})
+          )`
+        );
+      }
+      
+      if (includeDiscipline && discValues.length) {
+        conditions.push(
+          Prisma.sql`EXISTS (
+            SELECT 1 FROM "QuestionTag" qs
+            JOIN "Tag" ts ON ts.id = qs."tagId"
+            WHERE qs."questionId" = q.id
+              AND ts.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
+              AND ts.value IN (${Prisma.join(discValues.map((value) => Prisma.sql`${value}`))})
+          )`
+        );
+      }
+      
+      const where = conditions.length 
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+        : Prisma.empty;
         
-        // No cached mode = unused
-        if (!mode || mode === "unused") {
-          return selectedModes.includes("unused");
-        }
-        
-        // Check if the question's mode matches any selected mode
-        return selectedModes.includes(mode);
-      });
+      const questions = await prisma.$queryRaw<Array<{ id: string }>>(
+        Prisma.sql`SELECT DISTINCT q.id FROM "Question" q ${where}`
+      );
+      
+      const questionIds = questions.map(q => q.id);
+      
+      // Apply mode filter if needed
+      if (includeMode && selectedModes.length > 0) {
+        return questionIds.filter(questionId => {
+          const mode = modeMap.get(questionId);
+          if (!mode || mode === "unused") {
+            return selectedModes.includes("unused");
+          }
+          return selectedModes.includes(mode);
+        });
+      }
+      
+      return questionIds;
     }
-
-    // Now count tags within the mode-filtered questions
+    
     async function countTagsInQuestions(tagType: TagType, questionIds: string[]) {
       if (questionIds.length === 0) return {};
       
@@ -213,12 +279,21 @@ export async function POST(req: Request) {
       return map;
     }
 
-    const [rotations, resources, disciplines, systems] = await Promise.all([
-      countTagsInQuestions(TagType.ROTATION, modeFilteredQuestionIds),
-      countTagsInQuestions(TagType.RESOURCE, modeFilteredQuestionIds),
-      countTagsInQuestions(TagType.SUBJECT, modeFilteredQuestionIds),
-      countTagsInQuestions(TagType.SYSTEM, modeFilteredQuestionIds),
-    ]);
+    // Rotation counts: based on mode only (not filtered by rotations themselves)
+    const rotationQuestions = await getQuestionsWithFilters(true, false, false, false);
+    const rotations = await countTagsInQuestions(TagType.ROTATION, rotationQuestions);
+    
+    // Resource counts: based on mode + rotations (not filtered by resources themselves)
+    const resourceQuestions = await getQuestionsWithFilters(true, true, false, false);
+    const resources = await countTagsInQuestions(TagType.RESOURCE, resourceQuestions);
+    
+    // Discipline counts: based on mode + rotations + resources (not filtered by disciplines themselves)
+    const disciplineQuestions = await getQuestionsWithFilters(true, true, true, false);
+    const disciplines = await countTagsInQuestions(TagType.SUBJECT, disciplineQuestions);
+    
+    // System counts: based on mode + rotations + resources + disciplines
+    const systemQuestions = await getQuestionsWithFilters(true, true, true, true);
+    const systems = await countTagsInQuestions(TagType.SYSTEM, systemQuestions);
 
     return NextResponse.json({
       modeCounts,

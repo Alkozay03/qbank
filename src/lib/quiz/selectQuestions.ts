@@ -51,29 +51,28 @@ export async function selectQuestions(opts: {
     userId,
   } = opts;
 
-  const tagFilters: Prisma.QuestionWhereInput[] = [];
+  const whereClauses: Prisma.QuestionWhereInput[] = [];
 
+  // Build filters with OR within each category
   const rotationFilter = buildTagFilter(TagType.ROTATION, rotationKeys);
   if (rotationFilter) {
-    tagFilters.push(rotationFilter);
+    whereClauses.push(rotationFilter);
   }
 
   const resourceFilter = buildTagFilter(TagType.RESOURCE, resourceValues);
   if (resourceFilter) {
-    tagFilters.push(resourceFilter);
+    whereClauses.push(resourceFilter);
   }
 
   const disciplineFilter = buildTagFilter(TagType.SUBJECT, disciplineValues);
   if (disciplineFilter) {
-    tagFilters.push(disciplineFilter);
+    whereClauses.push(disciplineFilter);
   }
 
   const systemFilter = buildTagFilter(TagType.SYSTEM, systemValues);
   if (systemFilter) {
-    tagFilters.push(systemFilter);
+    whereClauses.push(systemFilter);
   }
-
-  const whereClauses: Prisma.QuestionWhereInput[] = [...tagFilters];
 
   // Filter by year if provided (Year 5 vs Year 4)
   if (year) {
