@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Users } from "lucide-react";
+import { VoterNamesModal } from "./VoterNamesModal";
 
 // Helper to check if dark mode is active
 const isDarkMode = () => {
   if (typeof window === 'undefined') return false;
   return document.documentElement.getAttribute('data-theme-type') === 'dark';
 };
+
+interface VoterInfo {
+  firstName: string | null;
+  lastName: string | null;
+}
 
 interface VoteData {
   academicYear: number;
@@ -16,6 +22,7 @@ interface VoteData {
   counts: Record<string, number>;
   total: number;
   percentages: Record<string, number>;
+  voters: Record<string, VoterInfo[]>;
 }
 
 interface AnswerVotingProps {
@@ -33,7 +40,24 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalAnswer, setModalAnswer] = useState<string>("");
+  const [modalVoters, setModalVoters] = useState<VoterInfo[]>([]);
+  const [modalRotationInfo, setModalRotationInfo] = useState<string>("");
+
   const isDark = isDarkMode();
+
+  const openModal = (answer: string, voters: VoterInfo[], rotationInfo: string) => {
+    setModalAnswer(answer);
+    setModalVoters(voters);
+    setModalRotationInfo(rotationInfo);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+  };
 
   const fetchVotes = useCallback(async () => {
     try {
@@ -273,8 +297,9 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
             {['A', 'B', 'C', 'D', 'E'].map((choice) => {
               const count = currentVotes?.counts[choice] || 0;
               const percentage = currentVotes?.percentages[choice] || 0;
+              const voters = currentVotes?.voters?.[choice] || [];
               return (
-                <div key={choice} className="flex items-center gap-3">
+                <div key={choice} className="flex items-center gap-2">
                   <span className="text-sm font-bold w-6" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                     {choice}:
                   </span>
@@ -293,6 +318,23 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                   <span className="text-sm font-semibold w-20 text-right" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                     {percentage}% ({count})
                   </span>
+                  {count > 0 && (
+                    <button
+                      onClick={() => openModal(
+                        choice, 
+                        voters, 
+                        `${currentVotes?.rotationName} ${currentVotes?.rotationNumber} (${currentVotes?.academicYear})`
+                      )}
+                      className="p-1.5 rounded-lg hover:opacity-80 transition-all"
+                      style={{
+                        backgroundColor: isDark ? '#374151' : '#f3f4f6',
+                        color: isDark ? '#ffffff' : '#111827'
+                      }}
+                      title="View voters"
+                    >
+                      <Users size={16} />
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -339,8 +381,9 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
             {['A', 'B', 'C', 'D', 'E'].map((choice) => {
               const count = currentVotes.counts[choice] || 0;
               const percentage = currentVotes.percentages[choice] || 0;
+              const voters = currentVotes.voters?.[choice] || [];
               return (
-                <div key={choice} className="flex items-center gap-3">
+                <div key={choice} className="flex items-center gap-2">
                   <span className="text-sm font-bold w-6" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                     {choice}:
                   </span>
@@ -359,6 +402,23 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                   <span className="text-sm font-semibold w-20 text-right" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                     {percentage}% ({count})
                   </span>
+                  {count > 0 && (
+                    <button
+                      onClick={() => openModal(
+                        choice, 
+                        voters, 
+                        `${currentVotes.rotationName} ${currentVotes.rotationNumber} (${currentVotes.academicYear})`
+                      )}
+                      className="p-1.5 rounded-lg hover:opacity-80 transition-all"
+                      style={{
+                        backgroundColor: isDark ? '#374151' : '#f3f4f6',
+                        color: isDark ? '#ffffff' : '#111827'
+                      }}
+                      title="View voters"
+                    >
+                      <Users size={16} />
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -418,8 +478,10 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                     <div className="px-3 pb-3 space-y-2">
                       {['A', 'B', 'C', 'D', 'E'].map((choice) => {
                         const percentage = vote.percentages[choice] || 0;
+                        const count = vote.counts[choice] || 0;
+                        const voters = vote.voters?.[choice] || [];
                         return (
-                          <div key={choice} className="flex items-center gap-3">
+                          <div key={choice} className="flex items-center gap-2">
                             <span className="text-xs font-bold w-6" style={{ color: isDark ? '#ffffff' : '#111827' }}>
                               {choice}:
                             </span>
@@ -435,9 +497,26 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
                                 }}
                               />
                             </div>
-                            <span className="text-xs font-semibold w-12 text-right" style={{ color: isDark ? '#ffffff' : '#111827' }}>
-                              {percentage}%
+                            <span className="text-xs font-semibold w-16 text-right" style={{ color: isDark ? '#ffffff' : '#111827' }}>
+                              {percentage}% ({count})
                             </span>
+                            {count > 0 && (
+                              <button
+                                onClick={() => openModal(
+                                  choice, 
+                                  voters, 
+                                  `${vote.rotationName} ${vote.rotationNumber} (${vote.academicYear})`
+                                )}
+                                className="p-1 rounded-lg hover:opacity-80 transition-all"
+                                style={{
+                                  backgroundColor: isDark ? '#374151' : '#f3f4f6',
+                                  color: isDark ? '#ffffff' : '#111827'
+                                }}
+                                title="View voters"
+                              >
+                                <Users size={14} />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -455,6 +534,15 @@ export function AnswerVoting({ questionId, isAnswerConfirmed }: AnswerVotingProp
           No voting data available for this question yet
         </div>
       )}
+
+      {/* Voter Names Modal */}
+      <VoterNamesModal
+        isOpen={modalOpen}
+        onClose={closeModal}
+        answer={modalAnswer}
+        voters={modalVoters}
+        rotationInfo={modalRotationInfo}
+      />
     </div>
   );
 }

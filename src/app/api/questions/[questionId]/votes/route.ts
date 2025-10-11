@@ -28,7 +28,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
     }
 
-    // Get all votes for this question (non-archived only)
+    // Get all votes for this question (non-archived only) with voter names
     const votes = await prisma.answerVote.findMany({
       where: {
         questionId,
@@ -40,6 +40,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         rotationName: true,
         selectedAnswer: true,
         isFinal: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
     });
 
@@ -94,14 +100,35 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         })
       : null;
 
-    // Group votes by rotation period
+    // Group votes by rotation period with voter names
+    type VoterInfo = { firstName: string | null; lastName: string | null };
     const votesByPeriod: Record<string, Record<string, number>> = {};
-    votes.forEach((vote: { academicYear: number; rotationNumber: string; rotationName: string; selectedAnswer: string; isFinal: boolean }) => {
+    const votersByPeriodAndAnswer: Record<string, Record<string, VoterInfo[]>> = {};
+    
+    votes.forEach((vote: { 
+      academicYear: number; 
+      rotationNumber: string; 
+      rotationName: string; 
+      selectedAnswer: string; 
+      isFinal: boolean;
+      user: { firstName: string | null; lastName: string | null };
+    }) => {
       const periodKey = `${vote.academicYear}-${vote.rotationNumber}-${vote.rotationName}`;
+      
+      // Initialize counts
       if (!votesByPeriod[periodKey]) {
         votesByPeriod[periodKey] = { A: 0, B: 0, C: 0, D: 0, E: 0 };
       }
       votesByPeriod[periodKey][vote.selectedAnswer] = (votesByPeriod[periodKey][vote.selectedAnswer] || 0) + 1;
+      
+      // Initialize voter names
+      if (!votersByPeriodAndAnswer[periodKey]) {
+        votersByPeriodAndAnswer[periodKey] = { A: [], B: [], C: [], D: [], E: [] };
+      }
+      votersByPeriodAndAnswer[periodKey][vote.selectedAnswer].push({
+        firstName: vote.user.firstName,
+        lastName: vote.user.lastName,
+      });
     });
 
     // Format for response
@@ -122,6 +149,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           D: total > 0 ? Math.round((counts.D / total) * 100) : 0,
           E: total > 0 ? Math.round((counts.E / total) * 100) : 0,
         },
+        voters: votersByPeriodAndAnswer[periodKey],
       };
     });
 
