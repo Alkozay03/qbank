@@ -144,7 +144,7 @@ export default function CreateTest() {
     }
   }
 
-  // Fetch intersection-based counts when any selections change (debounced)
+  // Fetch ONLY tag counts when selections change (debounced) - MODE COUNTS NEVER CHANGE
   useEffect(() => {
     const controller = new AbortController();
     const t = setTimeout(async () => {
@@ -163,7 +163,7 @@ export default function CreateTest() {
         });
         if (!r.ok) return;
         const j = await r.json();
-        setModeCounts(j.modeCounts);
+        // ONLY update tag counts, NOT mode counts (mode counts stay constant)
         setCounts(j.tagCounts);
       } catch {
         // ignore
@@ -173,7 +173,7 @@ export default function CreateTest() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selModes.join(","), selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(",")]);
 
-  // Fetch initial counts on mount and refresh when page becomes visible
+  // Fetch initial mode counts ONCE on mount (and refresh when page becomes visible)
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -190,6 +190,7 @@ export default function CreateTest() {
         });
         if (response.ok) {
           const data = await response.json();
+          // Set mode counts ONCE - they never change after this
           setModeCounts(data.modeCounts);
           setCounts(data.tagCounts);
         }
