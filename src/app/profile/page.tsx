@@ -178,8 +178,12 @@ export default function Profile() {
                   <option value="">Select Rotation</option>
                   <option value="Pediatrics">Pediatrics</option>
                   <option value="Internal Medicine">Internal Medicine</option>
+                  <option value="Internal Medicine 2">Internal Medicine 2</option>
                   <option value="General Surgery">General Surgery</option>
+                  <option value="General Surgery 2">General Surgery 2</option>
                   <option value="Obstetrics & Gynecology">Obstetrics & Gynecology</option>
+                  <option value="Family Medicine">Family Medicine</option>
+                  <option value="Psychiatry">Psychiatry</option>
                 </select>
               </div>
               <div>

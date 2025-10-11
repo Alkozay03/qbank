@@ -63,6 +63,8 @@ const disciplines: Option[] = [
 
   { key: "biostat", label: "Biostatistics" },
 
+  { key: "development", label: "Development, Growth, Milestones & Vaccines" },
+
   { key: "embryology", label: "Embryology" },
 
   { key: "genetics", label: "Genetics" },
@@ -72,6 +74,8 @@ const disciplines: Option[] = [
   { key: "immunology", label: "Immunology" },
 
   { key: "micro", label: "Microbiology" },
+
+  { key: "neonatology", label: "Neonatology" },
 
   { key: "path", label: "Pathology" },
 
