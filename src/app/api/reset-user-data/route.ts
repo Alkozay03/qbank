@@ -1,11 +1,11 @@
 // src/app/api/reset-user-data/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { auth } from "@/auth";
 
-export async function POST(_req: NextRequest) {
+export async function POST() {
   try {
     const session = await auth();
     const userId = session?.user?.id;

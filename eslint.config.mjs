@@ -27,7 +27,10 @@ const config = [
       "fix-*.js", 
       "test-*.js",
       "add-*.js",
+      "check-*.js",
+      "check-*.mjs",
       "**/_archive/**",
+      "*.mjs",
     ],
   },
 
@@ -53,6 +56,9 @@ const config = [
 
       // Gentle console guard: allow warn/error, flag others
       "no-console": ["warn", { allow: ["warn", "error"] }],
+
+      // Disable annoying Next.js image warnings for user profile images
+      "@next/next/no-img-element": "off",
 
       // Small quality-of-life rules
       "prefer-const": "warn",

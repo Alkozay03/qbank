@@ -9,7 +9,7 @@ import { checkForSimilarQuestions } from "@/lib/similar-questions";
  * Scans questions that are 1 day old for similarities with existing questions
  * This should be run daily as a cron job or manually triggered
  */
-export async function POST(_req: Request) {
+export async function POST() {
   try {
     console.warn("🔵 [SCAN SIMILAR] POST request received");
     
