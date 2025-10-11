@@ -1149,22 +1149,34 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   }, [hasBeenSaved]);
 
   // Cleanup: Delete draft question if modal is closed without saving
+  // Store initial values in refs so cleanup can access them
+  const isDraftRef = useRef(isDraft);
+  const stableQuestionIdRef = useRef(stableQuestionId);
+  
+  useEffect(() => {
+    // Update refs when values change
+    isDraftRef.current = isDraft;
+    stableQuestionIdRef.current = stableQuestionId;
+  }, [isDraft, stableQuestionId]);
+  
   useEffect(() => {
     return () => {
       // On unmount (modal close), delete draft if it wasn't saved
-      // Use ref to get CURRENT value, not the captured value from closure!
+      // Use refs to get CURRENT values at time of unmount!
       const wasSaved = hasBeenSavedRef.current;
+      const currentIsDraft = isDraftRef.current;
+      const currentQuestionId = stableQuestionIdRef.current;
       
-      if (isDraft && !wasSaved && stableQuestionId) {
+      if (currentIsDraft && !wasSaved && currentQuestionId) {
         // Fire and forget - delete the draft question
-        fetch(`/api/admin/questions/draft?id=${stableQuestionId}`, {
+        fetch(`/api/admin/questions/draft?id=${currentQuestionId}`, {
           method: 'DELETE',
         }).catch((error) => {
           console.error('Failed to delete draft question:', error);
         });
       }
     };
-  }, [isDraft, stableQuestionId]);
+  }, []); // Empty deps - only run cleanup on unmount
 
   const handleClose = useCallback(async () => {
     // If it's a draft that hasn't been saved, delete it
