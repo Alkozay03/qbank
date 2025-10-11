@@ -1,7 +1,7 @@
 // src/app/api/reset-user-data/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/server/db";
 import { auth } from "@/auth";
 
@@ -30,10 +30,17 @@ export async function POST(_req: NextRequest) {
         where: { userId }
       });
 
-      // Reset all marked flags for questions this user has interacted with
-      // (We can't easily track which specific questions were marked by this user,
-      // so we'll reset all quiz items that belonged to this user)
-      // Since we already deleted them above, no additional action needed for marked flags
+      // Reset all question modes for this user (marks, correct/incorrect status, etc.)
+      // This removes all the user's question mode tracking (unused, correct, incorrect, omitted, marked)
+      await tx.userQuestionMode.deleteMany({
+        where: { userId }
+      });
+
+      console.error(`🔄 [RESET] Successfully reset data for user ${userId}:`, {
+        deletedResponses: true,
+        deletedQuizzes: true,
+        deletedQuestionModes: true
+      });
     });
 
     return NextResponse.json({
