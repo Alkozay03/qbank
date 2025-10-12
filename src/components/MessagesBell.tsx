@@ -21,11 +21,26 @@ export default function MessagesBell() {
   };
 
   useEffect(() => {
+    // Load count once on mount
     refreshUnreadCount();
     
-    // Refresh count every 30 seconds
-    const interval = setInterval(refreshUnreadCount, 30000);
-    return () => clearInterval(interval);
+    // Refresh when tab becomes visible (student returns to page)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshUnreadCount();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // ✅ REMOVED: Stupid 30-second polling
+    // ❌ OLD: const interval = setInterval(refreshUnreadCount, 30000);
+    // Messages should refresh when student opens messages page,
+    // or when tab becomes visible again
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const handleClick = () => {

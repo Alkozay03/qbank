@@ -169,13 +169,15 @@ export default function CreateTest() {
       } catch {
         // ignore
       }
-    }, 250);
+    }, 500); // Increased from 250ms to 500ms to reduce API call frequency
     return () => { controller.abort(); clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selModes.join(","), selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(",")]);
 
   // Fetch initial mode counts ONCE on mount (and refresh when page becomes visible)
   useEffect(() => {
+    let lastFetchTime = Date.now();
+    
     const fetchInitialData = async () => {
       try {
         const response = await fetch("/api/quiz/filtered-counts", {
@@ -195,6 +197,7 @@ export default function CreateTest() {
           // Set mode counts ONCE - they never change after this
           setModeCounts(data.modeCounts);
           setCounts(data.tagCounts);
+          lastFetchTime = Date.now();
         }
       } catch (error) {
         console.error("Failed to fetch initial data:", error);
@@ -203,21 +206,16 @@ export default function CreateTest() {
     
     fetchInitialData();
     
-    // Also refetch when tab becomes visible (user returns from quiz)
+    // Throttled refetch when tab becomes visible (only if been away 60+ seconds)
     const onVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && Date.now() - lastFetchTime > 60000) {
         fetchInitialData();
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     
-    // Also refetch when window regains focus
-    const onFocus = () => fetchInitialData();
-    window.addEventListener('focus', onFocus);
-    
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('focus', onFocus);
     };
   }, []);
 

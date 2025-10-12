@@ -4,6 +4,10 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { auth } from "@/auth";
+import { cache } from "@/lib/cache";
+
+// Cache key for all help items (must match route.ts)
+const HELP_ITEMS_CACHE_KEY = "help-items-published";
 
 // PUT - Update a help item (admin only)
 export async function PUT(
@@ -55,6 +59,9 @@ export async function PUT(
       },
     });
 
+    // Invalidate cache - students will get fresh data on next request
+    cache.delete(HELP_ITEMS_CACHE_KEY);
+
     return NextResponse.json(helpItem);
   } catch (error) {
     console.error("Error updating help item:", error);
@@ -93,6 +100,9 @@ export async function DELETE(
     await prisma.helpItem.delete({
       where: { id },
     });
+
+    // Invalidate cache - students will get fresh data on next request
+    cache.delete(HELP_ITEMS_CACHE_KEY);
 
     return NextResponse.json({ success: true });
   } catch (error) {

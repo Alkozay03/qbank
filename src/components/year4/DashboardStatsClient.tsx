@@ -49,12 +49,26 @@ export default function DashboardStatsClient() {
       }
     };
 
+    // Load stats once on mount
     void fetchStats();
 
-    const id = setInterval(fetchStats, 60_000);
+    // Refresh when tab becomes visible (student returns to page)
+    const handleVisibilityChange = () => {
+      if (!cancelled && document.visibilityState === 'visible') {
+        void fetchStats();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // ✅ REMOVED: Stupid 60-second polling
+    // ❌ OLD: const id = setInterval(fetchStats, 60_000);
+    // Stats should only refresh when student completes a quiz,
+    // which is handled by the quiz completion redirect back to dashboard
+
     return () => {
       cancelled = true;
-      clearInterval(id);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

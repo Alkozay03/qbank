@@ -4,21 +4,40 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { auth } from "@/auth";
+import { cache } from "@/lib/cache";
+
+// Cache key for all help items (global, never changes unless admin updates)
+const HELP_ITEMS_CACHE_KEY = "help-items-published";
 
 // GET - Fetch all help items (public endpoint)
 export async function GET() {
   try {
-    const helpItems = await prisma.helpItem.findMany({
-      where: { isPublished: true },
-      orderBy: { orderIndex: "asc" },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        orderIndex: true,
-        createdAt: true,
-      },
-    });
+    // Check cache first (infinite TTL)
+    let helpItems = cache.get<Array<{
+      id: string;
+      title: string;
+      description: string;
+      orderIndex: number;
+      createdAt: Date;
+    }>>(HELP_ITEMS_CACHE_KEY);
+
+    if (!helpItems) {
+      // Cache miss - query database
+      helpItems = await prisma.helpItem.findMany({
+        where: { isPublished: true },
+        orderBy: { orderIndex: "asc" },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          orderIndex: true,
+          createdAt: true,
+        },
+      });
+
+      // Cache forever (only invalidated on admin updates)
+      cache.set(HELP_ITEMS_CACHE_KEY, helpItems);
+    }
 
     return NextResponse.json(helpItems);
   } catch (error) {
@@ -88,6 +107,9 @@ export async function POST(req: Request) {
         createdAt: true,
       },
     });
+
+    // Invalidate cache - students will get fresh data on next request
+    cache.delete(HELP_ITEMS_CACHE_KEY);
 
     return NextResponse.json(helpItem);
   } catch (error) {

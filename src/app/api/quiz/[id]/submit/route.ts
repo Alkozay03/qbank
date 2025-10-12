@@ -9,15 +9,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     const session = await auth();
     
-    // Look up user by email to get correct database ID
-    let userId = null;
-    if (session?.user?.email) {
-      const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: { id: true },
-      });
-      userId = user?.id ?? null;
-    }
+    // Use session.user.id directly - no need to look up user by email
+    const userId = session?.user?.id ?? null;
 
     const {
       quizItemId,

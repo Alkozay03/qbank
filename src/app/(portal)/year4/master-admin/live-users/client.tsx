@@ -18,15 +18,22 @@ type Props = {
 };
 
 export default function LiveUsersClient({ users: initialUsers }: Props) {
-  const users = initialUsers;
+  const [users, setUsers] = useState<User[]>(initialUsers);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const lastUpdated = new Date();
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const refreshUsers = async () => {
     setIsRefreshing(true);
     try {
-      // Refresh the page data by revalidating
-      window.location.reload();
+      // Fetch updated user list from API
+      const res = await fetch('/api/live-users', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data.users || []);
+        setLastUpdated(new Date());
+      }
+    } catch (error) {
+      console.error('Failed to refresh users:', error);
     } finally {
       setIsRefreshing(false);
     }

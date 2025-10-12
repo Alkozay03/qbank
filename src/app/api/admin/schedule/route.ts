@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import db from "@/lib/db";
 import { requireRole } from "@/lib/rbac";
 import { startOfWeekMonday } from "@/lib/dates";
+import { cache } from "@/lib/cache";
 
 export async function GET() {
   await requireRole(["ADMIN", "MASTER_ADMIN"]);
@@ -96,6 +97,11 @@ export async function POST(req: Request) {
       link: b.link ?? null,
     })),
   });
+
+  // Invalidate cache for this week + rotation combination
+  // Students will get fresh data on next page load
+  const cacheKey = `schedule-${targetRotation || 'global'}-${weekStart.toISOString()}`;
+  cache.delete(cacheKey);
 
   return NextResponse.json({ ok: true });
 }

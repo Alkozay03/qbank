@@ -2,9 +2,10 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/server/db";
-// import { auth } from "@/auth"; // TODO: Uncomment after Prisma migration for rotation filtering
+import { auth } from "@/auth";
 import { startOfWeekMonday, addDaysUTC, format12h } from "@/lib/dates";
 import Shell from "@/components/Shell";
+import { cache } from "@/lib/cache";
 
 type UiBlock = {
   id: string;
@@ -34,49 +35,56 @@ export default async function Year4SchedulePage() {
 
   try {
     // Get current user's rotation
-    // const session = await auth();
-    // let userRotation: string | null = null;
-    // if (session?.user?.email) {
-    //   const user = await prisma.user.findUnique({
-    //     where: { email: session.user.email },
-    //     select: { rotation: true },
-    //   });
-    //   userRotation = user?.rotation || null;
-    // }
+    const session = await auth();
+    let userRotation: string | null = null;
+    if (session?.user?.email) {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { rotation: true },
+      });
+      userRotation = user?.rotation || null;
+    }
 
-    // TODO: After running Prisma migration, uncomment this to filter by rotation:
-    // const schedule = await prisma.schedule.findFirst({
-    //   where: {
-    //     weekStart,
-    //     OR: [
-    //       { targetRotation: null }, // Global schedules
-    //       { targetRotation: userRotation || undefined }, // User's rotation
-    //     ],
-    //   },
-    //   include: { items: true },
-    //   orderBy: { targetRotation: 'desc' }, // Prefer rotation-specific over global
-    // });
+    // Cache key: rotation-specific + week-specific
+    // Schedule is identical for all students in same rotation during same week
+    // Cache forever until admin updates (manual invalidation)
+    const cacheKey = `schedule-${userRotation || 'global'}-${weekStart.toISOString()}`;
     
-    // Temporary: Until Prisma migration runs
-    const schedule = await prisma.schedule.findUnique({
-      where: { weekStart },
-      include: { items: true },
-    });
+    type CachedSchedule = { title: string | null; items: UiBlock[] };
+    let schedule = cache.get<CachedSchedule>(cacheKey);
+    
+    if (!schedule) {
+      // Cache miss - query database
+      const dbSchedule = await prisma.schedule.findUnique({
+        where: { weekStart },
+        include: { items: true },
+      });
+      
+      if (dbSchedule) {
+        // Transform and cache forever (no TTL - only invalidated manually)
+        const transformedItems = dbSchedule.items.map((b) => ({
+          id: b.id,
+          dayOfWeek: b.dayOfWeek,
+          type: b.type as UiBlock["type"],
+          startsAt: b.startsAt,
+          endsAt: b.endsAt,
+          topic: b.topic ?? null,
+          tutor: b.tutor ?? null,
+          location: b.location ?? null,
+          link: b.link ?? null,
+        }));
+        
+        schedule = {
+          title: dbSchedule.title,
+          items: transformedItems
+        };
+        cache.set(cacheKey, schedule);
+      }
+    }
 
     if (schedule) {
       title = schedule.title ?? "Weekly Schedule";
-      items = schedule.items.map((b) => ({
-        id: b.id,
-        dayOfWeek: b.dayOfWeek,
-        // enum in DB is ScheduleItemType with these literal values
-        type: b.type as UiBlock["type"],
-        startsAt: b.startsAt,
-        endsAt: b.endsAt,
-        topic: b.topic ?? null,
-        tutor: b.tutor ?? null,
-        location: b.location ?? null,
-        link: b.link ?? null,
-      }));
+      items = schedule.items;
     }
   } catch (err) {
     console.error("Failed to load schedule:", err);

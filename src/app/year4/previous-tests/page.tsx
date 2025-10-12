@@ -6,24 +6,6 @@ import Shell from "@/components/Shell";
 import { auth } from "@/auth";
 import db from "@/lib/db";
 import Link from "next/link";
-type QuizWithItems = {
-  id: string;
-  status: string | null;
-  createdAt: Date;
-  items: {
-    id: string;
-    question: {
-      questionTags: {
-        tag: { type: string; value: string };
-      }[];
-    } | null;
-    responses: {
-      createdAt: Date;
-      choiceId: string | null;
-      isCorrect: boolean | null;
-    }[];
-  }[];
-};
 
 type ScoreRow = {
   id: string;
@@ -68,14 +50,9 @@ function lightenHex(hex: string, ratio = 0.35) {
 
 export default async function PreviousTests() {
   const session = await auth();
-  const email = session?.user?.email ?? null;
+  const userId = session?.user?.id;
 
-  let userId = (session?.user as { id?: string } | undefined)?.id ?? null;
-  if (!userId && email) {
-    const userRecord = await db.user.findUnique({ where: { email }, select: { id: true } });
-    userId = userRecord?.id ?? null;
-  }
-
+  // ✅ OPTIMIZATION: Get userId directly from session (no database lookup)
   if (!userId) {
     return (
       <Shell title="Previous Tests" pageName="Previous Tests">
@@ -93,66 +70,95 @@ export default async function PreviousTests() {
     );
   }
 
-  let quizzes: QuizWithItems[] = [];
+  let quizzes: Array<{
+    id: string;
+    status: string | null;
+    createdAt: Date;
+    _count: { items: number };
+  }> = [];
+  
+  const quizStats: Map<string, { correct: number; total: number; rotation: string }> = new Map();
+
   try {
+    // ✅ OPTIMIZATION: Fetch only summary data, not all questions/answers
     quizzes = await db.quiz.findMany({
       where: { 
         userId,
-        status: { in: ["Suspended", "Ended"] } // Only show suspended and ended tests
+        status: { in: ["Suspended", "Ended"] }
       },
       select: {
         id: true,
         status: true,
         createdAt: true,
-        items: {
-          select: {
-            id: true,
-            question: {
-              select: {
-                questionTags: {
-                  select: {
-                    tag: { select: { type: true, value: true } },
-                  },
-                },
-              },
-            },
-            responses: {
-              orderBy: { createdAt: "asc" },
-              select: { createdAt: true, choiceId: true, isCorrect: true },
-              take: 1,
-            },
-          },
+        _count: {
+          select: { items: true } // Count questions instead of fetching them
         },
       },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
+
+    // ✅ OPTIMIZATION: For each quiz, get aggregated stats in parallel
+    const statsPromises = quizzes.map(async (quiz) => {
+      // Get response stats - count total and correct separately
+      const [totalResponses, correctResponses, rotationTag] = await Promise.all([
+        db.response.count({
+          where: {
+            quizItem: { quizId: quiz.id },
+            choiceId: { not: null },
+          },
+        }),
+        db.response.count({
+          where: {
+            quizItem: { quizId: quiz.id },
+            choiceId: { not: null },
+            isCorrect: true,
+          },
+        }),
+        // Get rotation from first question tag
+        db.questionTag.findFirst({
+          where: {
+            question: {
+              quizItems: {
+                some: { quizId: quiz.id }
+              }
+            },
+            tag: { type: "ROTATION" }
+          },
+          select: {
+            tag: { select: { value: true }}
+          }
+        })
+      ]);
+
+      return { 
+        quizId: quiz.id, 
+        correct: correctResponses, 
+        total: totalResponses, 
+        rotation: rotationTag?.tag.value || "General" 
+      };
+    });
+
+    const allStats = await Promise.all(statsPromises);
+    allStats.forEach(stat => {
+      quizStats.set(stat.quizId, {
+        correct: stat.correct,
+        total: stat.total,
+        rotation: stat.rotation
+      });
+    });
+
   } catch (error) {
     console.error("Database error in previous tests:", error);
-    // Return empty array when database is unavailable
     quizzes = [];
   }
 
   const rows: ScoreRow[] = quizzes.map((quiz) => {
-    let answered = 0;
-    let correct = 0;
-
-    quiz.items.forEach((item) => {
-      const latest = item.responses[0];
-      if (latest && latest.choiceId) {
-        answered += 1;
-        if (latest.isCorrect === true) {
-          correct += 1;
-        }
-      }
-    });
-
+    const stats = quizStats.get(quiz.id);
+    const correct = stats?.correct || 0;
+    const answered = stats?.total || 0;
     const scorePercent = answered > 0 ? Math.round((correct / answered) * 100) : 0;
-
-    const rotationTag = quiz.items
-      .flatMap((item) => item.question?.questionTags ?? [])
-      .find((entry) => entry.tag.type === "ROTATION");
-    const rotationLabel = rotationTag?.tag.value ?? "General";
+    const rotationLabel = stats?.rotation || "General";
 
     const shortId = quiz.id.slice(0, 6).toUpperCase();
     const baseColor = pickScoreColor(scorePercent);
@@ -163,7 +169,7 @@ export default async function PreviousTests() {
       shortId,
       status: quiz.status,
       createdAt: quiz.createdAt,
-      questionCount: quiz.items.length,
+      questionCount: quiz._count.items, // Use _count instead of items.length
       rotationLabel,
       scorePercent,
       scoreBackground: `linear-gradient(135deg, ${baseColor}, ${accentColor})`,

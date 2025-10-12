@@ -12,28 +12,21 @@ export async function POST() {
   try {
     const session = await auth();
     
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Find the user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    // Use session.user.id directly - no need to look up user by email
+    const userId = session.user.id;
 
     // Update or create user activity record
     await prisma.userActivity.upsert({
-      where: { userId: user.id },
+      where: { userId: userId },
       update: {
         lastSeen: new Date(),
       },
       create: {
-        userId: user.id,
+        userId: userId,
         lastSeen: new Date(),
       },
     });

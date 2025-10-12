@@ -59,7 +59,7 @@ function calculateStats(responses: Array<{isCorrect: boolean | null; timeSeconds
 
 export default async function Performance() {
   const session = await auth();
-  const userEmail = session?.user?.email ?? "";
+  const userId = session?.user?.id;
 
   // Default values
   let stats = {
@@ -77,14 +77,9 @@ export default async function Performance() {
   };
 
   try {
-    // Get user ID first
-    const user = await db.user.findUnique({
-      where: { email: userEmail },
-      select: { id: true },
-    });
-
-    if (!user?.id) {
-      throw new Error("User not found");
+    // ✅ OPTIMIZATION: Get userId directly from session (no database lookup needed)
+    if (!userId) {
+      throw new Error("Unauthorized");
     }
 
     // ✅ OPTIMIZATION: Run queries in parallel instead of sequential
@@ -95,7 +90,7 @@ export default async function Performance() {
       // Query 2: Get user responses with optimized select
       db.response.findMany({
         where: {
-          userId: user.id, // Use user.id directly instead of user?.id ?? ""
+          userId, // Use userId directly from session
         },
         select: {
           isCorrect: true,

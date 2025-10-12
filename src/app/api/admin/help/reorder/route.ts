@@ -2,6 +2,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
+import { cache } from "@/lib/cache";
+
+// Cache key for all help items (must match route.ts)
+const HELP_ITEMS_CACHE_KEY = "help-items-published";
 
 export async function POST(request: Request) {
   try {
@@ -49,6 +53,9 @@ export async function POST(request: Request) {
         })
       )
     );
+
+    // Invalidate cache - students will get fresh data on next request
+    cache.delete(HELP_ITEMS_CACHE_KEY);
 
     return NextResponse.json({ success: true });
   } catch (error) {
