@@ -12,24 +12,17 @@ type QuestionSnapshot = {
 
 export async function POST() {
   const session = await auth();
-  if (!session?.user?.email) {
+  if (!session?.user?.email || !session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const userId = session.user.id;
+
   try {
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
     const [totalQuestions, quizItems] = await Promise.all([
       prisma.question.count(),
       prisma.quizItem.findMany({
-        where: { quiz: { userId: user.id } },
+        where: { quiz: { userId } },
         select: {
           questionId: true,
           marked: true,

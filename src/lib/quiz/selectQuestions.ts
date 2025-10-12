@@ -134,7 +134,11 @@ export async function selectQuestions(opts: {
       omitted: new Set<string>(),
     };
 
-    const allQuestions = await prisma.question.findMany({ select: { id: true } });
+    // ✅ CACHE THIS: All questions is global data (same for all users)
+    const allQuestions = await prisma.question.findMany({ 
+      select: { id: true },
+      cacheStrategy: { ttl: 3600, swr: 600 }  // 1 hour cache
+    });
     
     // First, classify all questions based on their response history
     for (const [questionId, response] of responsesByQuestion.entries()) {
@@ -188,25 +192,31 @@ export async function selectQuestions(opts: {
 
   let pool: { id: string }[] = [];
   try {
+    // ✅ CACHE THIS: Question pool queries are filtered but can still benefit from caching
     pool = await prisma.question.findMany({
       where,
       select: { id: true },
       take: Math.max(take * 3, take),
       orderBy: { createdAt: "desc" },
+      cacheStrategy: { ttl: 3600, swr: 600 }  // 1 hour cache
     });
   } catch {
+    // Fallback query also cached
     pool = await prisma.question.findMany({
       select: { id: true },
       take: Math.max(take * 3, take),
       orderBy: { createdAt: "desc" },
+      cacheStrategy: { ttl: 3600, swr: 600 }
     });
   }
 
   if (pool.length === 0) {
+    // Final fallback also cached
     pool = await prisma.question.findMany({
       select: { id: true },
       take: Math.max(take * 3, take),
       orderBy: { createdAt: "desc" },
+      cacheStrategy: { ttl: 3600, swr: 600 }
     });
   }
 

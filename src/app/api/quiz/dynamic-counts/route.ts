@@ -43,7 +43,7 @@ function buildTagFilter(type: TagType, rawValues: string[]): Prisma.QuestionWher
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user?.email) {
+  if (!session?.user?.email || !session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -57,14 +57,7 @@ export async function POST(req: Request) {
     selectedDisciplines = [],
   } = body;
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
-  });
-
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
+  const userId = session.user.id;
 
   try {
     // Step 1: Get question IDs filtered by mode (if selected)
@@ -72,7 +65,7 @@ export async function POST(req: Request) {
 
     if (selectedMode && selectedMode !== "all") {
       const answeredQuestions = await prisma.response.findMany({
-        where: { userId: user.id },
+        where: { userId },
         include: {
           quizItem: {
             select: {
@@ -85,7 +78,7 @@ export async function POST(req: Request) {
       });
 
       const userQuizItems = await prisma.quizItem.findMany({
-        where: { quiz: { userId: user.id } },
+        where: { quiz: { userId } },
         select: { questionId: true, marked: true },
       });
 
@@ -119,8 +112,6 @@ export async function POST(req: Request) {
         omitted: new Set<string>(),
       };
 
-      const allQuestions = await prisma.question.findMany({ select: { id: true } });
-
       for (const [questionId, response] of responsesByQuestion.entries()) {
         if (response.choiceId === null || response.choiceId === undefined) {
           questionIdsByType.omitted.add(questionId);
@@ -136,6 +127,12 @@ export async function POST(req: Request) {
           questionIdsByType.omitted.add(questionId);
         }
       }
+
+      // ✅ CACHE THIS: All questions is global data (same for all users)
+      const allQuestions = await prisma.question.findMany({ 
+        select: { id: true },
+        cacheStrategy: { ttl: 3600, swr: 600 }  // 1 hour cache
+      });
 
       for (const q of allQuestions) {
         const questionId = q.id;

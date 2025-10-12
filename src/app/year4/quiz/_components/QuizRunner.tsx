@@ -531,7 +531,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const resetFont = () => setFontScale(1);
 
   // Highlighter
-  const [highlightEnabled, setHighlightEnabled] = useState(false);
+  const [highlightEnabled, setHighlightEnabled] = useState(true);
   const [showHighlighter, setShowHighlighter] = useState(false);
   const [highlightColor, setHighlightColor] = useState<string>("#ffe066");
   const paletteRef = useRef<HTMLDivElement | null>(null);
@@ -796,7 +796,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const range = sel.getRangeAt(0);
     if (range.collapsed) return;
 
-  if (!findSection(range.commonAncestorContainer)) return;
+    if (!findSection(range.commonAncestorContainer)) return;
+
+    // Store selection text before manipulating the DOM
+    const selectedText = sel.toString();
+    if (!selectedText.trim()) return;
 
     const mark = document.createElement("mark");
     mark.style.backgroundColor = highlightColor;
@@ -814,20 +818,32 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     let sectionInfo: { el: Element; key: keyof SectionHTML } | null = null;
 
     try {
-      const frag = range.extractContents();
-      mark.appendChild(frag);
-      range.insertNode(mark);
-      sel.removeAllRanges();
+      // Clone the range to avoid mutation issues
+      const clonedRange = range.cloneRange();
+      const frag = clonedRange.extractContents();
+      
+      // Only proceed if we extracted something meaningful
+      if (frag.textContent?.trim()) {
+        mark.appendChild(frag);
+        range.deleteContents();
+        range.insertNode(mark);
+        sel.removeAllRanges();
 
-      if (mark.isConnected) {
-        normalizeInsertedMark(mark);
-        sectionInfo = findSection(mark) ?? findSection(range.commonAncestorContainer);
+        if (mark.isConnected) {
+          normalizeInsertedMark(mark);
+          sectionInfo = findSection(mark) ?? findSection(range.commonAncestorContainer);
+        }
       }
     } catch {
+      // Fallback to insertHTML for complex selections
+      const escapedText = selectedText.replace(/[<>&]/g, (c) => {
+        const escapeMap: Record<string, string> = { '<': '&lt;', '>': '&gt;', '&': '&amp;' };
+        return escapeMap[c] || c;
+      });
       document.execCommand(
         "insertHTML",
         false,
-        `<mark data-qa="highlight" style="background:${highlightColor};padding:0;margin:0;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;">${sel.toString()}</mark>`
+        `<mark data-qa="highlight" style="background:${highlightColor};padding:0;margin:0;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;">${escapedText}</mark>`
       );
       sel.removeAllRanges();
 

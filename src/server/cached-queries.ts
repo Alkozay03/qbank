@@ -46,31 +46,29 @@ export async function getCachedQuestion(questionId: string) {
     .findUnique({
       where: { id: questionId },
       include: {
-        tags: { include: { tag: true } },
-        votesUp: true,
-        votesDown: true,
+        questionTags: { include: { tag: true } },
         comments: {
-          include: { author: { select: { id: true, firstName: true, lastName: true, email: true } } },
+          include: { createdBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
           orderBy: { createdAt: 'asc' }
         }
       },
       cacheStrategy: {
-        ttl: 600, // 10 minutes (questions don't change often)
-        swr: 120, // Serve stale for 2 minutes
+        ttl: 3600, // 1 hour (questions don't change often)
+        swr: 600, // Serve stale for 10 minutes
       },
     });
 }
 
-export async function getCachedQuestionsByYear(year: number) {
+export async function getCachedQuestionsByYear(year: string) {
   return prisma.question
     .findMany({
       where: { yearCaptured: year },
       include: {
-        tags: { include: { tag: true } },
+        questionTags: { include: { tag: true } },
       },
       cacheStrategy: {
-        ttl: 600, // 10 minutes
-        swr: 120,
+        ttl: 3600, // 1 hour
+        swr: 600,
       },
     });
 }
@@ -86,8 +84,8 @@ export async function getCachedAllTags() {
         questions: { select: { questionId: true } }
       },
       cacheStrategy: {
-        ttl: 1800, // 30 minutes (tags rarely change)
-        swr: 300,  // Serve stale for 5 minutes
+        ttl: 86400, // 24 hours (tags rarely change)
+        swr: 3600,  // Serve stale for 1 hour
       },
     });
 }
@@ -107,19 +105,18 @@ export async function getCachedTag(tagId: string) {
 // QUIZ/STATS QUERIES (Can be slightly stale)
 // ============================================================================
 
-export async function getCachedUserQuizHistory(userId: string, year: number) {
+export async function getCachedUserQuizHistory(userId: string) {
   return prisma.quiz
     .findMany({
       where: {
         userId,
-        year,
       },
       include: {
-        questions: {
+        items: {
           include: {
             question: {
               include: {
-                tags: { include: { tag: true } }
+                questionTags: { include: { tag: true } }
               }
             }
           }
@@ -138,15 +135,15 @@ export async function getCachedUserQuizHistory(userId: string, year: number) {
 // DASHBOARD/STATS QUERIES (Expensive aggregations)
 // ============================================================================
 
-export async function getCachedDashboardStats(year: number) {
+export async function getCachedDashboardStats(year: string) {
   // This is expensive - cache for longer
   const questionIds = await prisma.question
     .findMany({
       where: { yearCaptured: year },
       select: { id: true },
       cacheStrategy: {
-        ttl: 600, // 10 minutes
-        swr: 120,
+        ttl: 3600, // 1 hour
+        swr: 600,
       },
     });
 

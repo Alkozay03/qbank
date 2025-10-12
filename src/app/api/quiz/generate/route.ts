@@ -8,7 +8,7 @@ import { selectQuestions } from "@/lib/quiz/selectQuestions";
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user?.email) {
+  if (!session?.user?.email || !session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -46,14 +46,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Select at least one rotation" }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
-  });
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const userId = session.user.id;
 
   const ids = await selectQuestions({
-    userId: user.id,
+    userId,
     year,
     rotationKeys,
     resourceValues,
@@ -69,7 +65,7 @@ export async function POST(req: Request) {
 
   const quiz = await prisma.quiz.create({
     data: {
-      userId: user.id,
+      userId,
       status: "Active",
       mode: "RANDOM",
       count: ids.length,
