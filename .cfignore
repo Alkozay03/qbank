@@ -1,0 +1,8 @@
+# Cloudflare Pages - Ignore these files during deployment
+.next/cache/
+node_modules/
+.git/
+.env*
+*.log
+.vercel/
+.wrangler/
