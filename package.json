@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate --no-engine",
     "prebuild": "node scripts/prisma-generate.mjs",
     "migrate:deploy": "prisma migrate deploy",
     "dev": "next dev --turbopack",

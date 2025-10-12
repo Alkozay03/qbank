@@ -9,22 +9,18 @@ const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
 
 try {
-  console.log('🔄 Generating Prisma client for Vercel deployment...');
+  console.log('🔄 Generating Prisma client for Vercel deployment with Accelerate...');
   
-  // Set environment variables for proper engine generation
-  process.env.PRISMA_GENERATE_SKIP_DOWNLOAD = 'false';
-  
-  // Generate Prisma client - let it auto-detect engine type
-  execSync('npx prisma generate', {
+  // CRITICAL: Use --no-engine for Prisma Accelerate (Data Proxy)
+  // This prevents the "prisma:warn In production, we recommend using --no-engine" warning
+  // and ensures Accelerate caching works properly
+  execSync('npx prisma generate --no-engine', {
     cwd: projectRoot,
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      PRISMA_GENERATE_SKIP_DOWNLOAD: 'false'
-    }
+    env: process.env
   });
   
-  console.log('✅ Prisma client generated successfully');
+  console.log('✅ Prisma client generated successfully (engine=none for Accelerate)');
 } catch (error) {
   console.error('❌ Failed to generate Prisma client:', error.message);
   process.exit(1);
