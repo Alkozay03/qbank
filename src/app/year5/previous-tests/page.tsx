@@ -70,12 +70,8 @@ export default async function PreviousTests() {
     );
   }
 
-  let quizzes: Array<{
-    id: string;
-    status: string | null;
-    createdAt: Date;
-    _count: { items: number };
-  }> = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let quizzes: any[] = [];
   
   const quizStats: Map<string, { correct: number; total: number; rotation: string }> = new Map();
 
