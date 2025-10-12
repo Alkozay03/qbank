@@ -1,7 +1,7 @@
 // Create a test question with proper tags
+import { prisma } from "@/server/db";
+
 export async function POST() {
-  const { PrismaClient } = await import("@prisma/client");
-  const prisma = new PrismaClient();
   
   try {
     // Create tags first

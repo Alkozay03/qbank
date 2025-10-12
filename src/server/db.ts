@@ -8,9 +8,18 @@ declare global {
 }
 
 function createPrismaClient() {
-  return new PrismaClient({
+  // Force fresh Prisma client with Accelerate - Oct 13, 2025
+  const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error'] : ['error'],
   }).$extends(withAccelerate());
+  
+  // Verify Accelerate is loaded
+  if (!('$accelerate' in client)) {
+    console.error('❌ [PRISMA] Accelerate extension not loaded!');
+    throw new Error('Prisma Accelerate extension failed to load');
+  }
+  
+  return client;
 }
 
 // Prisma Accelerate will handle database connections

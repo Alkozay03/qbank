@@ -1,7 +1,7 @@
 // Simple test API endpoint
+import { prisma } from "@/server/db";
+
 export async function GET() {
-  const { PrismaClient } = await import("@prisma/client");
-  const prisma = new PrismaClient();
   
   try {
     const questionCount = await prisma.question.count();
