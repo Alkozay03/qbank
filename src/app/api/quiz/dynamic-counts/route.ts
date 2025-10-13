@@ -172,6 +172,7 @@ export async function POST(req: Request) {
         where: {
           AND: [baseWhere, rotationFilter],
         },
+        cacheStrategy: { ttl: 3600, swr: 600 },
       });
       rotationCounts[rotation] = count;
     }
@@ -193,6 +194,7 @@ export async function POST(req: Request) {
 
       const count = await prisma.question.count({
         where: { AND: whereClauses },
+        cacheStrategy: { ttl: 3600, swr: 600 },
       });
       resourceCounts[resource] = count;
     }
@@ -231,6 +233,7 @@ export async function POST(req: Request) {
 
       const count = await prisma.question.count({
         where: { AND: whereClauses },
+        cacheStrategy: { ttl: 3600, swr: 600 },
       });
       disciplineCounts[discipline] = count;
     }
@@ -276,6 +279,7 @@ export async function POST(req: Request) {
 
       const count = await prisma.question.count({
         where: { AND: whereClauses },
+        cacheStrategy: { ttl: 3600, swr: 600 },
       });
       systemCounts[system] = count;
     }
