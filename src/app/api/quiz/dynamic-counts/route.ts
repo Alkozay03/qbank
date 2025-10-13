@@ -131,7 +131,7 @@ export async function POST(req: Request) {
       // ✅ CACHE THIS: All questions is global data (same for all users)
       const allQuestions = await prisma.question.findMany({ 
         select: { id: true },
-        cacheStrategy: { ttl: 86400, swr: 3600 }  // 24h cache, 1h stale
+        cacheStrategy: { ttl: 3600, swr: 600 }  // 1h cache, 10min stale
       });
 
       for (const q of allQuestions) {
@@ -172,7 +172,7 @@ export async function POST(req: Request) {
         where: {
           AND: [baseWhere, rotationFilter],
         },
-        cacheStrategy: { ttl: 86400, swr: 3600 },  // 24h cache, 1h stale
+        cacheStrategy: { ttl: 3600, swr: 600 },  // 1h cache, 10min stale
       });
       rotationCounts[rotation] = count;
     }
@@ -194,7 +194,7 @@ export async function POST(req: Request) {
 
       const count = await prisma.question.count({
         where: { AND: whereClauses },
-        cacheStrategy: { ttl: 86400, swr: 3600 },  // 24h cache, 1h stale
+        cacheStrategy: { ttl: 3600, swr: 600 },  // 1h cache, 10min stale
       });
       resourceCounts[resource] = count;
     }
@@ -233,7 +233,7 @@ export async function POST(req: Request) {
 
       const count = await prisma.question.count({
         where: { AND: whereClauses },
-        cacheStrategy: { ttl: 86400, swr: 3600 },  // 24h cache, 1h stale
+        cacheStrategy: { ttl: 3600, swr: 600 },  // 1h cache, 10min stale
       });
       disciplineCounts[discipline] = count;
     }
@@ -279,7 +279,7 @@ export async function POST(req: Request) {
 
       const count = await prisma.question.count({
         where: { AND: whereClauses },
-        cacheStrategy: { ttl: 86400, swr: 3600 },  // 24h cache, 1h stale
+        cacheStrategy: { ttl: 3600, swr: 600 },  // 1h cache, 10min stale
       });
       systemCounts[system] = count;
     }
