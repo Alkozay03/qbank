@@ -19,8 +19,10 @@ const WELCOME_MESSAGES = [
  * Uses the current date as seed so it's consistent throughout the day
  */
 function getSeededRandom(seed: number): number {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
+  // Better seeded random using multiple iterations
+  let value = seed;
+  value = ((value * 9301) + 49297) % 233280;
+  return value / 233280;
 }
 
 /**
@@ -31,7 +33,8 @@ function getSeededRandom(seed: number): number {
 export function getDailyWelcomeMessage(firstName: string): string {
   // Use current date (YYYYMMDD) as seed so message is consistent all day
   const today = new Date();
-  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  // Add some variation to the seed by multiplying year and adding month/day differently
+  const seed = (today.getFullYear() * 372) + (today.getMonth() * 31) + today.getDate();
   
   // Generate random index based on seed
   const randomValue = getSeededRandom(seed);
