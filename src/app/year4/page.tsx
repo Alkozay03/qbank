@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import ClientClock from "@/components/ClientClock";
 import DashboardStatsClient from "@/components/year4/DashboardStatsClient";
 import { prisma } from "@/server/db";
+import { getDailyWelcomeMessage } from "@/lib/welcomeMessages";
 
 // Force dynamic rendering to ensure fresh data
 export const dynamic = 'force-dynamic';
@@ -52,9 +53,12 @@ export default async function Dashboard() {
     ? firstName 
     : fallbackName;
   const userForClock = { timezone: timezone || undefined };
+  
+  // Generate daily random welcome message
+  const welcomeMessage = getDailyWelcomeMessage(name);
 
   return (
-    <Shell title={`Welcome, ${name}`} pageName="Dashboard">
+    <Shell title={welcomeMessage} pageName="Dashboard">
       {dbUnavailable && (
         <div className="mb-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-4 text-blue-800">
           <p className="font-semibold">⚡ Using cached data</p>
