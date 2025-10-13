@@ -923,6 +923,11 @@ ${formattedList}`);
   // Function to go back to appropriate admin page based on role
   const handleGoBack = () => {
     console.warn('🔍 [BULK Q MANAGER] handleGoBack called, userRole:', userRole);
+    // If userRole is still loading (null), wait for it
+    if (userRole === null) {
+      console.warn('🔍 [BULK Q MANAGER] userRole not loaded yet, waiting...');
+      return;
+    }
     console.warn('🔍 [BULK Q MANAGER] Will navigate to:', userRole === "MASTER_ADMIN" ? "/year4/master-admin" : "/year4/admin");
     if (userRole === "MASTER_ADMIN") {
       router.push("/year4/master-admin");
@@ -945,12 +950,13 @@ ${formattedList}`);
           </div>
           <button
             onClick={handleGoBack}
-            className="flex items-center gap-2 px-6 py-3 bg-[#0ea5e9] text-white rounded-xl font-medium hover:bg-[#0284c7] transition-all duration-300 shadow-lg"
+            disabled={userRole === null}
+            className="flex items-center gap-2 px-6 py-3 bg-[#0ea5e9] text-white rounded-xl font-medium hover:bg-[#0284c7] transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            {userRole === "MASTER_ADMIN" ? "Back to Master Admin" : "Back to Admin"}
+            {userRole === "MASTER_ADMIN" ? "Back to Master Admin" : userRole === "ADMIN" ? "Back to Admin" : "Loading..."}
           </button>
         </div>
 
