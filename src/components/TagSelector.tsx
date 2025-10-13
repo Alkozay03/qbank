@@ -98,6 +98,8 @@ const baseFilterOptions: Omit<OptionsByCategory, "rotation"> = {
 
     { value: "biostat", label: "Biostatistics" },
 
+    { value: "development", label: "Development, Growth, Milestones & Vaccination" },
+
     { value: "embryology", label: "Embryology" },
 
     { value: "genetics", label: "Genetics" },
@@ -107,6 +109,8 @@ const baseFilterOptions: Omit<OptionsByCategory, "rotation"> = {
     { value: "immunology", label: "Immunology" },
 
     { value: "micro", label: "Microbiology" },
+
+    { value: "neonatology", label: "Neonatology" },
 
     { value: "path", label: "Pathology" },
 
