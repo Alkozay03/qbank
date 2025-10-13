@@ -137,7 +137,7 @@ export async function selectQuestions(opts: {
     // ✅ CACHE THIS: All questions is global data (same for all users)
     const allQuestions = await prisma.question.findMany({ 
       select: { id: true },
-      cacheStrategy: { ttl: 3600, swr: 600 }  // 1 hour cache
+      cacheStrategy: { ttl: 86400, swr: 3600 }  // 24h cache, 1h stale
     });
     
     // First, classify all questions based on their response history
@@ -198,7 +198,7 @@ export async function selectQuestions(opts: {
       select: { id: true },
       take: Math.max(take * 3, take),
       orderBy: { createdAt: "desc" },
-      cacheStrategy: { ttl: 3600, swr: 600 }  // 1 hour cache
+      cacheStrategy: { ttl: 86400, swr: 3600 }  // 24h cache, 1h stale
     });
   } catch {
     // Fallback query also cached
@@ -206,7 +206,7 @@ export async function selectQuestions(opts: {
       select: { id: true },
       take: Math.max(take * 3, take),
       orderBy: { createdAt: "desc" },
-      cacheStrategy: { ttl: 3600, swr: 600 }
+      cacheStrategy: { ttl: 86400, swr: 3600 }
     });
   }
 
@@ -216,7 +216,7 @@ export async function selectQuestions(opts: {
       select: { id: true },
       take: Math.max(take * 3, take),
       orderBy: { createdAt: "desc" },
-      cacheStrategy: { ttl: 3600, swr: 600 }
+      cacheStrategy: { ttl: 86400, swr: 3600 }
     });
   }
 
