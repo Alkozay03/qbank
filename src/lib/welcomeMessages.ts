@@ -1,6 +1,7 @@
 /**
  * Generate a random welcome message for the dashboard
- * Changes on every page load. No database queries required.
+ * Changes on every page load. Uses weighted randomization to reduce immediate repeats.
+ * No database queries required.
  */
 
 const WELCOME_MESSAGES = [
@@ -13,14 +14,39 @@ const WELCOME_MESSAGES = [
   "You should've started earlier, [FirstName].",
 ];
 
+// Store last shown index using timestamp-based memory (resets on server restart)
+let lastShownIndex = -1;
+let lastShownTime = 0;
+
 /**
  * Get a random welcome message on every page load
+ * Uses weighted randomization to avoid showing the same message consecutively
  * @param firstName - User's first name to insert into the message
  * @returns A welcome message with the user's name
  */
 export function getRandomWelcomeMessage(firstName: string): string {
-  // Pick a truly random message on every call
-  const index = Math.floor(Math.random() * WELCOME_MESSAGES.length);
+  const now = Date.now();
+  
+  // If last message was shown within 5 seconds, try to avoid repeating it
+  const avoidRepeat = (now - lastShownTime) < 5000 && lastShownIndex !== -1;
+  
+  let index: number;
+  
+  if (avoidRepeat && WELCOME_MESSAGES.length > 1) {
+    // Pick from all messages except the last one shown
+    const availableIndices = WELCOME_MESSAGES
+      .map((_, i) => i)
+      .filter(i => i !== lastShownIndex);
+    
+    index = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+  } else {
+    // Pick any message randomly
+    index = Math.floor(Math.random() * WELCOME_MESSAGES.length);
+  }
+  
+  // Remember this choice
+  lastShownIndex = index;
+  lastShownTime = now;
   
   // Replace [FirstName] with actual first name
   return WELCOME_MESSAGES[index].replace("[FirstName]", firstName);
