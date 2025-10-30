@@ -128,7 +128,7 @@ function normalizeTagValues(tags?: string[]) {
   );
 }
 
-const DISPLAYABLE_TAG_CATEGORIES: ReadonlyArray<TagCategory> = ["rotation", "resource", "discipline", "system"];
+const DISPLAYABLE_TAG_CATEGORIES: ReadonlyArray<TagCategory> = ["week", "lecture", "resource", "discipline", "system"];
 const DISPLAYABLE_TAG_SET = new Set(DISPLAYABLE_TAG_CATEGORIES);
 
 function tagLabelFromPair(raw: string): string | null {
@@ -1201,9 +1201,6 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const [hasBeenSaved, setHasBeenSaved] = useState(() => !isDraft);
   // Use ref to track hasBeenSaved for cleanup - fixes closure problem!
   const hasBeenSavedRef = useRef(hasBeenSaved);
-  const screenshotInputRef = useRef<HTMLInputElement | null>(null);
-  const [screenshotUploading, setScreenshotUploading] = useState(false);
-  const [screenshotError, setScreenshotError] = useState<string | null>(null);
   
   console.warn('🎭 [MODAL INIT] Initial state:', {
     isDraft,
@@ -1445,61 +1442,6 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     });
   }, []);
 
-  const handleScreenshotUpload = useCallback(async (file: File) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setScreenshotError('Please upload an image file.');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setScreenshotError('Image is too large (5 MB max).');
-      return;
-    }
-
-    setScreenshotUploading(true);
-    setScreenshotError(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('kind', 'idu');
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(payload?.error ?? 'Failed to upload screenshot');
-      }
-      const payload = (await res.json().catch(() => ({}))) as { url?: string };
-      if (!payload?.url) throw new Error('Upload did not return a URL');
-      setEditedQuestion((prev) => ({ ...prev, iduScreenshotUrl: payload.url }));
-    } catch (error) {
-      setScreenshotError(error instanceof Error ? error.message : 'Failed to upload screenshot');
-    } finally {
-      setScreenshotUploading(false);
-    }
-  }, []);
-
-  const handleScreenshotInputChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = '';
-      if (!file) return;
-      await handleScreenshotUpload(file);
-    },
-    [handleScreenshotUpload]
-  );
-
-  const handleScreenshotDrop = useCallback(
-    async (event: DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      const file = event.dataTransfer.files?.[0];
-      if (!file) return;
-      await handleScreenshotUpload(file);
-    },
-    [handleScreenshotUpload]
-  );
-
   // Question Image Upload Handlers
   const handleQuestionImageUpload = useCallback(async (file: File) => {
     if (!file) return;
@@ -1638,46 +1580,22 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 onClick={() => {
                   setEditedQuestion((prev) => {
                     const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
-                    const withoutY5 = existing.filter((occ) => occ.year !== 'Y5');
-                    const hasY4 = withoutY5.some((occ) => occ.year === 'Y4');
-                    if (!hasY4) {
-                      withoutY5.push({ clientKey: makeOccurrenceKey(), year: 'Y4', rotation: '', orderIndex: withoutY5.length });
+                    const hasY3 = existing.some((occ) => occ.year === 'Y3');
+                    if (!hasY3) {
+                      existing.push({ clientKey: makeOccurrenceKey(), year: 'Y3', rotation: '', orderIndex: existing.length });
                     }
-                    const reindexed = normalizeOccurrencesForEditing(withoutY5);
+                    const reindexed = normalizeOccurrencesForEditing(existing);
                     const primaryMeta = derivePrimaryOccurrenceMeta(reindexed);
                     return { ...prev, occurrences: reindexed, questionYear: primaryMeta.questionYear, rotationNumber: primaryMeta.rotationNumber };
                   });
                 }}
                 className={`flex-1 px-4 py-3 rounded-lg border-2 font-semibold transition-all duration-200 ${
-                  (Array.isArray(editedQuestion.occurrences) ? editedQuestion.occurrences : []).some((occ) => occ.year === 'Y4')
+                  (Array.isArray(editedQuestion.occurrences) ? editedQuestion.occurrences : []).some((occ) => occ.year === 'Y3')
                     ? 'border-[#0ea5e9] bg-[#0ea5e9] text-white shadow-lg'
                     : 'border-sky-200 bg-white text-[#0284c7] hover:border-[#0ea5e9] hover:bg-sky-50'
                 }`}
               >
-                Year 4
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditedQuestion((prev) => {
-                    const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
-                    const withoutY4 = existing.filter((occ) => occ.year !== 'Y4');
-                    const hasY5 = withoutY4.some((occ) => occ.year === 'Y5');
-                    if (!hasY5) {
-                      withoutY4.push({ clientKey: makeOccurrenceKey(), year: 'Y5', rotation: '', orderIndex: withoutY4.length });
-                    }
-                    const reindexed = normalizeOccurrencesForEditing(withoutY4);
-                    const primaryMeta = derivePrimaryOccurrenceMeta(reindexed);
-                    return { ...prev, occurrences: reindexed, questionYear: primaryMeta.questionYear, rotationNumber: primaryMeta.rotationNumber };
-                  });
-                }}
-                className={`flex-1 px-4 py-3 rounded-lg border-2 font-semibold transition-all duration-200 ${
-                  (Array.isArray(editedQuestion.occurrences) ? editedQuestion.occurrences : []).some((occ) => occ.year === 'Y5')
-                    ? 'border-[#0ea5e9] bg-[#0ea5e9] text-white shadow-lg'
-                    : 'border-sky-200 bg-white text-[#0284c7] hover:border-[#0ea5e9] hover:bg-sky-50'
-                }`}
-              >
-                Year 5
+                Year 3
               </button>
             </div>
           </div>
@@ -1896,23 +1814,6 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             ) : null}
           </div>
 
-          {/* Educational Objective with Rich Text Editor */}
-          <div>
-            <label className="block text-sm font-medium text-[#0284c7] mb-2">Educational Objective</label>
-            <div className="border border-sky-200 rounded-lg">
-              <RichTextEditor
-                content={editedQuestion.educationalObjective}
-                onChange={(content) => setEditedQuestion(prev => ({ ...prev, educationalObjective: content }))}
-                placeholder="Enter the educational objective..."
-                className="min-h-[100px]"
-                allowBold={true} // Allow bold in educational objectives
-                preserveLineBreaks={true}
-                hideImageButtons={true}
-                hideTableButton={true}
-              />
-            </div>
-          </div>
-
           {/* References */}
           <div>
             <label className="block text-sm font-medium text-[#0284c7] mb-2">References</label>
@@ -1927,7 +1828,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               <div>
                 <h3 className="text-sm font-semibold text-[#0284c7] uppercase tracking-wide">Question Appearances</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Track every year and rotation combination where this question appeared so we can surface its history to students.
+                  Track every year and repetition where this question appeared so we can surface its history to students.
                 </p>
               </div>
               <button
@@ -1943,7 +1844,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             <div className="space-y-3">
               {displayOccurrences.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-[#C7D9E6] bg-white px-3 py-4 text-sm text-slate-500">
-                  No appearances recorded yet. Add the first year and rotation where this question was used.
+                  No appearances recorded yet. Add the first year and repetition where this question was used.
                 </div>
               ) : (
                 displayOccurrences.map((occurrence) => {
@@ -1965,12 +1866,12 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Rotation</label>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Repetitions</label>
                         <input
                           type="text"
                           value={occurrence.rotation ?? ''}
                           onChange={(e) => handleOccurrenceChange(actualIndex, 'rotation', e.target.value)}
-                          placeholder="e.g. Rotation 3"
+                          placeholder="(e.g Repeated 3 Times)"
                           className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
                         />
                       </div>
@@ -1987,111 +1888,6 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                   );
                 })
               )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-sky-200 bg-white p-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">IDU Screenshot</label>
-              <p className="text-xs text-slate-500">
-                Drop an image or upload a new screenshot of the question. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
-              </p>
-            </div>
-            <input
-              ref={screenshotInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleScreenshotInputChange}
-              className="hidden"
-            />
-            <div
-              onDragOver={(event) => {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = 'copy';
-              }}
-              onDrop={handleScreenshotDrop}
-              className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#C7D9E6] bg-white px-4 py-6 text-center transition hover:border-[#56A2CD] hover:bg-[#F8FCFF]"
-            >
-              <button
-                type="button"
-                onClick={() => screenshotInputRef.current?.click()}
-                className="rounded-lg border border-[#0ea5e9] px-4 py-1.5 text-sm font-semibold text-[#0ea5e9] transition hover:bg-sky-50"
-              >
-                {screenshotUploading ? 'Uploading…' : 'Select image'}
-              </button>
-              <span className="text-xs text-slate-500">or drag &amp; drop</span>
-              {screenshotError ? (
-                <span className="text-xs text-red-600">{screenshotError}</span>
-              ) : null}
-            </div>
-
-            {editedQuestion.iduScreenshotUrl ? (
-              <div className="mt-4 rounded-xl border border-[#E6F0F7] bg-white p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#2F6F8F]">Current screenshot</p>
-                    <a
-                      href={editedQuestion.iduScreenshotUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[#2F6F8F] underline"
-                    >
-                      Open in new tab
-                    </a>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditedQuestion((prev) => ({ ...prev, iduScreenshotUrl: '' }))}
-                    className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
-                  >
-                    Remove screenshot
-                  </button>
-                </div>
-                <div className="mt-3 overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF]">
-                  <Image
-                    src={editedQuestion.iduScreenshotUrl}
-                    alt="IDU screenshot preview"
-                    width={1024}
-                    height={768}
-                    className="max-h-64 w-full object-contain"
-                    unoptimized
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Answer Confirmation Status */}
-          <div className="rounded-2xl border border-sky-200 bg-white p-4">
-            <div className="flex flex-col gap-2 mb-3">
-              <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">IDU Answer Confirmation Status</label>
-              <p className="text-xs text-slate-500">
-                Mark whether the answer from the IDU screenshot has been verified and confirmed.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setEditedQuestion(prev => ({ ...prev, isAnswerConfirmed: true }))}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  editedQuestion.isAnswerConfirmed !== false
-                    ? 'bg-green-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                ✓ Confirmed
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditedQuestion(prev => ({ ...prev, isAnswerConfirmed: false }))}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  editedQuestion.isAnswerConfirmed === false
-                    ? 'bg-red-500 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                ⚠ Unconfirmed
-              </button>
             </div>
           </div>
 

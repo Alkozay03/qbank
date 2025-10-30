@@ -1,4 +1,4 @@
-export type TagCategory = "rotation" | "resource" | "discipline" | "system" | "mode";
+export type TagCategory = "rotation" | "resource" | "discipline" | "system" | "mode" | "week" | "lecture";
 
 export interface TagOption {
   key: string;
@@ -83,12 +83,42 @@ const modeOptions: TagOption[] = [
   { key: "marked", label: "Marked", hint: "Previously marked/flagged for review" },
 ];
 
+const weekOptions: TagOption[] = [
+  { key: "week1", label: "Week 1", aliases: ["week 1", "w1"] },
+  { key: "week2", label: "Week 2", aliases: ["week 2", "w2"] },
+  { key: "week3", label: "Week 3", aliases: ["week 3", "w3"] },
+  { key: "week4", label: "Week 4", aliases: ["week 4", "w4"] },
+  { key: "week5", label: "Week 5", aliases: ["week 5", "w5"] },
+  { key: "week6", label: "Week 6", aliases: ["week 6", "w6"] },
+  { key: "week7", label: "Week 7", aliases: ["week 7", "w7"] },
+  { key: "week8", label: "Week 8", aliases: ["week 8", "w8"] },
+  { key: "week9", label: "Week 9", aliases: ["week 9", "w9"] },
+  { key: "week10", label: "Week 10", aliases: ["week 10", "w10"] },
+  { key: "week11", label: "Week 11", aliases: ["week 11", "w11"] },
+  { key: "week12", label: "Week 12", aliases: ["week 12", "w12"] },
+];
+
+const lectureOptions: TagOption[] = [
+  { key: "lecture1", label: "Lecture 1", aliases: ["lecture 1", "l1"] },
+  { key: "lecture2", label: "Lecture 2", aliases: ["lecture 2", "l2"] },
+  { key: "lecture3", label: "Lecture 3", aliases: ["lecture 3", "l3"] },
+  { key: "lecture4", label: "Lecture 4", aliases: ["lecture 4", "l4"] },
+  { key: "lecture5", label: "Lecture 5", aliases: ["lecture 5", "l5"] },
+  { key: "lecture6", label: "Lecture 6", aliases: ["lecture 6", "l6"] },
+  { key: "lecture7", label: "Lecture 7", aliases: ["lecture 7", "l7"] },
+  { key: "lecture8", label: "Lecture 8", aliases: ["lecture 8", "l8"] },
+  { key: "lecture9", label: "Lecture 9", aliases: ["lecture 9", "l9"] },
+  { key: "lecture10", label: "Lecture 10", aliases: ["lecture 10", "l10"] },
+];
+
 export const TAG_OPTIONS: Record<TagCategory, TagOption[]> = {
   rotation: rotationOptions,
   resource: resourceOptions,
   discipline: disciplineOptions,
   system: systemOptions,
   mode: modeOptions,
+  week: weekOptions,
+  lecture: lectureOptions,
 };
 
 function buildLookup() {
