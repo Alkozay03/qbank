@@ -97,6 +97,7 @@ export async function GET() {
       uniqueQuestionsCount, // Add this for the "X/Y Questions Attempted" display
     });
   } catch (error) {
+    console.error("[Year5 Dashboard Stats] Error:", error);
     if (isDatabaseUnavailableError(error)) {
       // Return default values when database is unavailable so UI still works
       return NextResponse.json({
@@ -110,6 +111,16 @@ export async function GET() {
         isOffline: true
       });
     }
-    throw error;
+    // Return default values for any other error (e.g., missing tables, schema issues)
+    return NextResponse.json({
+      avgPercent: 0,
+      usedPercent: 0,
+      testsCompleted: 0,
+      totalQuestions: 0,
+      totalResponses: 0,
+      correctResponses: 0,
+      uniqueQuestionsCount: 0,
+      isOffline: false
+    });
   }
 }
