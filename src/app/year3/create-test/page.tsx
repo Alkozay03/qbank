@@ -74,23 +74,23 @@ export default function CreateTest() {
   const router = useRouter();
 
   const [selModes, setSelModes] = useState<string[]>([]);
+  const [selSystems, setSelSystems] = useState<string[]>([]);
+  const [selDisciplines, setSelDisciplines] = useState<string[]>([]);
   const [selWeeks, setSelWeeks] = useState<string[]>([]);
   const [selLectures, setSelLectures] = useState<string[]>([]);
-  const [selDisciplines, setSelDisciplines] = useState<string[]>([]);
-  const [selSystems, setSelSystems] = useState<string[]>([]);
   const [qCount, setQCount] = useState<number>(0);
   const [busy, setBusy] = useState(false);
 
-  // Progressive disclosure locks
-  const allowWeeks = selModes.length > 0;
+  // Progressive disclosure locks - NEW ORDER: Mode → System → Discipline → Week → Lecture
+  const allowSystems = selModes.length > 0;
+  const allowDisciplines = selSystems.length > 0;
+  const allowWeeks = selDisciplines.length > 0;
   const allowLectures = selWeeks.length > 0;
-  const allowDisciplines = selLectures.length > 0;
-  const allowSystems = selDisciplines.length > 0;
 
   // validation
   const valid =
-    selDisciplines.length > 0 &&
     selSystems.length > 0 &&
+    selDisciplines.length > 0 &&
     qCount >= 1 &&
     qCount <= 40;
 
@@ -196,6 +196,48 @@ export default function CreateTest() {
           </div>
         </Card>
 
+        {/* Systems */}
+        <Card locked={!allowSystems}>
+          <HeaderRow
+            title="System"
+            withAll
+            disabledAll={!allowSystems}
+            onAll={(_checked) => toggleAll(setSelSystems, systems, _checked)}
+          />
+          <CheckGrid
+            list={systems}
+            selected={selSystems}
+            onToggle={(optKey) => toggle(setSelSystems, optKey)}
+            disabled={!allowSystems}
+          />
+          {!allowSystems && (
+            <p className="mt-2 text-sm text-red-600">
+              Select at least one question mode to choose systems.
+            </p>
+          )}
+        </Card>
+
+        {/* Disciplines */}
+        <Card locked={!allowDisciplines}>
+          <HeaderRow
+            title="Discipline"
+            withAll
+            disabledAll={!allowDisciplines}
+            onAll={(_checked) => toggleAll(setSelDisciplines, disciplines, _checked)}
+          />
+          <CheckGrid
+            list={disciplines}
+            selected={selDisciplines}
+            onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
+            disabled={!allowDisciplines}
+          />
+          {!allowDisciplines && (
+            <p className="mt-2 text-sm text-red-600">
+              Select at least one system to choose disciplines.
+            </p>
+          )}
+        </Card>
+
         {/* Weeks */}
         <Card locked={!allowWeeks}>
           <HeaderRow
@@ -212,7 +254,7 @@ export default function CreateTest() {
           />
           {!allowWeeks && (
             <p className="mt-2 text-sm text-red-600">
-              Select at least one question mode to choose weeks.
+              Select at least one discipline to choose weeks.
             </p>
           )}
         </Card>
@@ -234,48 +276,6 @@ export default function CreateTest() {
           {!allowLectures && (
             <p className="mt-2 text-sm text-red-600">
               Select at least one week to choose lectures.
-            </p>
-          )}
-        </Card>
-
-        {/* Disciplines */}
-        <Card locked={!allowDisciplines}>
-          <HeaderRow
-            title="Discipline"
-            withAll
-            disabledAll={!allowDisciplines}
-            onAll={(_checked) => toggleAll(setSelDisciplines, disciplines, _checked)}
-          />
-          <CheckGrid
-            list={disciplines}
-            selected={selDisciplines}
-            onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
-            disabled={!allowDisciplines}
-          />
-          {!allowDisciplines && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one lecture to choose disciplines.
-            </p>
-          )}
-        </Card>
-
-        {/* Systems */}
-        <Card locked={!allowSystems}>
-          <HeaderRow
-            title="System"
-            withAll
-            disabledAll={!allowSystems}
-            onAll={(_checked) => toggleAll(setSelSystems, systems, _checked)}
-          />
-          <CheckGrid
-            list={systems}
-            selected={selSystems}
-            onToggle={(optKey) => toggle(setSelSystems, optKey)}
-            disabled={!allowSystems}
-          />
-          {!allowSystems && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one discipline to choose systems.
             </p>
           )}
         </Card>
