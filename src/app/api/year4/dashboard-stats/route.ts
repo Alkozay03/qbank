@@ -19,26 +19,26 @@ export async function GET() {
       // Only count questions that have at least one occurrence (properly saved questions)
       prisma.question.count({
         where: {
-          occurrences: {
+          QuestionOccurrence: {
             some: {},
           },
         },
       }),
       prisma.response.count({
         where: {
-          quizItem: { quiz: { userId, status: "Ended" } },
+          QuizItem: { Quiz: { userId, status: "Ended" } },
           isCorrect: true,
         },
       }),
       prisma.response.count({
-        where: { quizItem: { quiz: { userId, status: "Ended" } } },
+        where: { QuizItem: { Quiz: { userId, status: "Ended" } } },
       }),
       prisma.quiz.count({ where: { userId, status: "Ended" } }),
       // Count unique QUESTIONS the user has answered
       prisma.quizItem.findMany({
         where: { 
-          quiz: { userId, status: "Ended" },
-          responses: { some: {} }
+          Quiz: { userId, status: "Ended" },
+          Response: { some: {} }
         },
         select: {
           questionId: true

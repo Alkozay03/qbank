@@ -87,7 +87,7 @@ export default async function PreviousTests() {
         status: true,
         createdAt: true,
         _count: {
-          select: { items: true } // Count questions instead of fetching them
+          select: { QuizItem: true } // Count questions instead of fetching them
         },
       },
       orderBy: { createdAt: "desc" },
@@ -100,13 +100,13 @@ export default async function PreviousTests() {
       const [totalResponses, correctResponses, rotationTag] = await Promise.all([
         db.response.count({
           where: {
-            quizItem: { quizId: quiz.id },
+            QuizItem: { quizId: quiz.id },
             choiceId: { not: null },
           },
         }),
         db.response.count({
           where: {
-            quizItem: { quizId: quiz.id },
+            QuizItem: { quizId: quiz.id },
             choiceId: { not: null },
             isCorrect: true,
           },
@@ -114,15 +114,15 @@ export default async function PreviousTests() {
         // Get rotation from first question tag
         db.questionTag.findFirst({
           where: {
-            question: {
-              quizItems: {
+            Question: {
+              QuizItem: {
                 some: { quizId: quiz.id }
               }
             },
-            tag: { type: "ROTATION" }
+            Tag: { type: "ROTATION" }
           },
           select: {
-            tag: { select: { value: true }}
+            Tag: { select: { value: true }}
           }
         })
       ]);
@@ -131,7 +131,7 @@ export default async function PreviousTests() {
         quizId: quiz.id, 
         correct: correctResponses, 
         total: totalResponses, 
-        rotation: rotationTag?.tag.value || "General" 
+        rotation: rotationTag?.Tag.value || "General" 
       };
     });
 

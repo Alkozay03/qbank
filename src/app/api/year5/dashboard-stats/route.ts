@@ -18,7 +18,7 @@ export async function GET() {
     // Filter by Year 5 questions only - questions that have Y5 occurrence
     const year5QuestionIds = await prisma.question.findMany({
       where: {
-        occurrences: {
+        QuestionOccurrence: {
           some: { year: "Y5" }
         }
       },
@@ -31,7 +31,7 @@ export async function GET() {
       // Total Y5 questions
       prisma.question.count({
         where: {
-          occurrences: {
+          QuestionOccurrence: {
             some: { year: "Y5" }
           }
         }
@@ -39,8 +39,8 @@ export async function GET() {
       // Correct responses on Y5 questions only
       prisma.response.count({
         where: {
-          quizItem: { 
-            quiz: { userId, status: "Ended" },
+          QuizItem: { 
+            Quiz: { userId, status: "Ended" },
             questionId: { in: y5QuestionIdList }
           },
           isCorrect: true,
@@ -49,8 +49,8 @@ export async function GET() {
       // Total responses on Y5 questions only
       prisma.response.count({
         where: { 
-          quizItem: { 
-            quiz: { userId, status: "Ended" },
+          QuizItem: { 
+            Quiz: { userId, status: "Ended" },
             questionId: { in: y5QuestionIdList }
           }
         },
@@ -60,7 +60,7 @@ export async function GET() {
         where: { 
           userId, 
           status: "Ended",
-          items: {
+          QuizItem: {
             some: {
               questionId: { in: y5QuestionIdList }
             }
@@ -70,9 +70,9 @@ export async function GET() {
       // Count unique Y5 QUESTIONS the user has answered
       prisma.quizItem.findMany({
         where: { 
-          quiz: { userId, status: "Ended" },
+          Quiz: { userId, status: "Ended" },
           questionId: { in: y5QuestionIdList },
-          responses: { some: {} }
+          Response: { some: {} }
         },
         select: {
           questionId: true
