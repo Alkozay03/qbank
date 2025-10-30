@@ -29,8 +29,25 @@ export default function Sidebar({
   const [role, setRole] = useState<"MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | "">("");
 
   // Detect which year we're in based on the URL
-  const currentYear = pathname?.startsWith('/year5') ? 'year5' : 'year4';
-  const yearLabel = currentYear === 'year5' ? 'Year 5' : 'Year 4';
+  let currentYear = 'year4'; // default
+  let yearLabel = 'Year 4'; // default
+  
+  if (pathname?.startsWith('/year1')) {
+    currentYear = 'year1';
+    yearLabel = 'Year 1';
+  } else if (pathname?.startsWith('/year2')) {
+    currentYear = 'year2';
+    yearLabel = 'Year 2';
+  } else if (pathname?.startsWith('/year3')) {
+    currentYear = 'year3';
+    yearLabel = 'Year 3';
+  } else if (pathname?.startsWith('/year5')) {
+    currentYear = 'year5';
+    yearLabel = 'Year 5';
+  } else if (pathname?.startsWith('/year4')) {
+    currentYear = 'year4';
+    yearLabel = 'Year 4';
+  }
 
   useEffect(() => {
     fetch("/api/me/role", { cache: "no-store" })
