@@ -1,0 +1,22 @@
+// src/app/year3/performance/page.tsx
+export const dynamic = "force-dynamic";
+
+import Shell from "@/components/Shell";
+
+export default async function Performance() {
+  return (
+    <Shell title="Performance Analytics" pageName="Performance">
+      <div className="rounded-2xl bg-primary-light border-2 border-primary p-8 shadow-lg">
+        <div className="bg-white rounded-xl shadow-inner p-6">
+          <h2 className="text-2xl font-bold text-primary mb-4">🚧 Under Construction</h2>
+          <p className="text-foreground mb-4">
+            The Performance page for Year 3 is currently being developed.
+          </p>
+          <p className="text-foreground/70">
+            This page will provide detailed analytics of your performance across different subjects and systems.
+          </p>
+        </div>
+      </div>
+    </Shell>
+  );
+}

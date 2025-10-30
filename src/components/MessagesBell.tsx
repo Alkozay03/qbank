@@ -1,12 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import SimpleTooltip from "@/components/SimpleTooltip";
 
 export default function MessagesBell() {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const router = useRouter();
+  const pathname = usePathname();
+  
+  // Detect which year we're in based on the URL
+  let currentYear = 'year4'; // default
+  if (pathname?.startsWith('/year1')) {
+    currentYear = 'year1';
+  } else if (pathname?.startsWith('/year2')) {
+    currentYear = 'year2';
+  } else if (pathname?.startsWith('/year3')) {
+    currentYear = 'year3';
+  } else if (pathname?.startsWith('/year5')) {
+    currentYear = 'year5';
+  }
 
   const refreshUnreadCount = async () => {
     try {
@@ -44,7 +57,7 @@ export default function MessagesBell() {
   }, []);
 
   const handleClick = () => {
-    router.push("/year4/messages");
+    router.push(`/${currentYear}/messages`);
   };
 
   return (

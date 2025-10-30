@@ -28,6 +28,23 @@ export default function UserMessagesPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [conversation, setConversation] = useState<Conversation | null>(null);
+  
+  // Detect which year we're in from the referrer or default to year4
+  const [currentYear, setCurrentYear] = useState('year4');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/year1')) {
+        setCurrentYear('year1');
+      } else if (path.startsWith('/year2')) {
+        setCurrentYear('year2');
+      } else if (path.startsWith('/year3')) {
+        setCurrentYear('year3');
+      } else if (path.startsWith('/year5')) {
+        setCurrentYear('year5');
+      }
+    }
+  }, []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -249,10 +266,10 @@ export default function UserMessagesPage() {
             <p className="text-white opacity-90 mt-1">Contact the website creator, master admin, or an admin.</p>
           </div>
           <button
-            onClick={() => router.push("/year4")}
+            onClick={() => router.push(`/${currentYear}`)}
             className="px-4 py-2 bg-white text-primary rounded-xl hover:shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 font-medium"
           >
-            Return to Year 4 Portal
+            Return to {currentYear === 'year1' ? 'Year 1' : currentYear === 'year2' ? 'Year 2' : currentYear === 'year3' ? 'Year 3' : currentYear === 'year5' ? 'Year 5' : 'Year 4'} Portal
           </button>
         </div>
       </div>
@@ -468,14 +485,14 @@ export default function UserMessagesPage() {
             <h3 className="text-xl font-bold text-primary mb-3">End Conversation</h3>
             <p className="text-primary opacity-80 mb-6">
               You are about to end this conversation. The chat history will be deleted. 
-              If you want to keep the chat history, press &ldquo;Return to Year 4 Portal.&rdquo;
+              If you want to keep the chat history, press &ldquo;Return to {currentYear === 'year1' ? 'Year 1' : currentYear === 'year2' ? 'Year 2' : currentYear === 'year3' ? 'Year 3' : currentYear === 'year5' ? 'Year 5' : 'Year 4'} Portal.&rdquo;
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowEndConfirmation(false)}
                 className="flex-1 px-4 py-2 theme-gradient text-white rounded-xl hover:shadow-lg hover:opacity-90 transition-all duration-200"
               >
-                Return to Year 4 Portal
+                Return to {currentYear === 'year1' ? 'Year 1' : currentYear === 'year2' ? 'Year 2' : currentYear === 'year3' ? 'Year 3' : currentYear === 'year5' ? 'Year 5' : 'Year 4'} Portal
               </button>
               <button
                 onClick={endConversation}
