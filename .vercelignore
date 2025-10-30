@@ -10,7 +10,6 @@ eslint.config.mjs
 
 # Large directories  
 node_modules.bak.20250903194847/
-public/backgrounds/
 public/uploads/
 
 # Backup files
