@@ -110,8 +110,23 @@ export default function DashboardStatsClient() {
     );
   }
 
+  // Always show stats even if they're zeros (for new users or no data)
   if (!stats) {
-    return null;
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+        <StatCard title="Question Score" value="0%" subtitle="Correct Answers" />
+        <StatCard
+          title="Qbank Usage"
+          value="0%"
+          subtitle="0/0 Questions Attempted"
+        />
+        <StatCard
+          title="Tests Completed"
+          value={0}
+          subtitle="Practice Sessions"
+        />
+      </div>
+    );
   }
 
   return (
