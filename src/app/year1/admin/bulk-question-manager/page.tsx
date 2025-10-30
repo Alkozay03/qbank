@@ -342,12 +342,12 @@ function BulkQuestionManagerContent() {
     system: '',
     discipline: '',
     resource: '',
-    questionYear: '',
+    questionYear: 'Y1',
     rotationNumber: '',
     iduScreenshotUrl: '',
     questionImageUrl: '',
     explanationImageUrl: '',
-    occurrences: [],
+    occurrences: [{ clientKey: makeOccurrenceKey(), year: 'Y1', rotation: '', orderIndex: 0 }],
     source: 'manual',
     isAnswerConfirmed: true, // Default to confirmed for new questions
   }), []);
