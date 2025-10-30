@@ -4,6 +4,7 @@
  * No database queries required.
  */
 
+
 const WELCOME_MESSAGES = [
   "Exam-day panic prevention starts here, [FirstName].",
   "Still cramming, [FirstName]? Same.",

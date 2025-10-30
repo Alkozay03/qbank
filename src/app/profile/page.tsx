@@ -176,6 +176,7 @@ export default function Profile() {
                   className="w-full rounded-xl border border-theme px-3 py-2 outline-none focus-theme theme-transition text-readable bg-theme-background"
                 >
                   <option value="">Select Rotation</option>
+                  <option value="Pre-Clerkship">Pre-Clerkship</option>
                   <option value="Pediatrics">Pediatrics</option>
                   <option value="Internal Medicine">Internal Medicine</option>
                   <option value="Internal Medicine 2">Internal Medicine 2</option>
@@ -196,6 +197,7 @@ export default function Profile() {
                   className="w-full rounded-xl border border-theme px-3 py-2 outline-none focus-theme theme-transition text-readable bg-theme-background"
                 >
                   <option value="">Select Rotation Number</option>
+                  <option value="None">None</option>
                   <option value="R1">R1</option>
                   <option value="R2">R2</option>
                   <option value="R3">R3</option>

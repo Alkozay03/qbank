@@ -12,42 +12,22 @@ datasource db {
   shadowDatabaseUrl = env("PRISMA_MIGRATION_SHADOW_DATABASE_URL")
 }
 
-model User {
-  id                    String             @id @default(cuid())
-  firstName             String?
-  lastName              String?
-  email                 String             @unique
-  image                 String?
-  role                  Role               @default(MEMBER)
-  approvalStatus        ApprovalStatus     @default(PENDING)
-  theme                 String?            @default("blue")
-  gradYear              Int?
-  rotation              String?
-  rotationNumber        String?            // R1, R2, R3, R4
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime?          @updatedAt
-  timezone              String?
-  accounts              Account[]
-  notifications         Notification[]     @relation("NotificationCreator")
-  notificationReads     NotificationRead[]
-  questionComments      QuestionComment[]  @relation("QuestionCommentAuthor")
-  commentVotes          CommentVote[]      @relation("CommentVotes")
-  quizzes               Quiz[]
-  responses             Response[]         @relation("UserResponses")
-  schedules             Schedule[]         @relation("ScheduleCreator")
-  sessions              Session[]
-  conversations         Conversation[]
-  messages              Message[]
-  questionModes         UserQuestionMode[]
-  assignedConversations Conversation[]     @relation("AssignedConversations")
-  answerVotes           AnswerVote[]       @relation("UserAnswerVotes")
-  activity              UserActivity?      @relation("UserActivity")
-
-  @@index([approvalStatus], map: "idx_user_approval_status")
+model AIExtraction {
+  id              String            @id
+  questionId      String?           @unique
+  imagePath       String?
+  rawText         String?
+  confidence      Float?
+  template        String?
+  processingTime  Float?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime?
+  Question        Question?         @relation(fields: [questionId], references: [id])
+  ExtractionImage ExtractionImage[]
 }
 
 model Account {
-  id                String  @id @default(cuid())
+  id                String  @id
   userId            String
   type              String
   provider          String
@@ -59,36 +39,385 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model AnswerVote {
+  id             String   @id
+  questionId     String
+  userId         String
+  academicYear   Int
+  rotationNumber String
+  rotationName   String
+  selectedAnswer String
+  isFinal        Boolean  @default(false)
+  isArchived     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+  Question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  User           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, userId, academicYear, rotationNumber, rotationName], map: "uniq_answer_vote")
+  @@index([isArchived], map: "idx_answer_vote_archived")
+  @@index([questionId, academicYear, rotationNumber, rotationName], map: "idx_answer_vote_question_period")
+  @@index([questionId], map: "idx_answer_vote_questionid")
+  @@index([userId], map: "idx_answer_vote_userid")
 }
 
-model VerificationToken {
-  identifier String
-  token      String    @unique
-  expires    DateTime
-  usedAt     DateTime? // Track when token was first used (for email scanner tolerance)
+model Choice {
+  id         String   @id
+  questionId String
+  text       String
+  isCorrect  Boolean  @default(false)
+  Question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
 
-  @@unique([identifier, token])
+model CommentVote {
+  id              String          @id
+  userId          String
+  commentId       String
+  createdAt       DateTime        @default(now())
+  QuestionComment QuestionComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  User            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([commentId], map: "idx_commentvote_commentid")
+  @@index([userId], map: "idx_commentvote_userid")
+}
+
+model Conversation {
+  id                                  String    @id
+  userId                              String
+  isActive                            Boolean   @default(true)
+  createdAt                           DateTime  @default(now())
+  updatedAt                           DateTime
+  recipientId                         String?
+  messageType                         String    @default("HELP_CREATOR")
+  userUnreadCount                     Int       @default(0)
+  adminUnreadCount                    Int       @default(0)
+  lastMessageAt                       DateTime  @default(now())
+  User_Conversation_recipientIdToUser User?     @relation("Conversation_recipientIdToUser", fields: [recipientId], references: [id])
+  User_Conversation_userIdToUser      User      @relation("Conversation_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+  Message                             Message[]
+
+  @@index([messageType])
+  @@index([recipientId])
+}
+
+model ExtractionImage {
+  id           String       @id
+  extractionId String
+  type         String
+  imageData    Bytes?
+  imageUrl     String?
+  ocrText      String?
+  confidence   Float?
+  createdAt    DateTime     @default(now())
+  AIExtraction AIExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+}
+
+model HelpItem {
+  id          String   @id
+  title       String
+  description String
+  orderIndex  Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+}
+
+model Message {
+  id             String       @id
+  conversationId String
+  senderId       String
+  content        String
+  imageUrl       String?
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  Conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  User           User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id               String             @id
+  shortId          Int                @unique
+  title            String
+  body             String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  isDeleted        Boolean            @default(false)
+  targetRotation   String?
+  createdById      String?
+  User             User?              @relation(fields: [createdById], references: [id])
+  NotificationRead NotificationRead[]
+
+  @@index([isDeleted], map: "idx_notification_isdeleted")
+  @@index([targetRotation], map: "idx_notification_targetrotation")
+}
+
+model NotificationRead {
+  id             String       @id
+  notificationId String
+  userId         String
+  readAt         DateTime     @default(now())
+  Notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  User           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([notificationId], map: "idx_notificationread_notificationid")
+  @@index([userId], map: "idx_notificationread_userid")
+  @@index([userId, notificationId], map: "idx_notificationread_userid_notificationid")
+}
+
+model PreClerkshipAIExtraction {
+  id                          String                        @id
+  questionId                  String?                       @unique
+  imagePath                   String?
+  rawText                     String?
+  confidence                  Float?
+  template                    String?
+  processingTime              Float?
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime?
+  PreClerkshipQuestion        PreClerkshipQuestion?         @relation(fields: [questionId], references: [id])
+  PreClerkshipExtractionImage PreClerkshipExtractionImage[]
+}
+
+model PreClerkshipAnswer {
+  id                   String               @id
+  questionId           String
+  text                 String
+  isCorrect            Boolean              @default(false)
+  PreClerkshipQuestion PreClerkshipQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model PreClerkshipAnswerVote {
+  id                   String               @id
+  questionId           String
+  userId               String
+  academicYear         Int
+  weekNumber           Int
+  lectureNum           Int
+  yearLevel            Int
+  selectedAnswer       String
+  isFinal              Boolean              @default(false)
+  isArchived           Boolean              @default(false)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime
+  PreClerkshipQuestion PreClerkshipQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  User                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, userId, academicYear, weekNumber, lectureNum, yearLevel], map: "uniq_preclerkship_answer_vote")
+  @@index([isArchived], map: "idx_preclerkship_answer_vote_archived")
+  @@index([questionId, academicYear, weekNumber, yearLevel], map: "idx_preclerkship_answer_vote_question_period")
+  @@index([questionId], map: "idx_preclerkship_answer_vote_questionid")
+  @@index([userId], map: "idx_preclerkship_answer_vote_userid")
+}
+
+model PreClerkshipCommentVote {
+  id                          String                      @id
+  userId                      String
+  commentId                   String
+  createdAt                   DateTime                    @default(now())
+  PreClerkshipQuestionComment PreClerkshipQuestionComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  User                        User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([commentId], map: "idx_preclerkship_commentvote_commentid")
+  @@index([userId], map: "idx_preclerkship_commentvote_userid")
+}
+
+model PreClerkshipExtractionImage {
+  id                       String                   @id
+  extractionId             String
+  type                     String
+  imageData                Bytes?
+  imageUrl                 String?
+  ocrText                  String?
+  confidence               Float?
+  createdAt                DateTime                 @default(now())
+  PreClerkshipAIExtraction PreClerkshipAIExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+}
+
+model PreClerkshipQuestion {
+  id                             String                           @id
+  yearLevel                      Int
+  explanation                    String?
+  createdAt                      DateTime                         @default(now())
+  objective                      String?
+  customId                       Int?                             @unique
+  text                           String?
+  updatedAt                      DateTime?
+  iduScreenshotUrl               String?
+  questionImageUrl               String?
+  explanationImageUrl            String?
+  references                     String?
+  isAnswerConfirmed              Boolean                          @default(true)
+  embedding                      Json?
+  PreClerkshipAIExtraction       PreClerkshipAIExtraction?
+  PreClerkshipAnswer             PreClerkshipAnswer[]
+  PreClerkshipAnswerVote         PreClerkshipAnswerVote[]
+  PreClerkshipQuestionComment    PreClerkshipQuestionComment[]
+  PreClerkshipQuestionOccurrence PreClerkshipQuestionOccurrence[]
+  PreClerkshipQuestionTag        PreClerkshipQuestionTag[]
+  PreClerkshipQuizItem           PreClerkshipQuizItem[]
+  PreClerkshipUserQuestionMode   PreClerkshipUserQuestionMode[]
+
+  @@index([id], map: "idx_preclerkship_question_id")
+  @@index([yearLevel], map: "idx_preclerkship_question_yearlevel")
+}
+
+model PreClerkshipQuestionComment {
+  id                                String                        @id
+  questionId                        String
+  authorName                        String?
+  body                              String?
+  imageUrl                          String?
+  createdAt                         DateTime                      @default(now())
+  updatedAt                         DateTime
+  createdById                       String?
+  origin                            String                        @default("runner")
+  parentId                          String?
+  upvoteCount                       Int                           @default(0)
+  PreClerkshipCommentVote           PreClerkshipCommentVote[]
+  User                              User?                         @relation(fields: [createdById], references: [id])
+  PreClerkshipQuestionComment       PreClerkshipQuestionComment?  @relation("PreClerkshipQuestionCommentToPreClerkshipQuestionComment", fields: [parentId], references: [id], onDelete: Cascade)
+  other_PreClerkshipQuestionComment PreClerkshipQuestionComment[] @relation("PreClerkshipQuestionCommentToPreClerkshipQuestionComment")
+  PreClerkshipQuestion              PreClerkshipQuestion          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([createdById], map: "idx_preclerkship_questioncomment_createdbyid")
+  @@index([parentId], map: "idx_preclerkship_questioncomment_parentid")
+  @@index([questionId], map: "idx_preclerkship_questioncomment_questionid")
+}
+
+model PreClerkshipQuestionOccurrence {
+  id                   String               @id
+  questionId           String
+  year                 String?
+  weekNumber           Int?
+  lecture              String?
+  orderIndex           Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime
+  PreClerkshipQuestion PreClerkshipQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, year, weekNumber, lecture], map: "uniq_preclerkship_questionoccurrence")
+  @@index([questionId], map: "idx_preclerkship_questionoccurrence_questionid")
+}
+
+model PreClerkshipQuestionTag {
+  questionId           String
+  tagId                String
+  PreClerkshipQuestion PreClerkshipQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  PreClerkshipTag      PreClerkshipTag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, tagId])
+  @@index([questionId], map: "idx_preclerkship_questiontag_questionid")
+  @@index([tagId], map: "idx_preclerkship_questiontag_tagid")
+}
+
+model PreClerkshipQuiz {
+  id                   String                 @id
+  userId               String
+  yearLevel            Int
+  mode                 QuizMode               @default(RANDOM)
+  count                Int
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime?
+  status               String?
+  User                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  PreClerkshipQuizItem PreClerkshipQuizItem[]
+
+  @@index([userId], map: "idx_preclerkship_quiz_userid")
+  @@index([userId, createdAt], map: "idx_preclerkship_quiz_userid_createdat")
+  @@index([yearLevel], map: "idx_preclerkship_quiz_yearlevel")
+}
+
+model PreClerkshipQuizItem {
+  id                   String                 @id
+  quizId               String
+  questionId           String
+  marked               Boolean                @default(false)
+  createdAt            DateTime               @default(now())
+  orderInQuiz          Int?
+  updatedAt            DateTime
+  PreClerkshipQuestion PreClerkshipQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  PreClerkshipQuiz     PreClerkshipQuiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  PreClerkshipResponse PreClerkshipResponse[]
+
+  @@index([id, quizId], map: "idx_preclerkship_quizitem_id_quizid")
+  @@index([questionId], map: "idx_preclerkship_quizitem_questionid")
+  @@index([quizId], map: "idx_preclerkship_quizitem_quizid")
+}
+
+model PreClerkshipResponse {
+  id                   String               @id
+  quizItemId           String
+  choiceId             String?
+  isCorrect            Boolean?
+  createdAt            DateTime             @default(now())
+  timeSeconds          Int?
+  changeCount          Int?                 @default(0)
+  userId               String?
+  PreClerkshipQuizItem PreClerkshipQuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
+  User                 User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([quizItemId, isCorrect, createdAt], map: "idx_preclerkship_response_quizitem_quiz")
+  @@index([quizItemId], map: "idx_preclerkship_response_quizitemid")
+  @@index([quizItemId, id], map: "idx_preclerkship_response_quizitemid_id")
+  @@index([userId], map: "idx_preclerkship_response_userid")
+  @@index([userId, isCorrect, createdAt], map: "idx_preclerkship_response_userid_correct_createdat")
+  @@index([userId, createdAt], map: "idx_preclerkship_response_userid_createdat")
+}
+
+model PreClerkshipSimilarQuestionGroup {
+  id               String   @id
+  questionIds      String[]
+  similarityScores Json
+  yearLevel        Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+
+  @@index([createdAt], map: "idx_preclerkship_similar_question_created")
+  @@index([yearLevel], map: "idx_preclerkship_similar_question_year")
+}
+
+model PreClerkshipTag {
+  id                      String                    @id
+  type                    PreClerkshipTagType
+  value                   String
+  PreClerkshipQuestionTag PreClerkshipQuestionTag[]
+
+  @@unique([type, value])
+  @@index([type], map: "idx_preclerkship_tag_type")
+  @@index([type, value], map: "idx_preclerkship_tag_type_value")
+}
+
+model PreClerkshipUserQuestionMode {
+  userId               String
+  questionId           String
+  mode                 String
+  updatedAt            DateTime
+  PreClerkshipQuestion PreClerkshipQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  User                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, questionId])
+  @@index([questionId], map: "idx_preclerkship_userquestionmode_questionid")
+  @@index([userId], map: "idx_preclerkship_userquestionmode_userid")
+  @@index([userId, mode], map: "idx_preclerkship_userquestionmode_userid_mode")
 }
 
 model Question {
-  id                  String               @id @default(cuid())
+  id                  String               @id
   explanation         String?
   createdAt           DateTime             @default(now())
   objective           String?
   customId            Int?                 @unique
   text                String?
-  updatedAt           DateTime?            @updatedAt
+  updatedAt           DateTime?
   yearCaptured        String?
   rotationNumber      String?
   iduScreenshotUrl    String?
@@ -96,105 +425,93 @@ model Question {
   explanationImageUrl String?
   references          String?
   isAnswerConfirmed   Boolean              @default(true)
-  embedding           Json?                // Pre-computed OpenAI embedding vector for similarity checks
-  extraction          AIExtraction?
-  answers             Answer[]
-  comments            QuestionComment[]
-  occurrences         QuestionOccurrence[]
-  questionTags        QuestionTag[]
-  quizItems           QuizItem[]
-  userModes           UserQuestionMode[]
-  answerVotes         AnswerVote[]         @relation("QuestionAnswerVotes")
+  embedding           Json?
+  AIExtraction        AIExtraction?
+  AnswerVote          AnswerVote[]
+  Choice              Choice[]
+  QuestionComment     QuestionComment[]
+  QuestionOccurrence  QuestionOccurrence[]
+  QuestionTag         QuestionTag[]
+  QuizItem            QuizItem[]
+  UserQuestionMode    UserQuestionMode[]
 
   @@index([id], map: "idx_question_id")
 }
 
 model QuestionComment {
-  id          String            @id @default(cuid())
-  questionId  String
-  authorName  String?
-  body        String?
-  imageUrl    String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  createdById String?
-  origin      String            @default("runner")
-  parentId    String? // For replies - links to parent comment
-  upvoteCount Int               @default(0) // Only used for parent comments
-  createdBy   User?             @relation("QuestionCommentAuthor", fields: [createdById], references: [id])
-  question    Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  parent      QuestionComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     QuestionComment[] @relation("CommentReplies")
-  votes       CommentVote[]
+  id                    String            @id
+  questionId            String
+  authorName            String?
+  body                  String?
+  imageUrl              String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime
+  createdById           String?
+  origin                String            @default("runner")
+  parentId              String?
+  upvoteCount           Int               @default(0)
+  CommentVote           CommentVote[]
+  User                  User?             @relation(fields: [createdById], references: [id])
+  QuestionComment       QuestionComment?  @relation("QuestionCommentToQuestionComment", fields: [parentId], references: [id], onDelete: Cascade)
+  other_QuestionComment QuestionComment[] @relation("QuestionCommentToQuestionComment")
+  Question              Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  @@index([questionId], map: "idx_questioncomment_questionid")
   @@index([createdById], map: "idx_questioncomment_createdbyid")
   @@index([parentId], map: "idx_questioncomment_parentid")
-}
-
-model CommentVote {
-  id        String          @id @default(cuid())
-  userId    String
-  commentId String
-  createdAt DateTime        @default(now())
-  user      User            @relation("CommentVotes", fields: [userId], references: [id], onDelete: Cascade)
-  comment   QuestionComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, commentId])
-  @@index([commentId], map: "idx_commentvote_commentid")
-  @@index([userId], map: "idx_commentvote_userid")
+  @@index([questionId], map: "idx_questioncomment_questionid")
 }
 
 model QuestionOccurrence {
-  id         String   @id @default(cuid())
+  id         String   @id
   questionId String
   year       String?
   rotation   String?
   orderIndex Int      @default(0)
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  updatedAt  DateTime
+  Question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, year, rotation], map: "uniq_questionoccurrence_questionid_year_rotation")
   @@index([questionId], map: "idx_questionoccurrence_questionid")
 }
 
-model Answer {
-  id         String   @id @default(cuid())
+model QuestionTag {
   questionId String
-  text       String
-  isCorrect  Boolean  @default(false)
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tagId      String
+  Question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  Tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-  @@map("Choice")
+  @@id([questionId, tagId])
+  @@index([questionId], map: "idx_questiontag_questionid")
+  @@index([tagId], map: "idx_questiontag_tagid")
 }
 
 model Quiz {
-  id        String     @id @default(cuid())
+  id        String     @id
   userId    String
   mode      QuizMode   @default(RANDOM)
   count     Int
   createdAt DateTime   @default(now())
-  updatedAt DateTime?  @updatedAt
+  updatedAt DateTime?
   status    String?
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     QuizItem[]
+  User      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  QuizItem  QuizItem[]
 
   @@index([userId], map: "idx_quiz_userid")
   @@index([userId, createdAt], map: "idx_quiz_userid_createdat")
 }
 
 model QuizItem {
-  id          String     @id @default(cuid())
+  id          String     @id
   quizId      String
   questionId  String
   marked      Boolean    @default(false)
   createdAt   DateTime   @default(now())
   orderInQuiz Int?
-  updatedAt   DateTime   @updatedAt
-  question    Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  quiz        Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  responses   Response[]
+  updatedAt   DateTime
+  Question    Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  Quiz        Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  Response    Response[]
 
   @@index([id, quizId], map: "idx_quizitem_id_quizid")
   @@index([questionId], map: "idx_quizitem_questionid")
@@ -202,7 +519,7 @@ model QuizItem {
 }
 
 model Response {
-  id          String   @id @default(cuid())
+  id          String   @id
   quizItemId  String
   choiceId    String?
   isCorrect   Boolean?
@@ -210,8 +527,8 @@ model Response {
   timeSeconds Int?
   changeCount Int?     @default(0)
   userId      String?
-  quizItem    QuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
-  user        User?    @relation("UserResponses", fields: [userId], references: [id], onDelete: Cascade)
+  QuizItem    QuizItem @relation(fields: [quizItemId], references: [id], onDelete: Cascade)
+  User        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([quizItemId, isCorrect, createdAt], map: "idx_response_quizitem_quiz")
   @@index([quizItemId], map: "idx_response_quizitemid")
@@ -221,90 +538,38 @@ model Response {
   @@index([userId, createdAt], map: "idx_response_userid_createdat")
 }
 
-model Tag {
-  id        String        @id @default(cuid())
-  type      TagType
-  value     String
-  questions QuestionTag[]
+model RotationPeriod {
+  id             String   @id
+  academicYear   Int
+  rotationNumber String
+  rotationName   String
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
 
-  @@unique([type, value])
-  @@index([type], map: "idx_tag_type")
-  @@index([type, value], map: "idx_tag_type_value")
-}
-
-model QuestionTag {
-  questionId String
-  tagId      String
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([questionId, tagId])
-  @@index([questionId], map: "idx_questiontag_questionid")
-  @@index([tagId], map: "idx_questiontag_tagid")
-}
-
-model UserQuestionMode {
-  userId     String
-  questionId String
-  mode       String // "unused", "correct", "incorrect", "omitted", "marked"
-  updatedAt  DateTime @updatedAt
-
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@id([userId, questionId])
-  @@index([userId], map: "idx_userquestionmode_userid")
-  @@index([questionId], map: "idx_userquestionmode_questionid")
-  @@index([userId, mode], map: "idx_userquestionmode_userid_mode")
-}
-
-model Notification {
-  id             String             @id @default(cuid())
-  shortId        Int                @unique
-  title          String
-  body           String
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  isDeleted      Boolean            @default(false)
-  targetRotation String? // null = global, or specific rotation name
-  createdById    String?
-  createdBy      User?              @relation("NotificationCreator", fields: [createdById], references: [id])
-  readReceipts   NotificationRead[]
-
-  @@index([isDeleted], map: "idx_notification_isdeleted")
-  @@index([targetRotation], map: "idx_notification_targetrotation")
-}
-
-model NotificationRead {
-  id             String       @id @default(cuid())
-  notificationId String
-  userId         String
-  readAt         DateTime     @default(now())
-  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([notificationId, userId])
-  @@index([notificationId], map: "idx_notificationread_notificationid")
-  @@index([userId], map: "idx_notificationread_userid")
-  @@index([userId, notificationId], map: "idx_notificationread_userid_notificationid")
+  @@unique([academicYear, rotationNumber, rotationName], map: "uniq_rotation_period")
+  @@index([isActive], map: "idx_rotation_period_active")
+  @@index([academicYear, rotationNumber], map: "idx_rotation_period_year_number")
 }
 
 model Schedule {
-  id             String         @id @default(cuid())
+  id             String         @id
   title          String         @default("Week Schedule")
   weekStart      DateTime       @unique
   createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  targetRotation String? // null = global, or specific rotation name
+  updatedAt      DateTime
+  targetRotation String?
   createdById    String?
-  createdBy      User?          @relation("ScheduleCreator", fields: [createdById], references: [id])
-  items          ScheduleItem[]
+  User           User?          @relation(fields: [createdById], references: [id])
+  ScheduleItem   ScheduleItem[]
 
   @@index([targetRotation], map: "idx_schedule_targetrotation")
 }
 
 model ScheduleItem {
-  id         String           @id @default(cuid())
+  id         String           @id
   scheduleId String
   dayOfWeek  Int
   type       ScheduleItemType
@@ -314,55 +579,140 @@ model ScheduleItem {
   tutor      String?
   location   String?
   link       String?
-  schedule   Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  Schedule   Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
   @@index([scheduleId, dayOfWeek])
 }
 
-model AIExtraction {
-  id             String            @id @default(cuid())
-  questionId     String?           @unique
-  imagePath      String?
-  rawText        String?
-  confidence     Float?
-  template       String?
-  processingTime Float?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime?         @updatedAt
-  question       Question?         @relation(fields: [questionId], references: [id])
-  images         ExtractionImage[]
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model ExtractionImage {
-  id           String       @id @default(cuid())
-  extractionId String
-  type         String
-  imageData    Bytes?
-  imageUrl     String?
-  ocrText      String?
-  confidence   Float?
-  createdAt    DateTime     @default(now())
-  extraction   AIExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+model SimilarQuestionGroup {
+  id               String   @id
+  questionIds      String[]
+  similarityScores Json
+  yearContext      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+
+  @@index([createdAt], map: "idx_similar_question_created")
+  @@index([yearContext], map: "idx_similar_question_year")
 }
 
-/// IMPORTANT: We map Prisma enum values to the existing Postgres enum labels:
-/// - MEMBER          -> "User"            (existing)
-/// - ADMIN           -> "Admin"           (existing)
-/// - MASTER_ADMIN    -> "MASTER_ADMIN"    (existing)
-/// - WEBSITE_CREATOR -> "WEBSITE_CREATOR" (we will add this label via migration)
-enum Role {
-  MEMBER          @map("User")
-  ADMIN           @map("Admin")
-  MASTER_ADMIN    @map("MASTER_ADMIN")
-  WEBSITE_CREATOR @map("WEBSITE_CREATOR")
+model Tag {
+  id          String        @id
+  type        TagType
+  value       String
+  QuestionTag QuestionTag[]
 
-  @@map("Role")
+  @@unique([type, value])
+  @@index([type], map: "idx_tag_type")
+  @@index([type, value], map: "idx_tag_type_value")
+}
+
+model User {
+  id                                          String                         @id
+  firstName                                   String?
+  lastName                                    String?
+  email                                       String                         @unique
+  image                                       String?
+  role                                        Role                           @default(User)
+  approvalStatus                              ApprovalStatus                 @default(PENDING)
+  theme                                       String?                        @default("blue")
+  gradYear                                    Int?
+  rotation                                    String?
+  rotationNumber                              String?
+  createdAt                                   DateTime                       @default(now())
+  updatedAt                                   DateTime?
+  timezone                                    String?
+  Account                                     Account[]
+  AnswerVote                                  AnswerVote[]
+  CommentVote                                 CommentVote[]
+  Conversation_Conversation_recipientIdToUser Conversation[]                 @relation("Conversation_recipientIdToUser")
+  Conversation_Conversation_userIdToUser      Conversation[]                 @relation("Conversation_userIdToUser")
+  Message                                     Message[]
+  Notification                                Notification[]
+  NotificationRead                            NotificationRead[]
+  PreClerkshipAnswerVote                      PreClerkshipAnswerVote[]
+  PreClerkshipCommentVote                     PreClerkshipCommentVote[]
+  PreClerkshipQuestionComment                 PreClerkshipQuestionComment[]
+  PreClerkshipQuiz                            PreClerkshipQuiz[]
+  PreClerkshipResponse                        PreClerkshipResponse[]
+  PreClerkshipUserQuestionMode                PreClerkshipUserQuestionMode[]
+  QuestionComment                             QuestionComment[]
+  Quiz                                        Quiz[]
+  Response                                    Response[]
+  Schedule                                    Schedule[]
+  Session                                     Session[]
+  UserActivity                                UserActivity?
+  UserQuestionMode                            UserQuestionMode[]
+
+  @@index([approvalStatus], map: "idx_user_approval_status")
+}
+
+model UserActivity {
+  userId   String   @id
+  lastSeen DateTime @default(now())
+  User     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lastSeen], map: "idx_user_activity_lastseen")
+}
+
+model UserQuestionMode {
+  userId     String
+  questionId String
+  mode       String
+  updatedAt  DateTime
+  Question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  User       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, questionId])
+  @@index([questionId], map: "idx_userquestionmode_questionid")
+  @@index([userId], map: "idx_userquestionmode_userid")
+  @@index([userId, mode], map: "idx_userquestionmode_userid_mode")
+}
+
+model VerificationToken {
+  identifier String
+  token      String    @unique
+  expires    DateTime
+  usedAt     DateTime?
+
+  @@unique([identifier, token])
 }
 
 enum ApprovalStatus {
   PENDING
   APPROVED
   BLOCKED
+}
+
+enum PreClerkshipTagType {
+  SUBJECT
+  SYSTEM
+  TOPIC
+  WEEK
+  LECTURE
+  RESOURCE
+  MODE
+}
+
+enum QuizMode {
+  RANDOM
+  CUSTOM
+  EXAM
+}
+
+enum Role {
+  User
+  Admin
+  MASTER_ADMIN
+  WEBSITE_CREATOR
 }
 
 enum ScheduleItemType {
@@ -377,127 +727,4 @@ enum TagType {
   ROTATION
   RESOURCE
   MODE
-}
-
-enum QuizMode {
-  RANDOM
-  CUSTOM
-  EXAM
-
-  @@map("QuizMode")
-}
-
-model HelpItem {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  orderIndex  Int      @default(0)
-  isPublished Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("HelpItem")
-}
-
-model Conversation {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  messages  Message[]
-
-  // Track which admin is assigned to this conversation (for CONTACT_ADMIN type)
-  recipientId String?
-  recipient   User?   @relation("AssignedConversations", fields: [recipientId], references: [id], onDelete: SetNull)
-
-  // Type of message: HELP_CREATOR (master admin) or CONTACT_ADMIN (random admin)
-  messageType String @default("HELP_CREATOR")
-
-  // Track unread messages for both user and admin
-  userUnreadCount  Int @default(0)
-  adminUnreadCount Int @default(0)
-
-  // Track last message for ordering
-  lastMessageAt DateTime @default(now())
-
-  @@index([recipientId])
-  @@index([messageType])
-  @@map("Conversation")
-}
-
-model Message {
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  senderId       String
-  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  content        String
-  imageUrl       String?
-  isRead         Boolean      @default(false)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@map("Message")
-}
-
-model RotationPeriod {
-  id             String   @id @default(cuid())
-  academicYear   Int      // e.g., 2027
-  rotationNumber String   // R1, R2, R3, R4
-  rotationName   String   // Pediatrics, Surgery, Internal Medicine, OB/GYN
-  startDate      DateTime
-  endDate        DateTime
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@unique([academicYear, rotationNumber, rotationName], map: "uniq_rotation_period")
-  @@index([academicYear, rotationNumber], map: "idx_rotation_period_year_number")
-  @@index([isActive], map: "idx_rotation_period_active")
-  @@map("RotationPeriod")
-}
-
-model AnswerVote {
-  id             String   @id @default(cuid())
-  questionId     String
-  userId         String
-  academicYear   Int      // e.g., 2027
-  rotationNumber String   // R1, R2, R3, R4
-  rotationName   String   // Pediatrics, Surgery, etc.
-  selectedAnswer String   // A, B, C, D, E
-  isFinal        Boolean  @default(false) // Locked after rotation period ends
-  isArchived     Boolean  @default(false) // Hidden when answer is confirmed
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  user           User     @relation("UserAnswerVotes", fields: [userId], references: [id], onDelete: Cascade)
-  question       Question @relation("QuestionAnswerVotes", fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@unique([questionId, userId, academicYear, rotationNumber, rotationName], map: "uniq_answer_vote")
-  @@index([questionId], map: "idx_answer_vote_questionid")
-  @@index([userId], map: "idx_answer_vote_userid")
-  @@index([questionId, academicYear, rotationNumber, rotationName], map: "idx_answer_vote_question_period")
-  @@index([isArchived], map: "idx_answer_vote_archived")
-  @@map("AnswerVote")
-}
-
-model SimilarQuestionGroup {
-  id               String   @id @default(cuid())
-  questionIds      String[] // Array of question IDs that are similar
-  similarityScores Json     // Map of question pairs to their similarity scores
-  yearContext      String   // "year4" or "year5" - keeps year4 and year5 separate
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@index([yearContext], map: "idx_similar_question_year")
-  @@index([createdAt], map: "idx_similar_question_created")
-}
-
-model UserActivity {
-  userId   String   @id
-  lastSeen DateTime @default(now())
-  user     User     @relation("UserActivity", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([lastSeen], map: "idx_user_activity_lastseen")
 }
