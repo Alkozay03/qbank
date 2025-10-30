@@ -1902,7 +1902,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             }
             className="border border-[#E6F0F7] rounded-lg p-4"
             aiSuggestions={aiSuggestions}
-            year={editedQuestion.questionYear === "Y4" ? "Y4" : "Y5"}
+            year="Y3"
           />
 
           {/* Question Discussion Section - Always visible */}

@@ -16,7 +16,9 @@ interface TagSelectorProps {
 
   aiSuggestions?: string[];
 
-  year?: "Y4" | "Y5"; // Optional year prop to filter rotation options
+  year?: "Y1" | "Y2" | "Y3" | "Y4" | "Y5"; // Year prop to determine mode and filter options
+
+  mode?: "clerkship" | "preclerkship"; // Explicit mode override
 
 }
 
@@ -40,7 +42,7 @@ type OptionsByCategory = {
 
 
 
-// All rotation options - will be filtered based on year
+// All rotation options - will be filtered based on year (for clerkship Y4/Y5)
 
 const allRotationOptions = {
 
@@ -69,6 +71,64 @@ const allRotationOptions = {
   ],
 
 };
+
+
+
+// Week and Lecture options for preclerkship years (Y1, Y2, Y3)
+
+const weekOptions: Option[] = [
+
+  { value: "week1", label: "Week 1" },
+
+  { value: "week2", label: "Week 2" },
+
+  { value: "week3", label: "Week 3" },
+
+  { value: "week4", label: "Week 4" },
+
+  { value: "week5", label: "Week 5" },
+
+  { value: "week6", label: "Week 6" },
+
+  { value: "week7", label: "Week 7" },
+
+  { value: "week8", label: "Week 8" },
+
+  { value: "week9", label: "Week 9" },
+
+  { value: "week10", label: "Week 10" },
+
+  { value: "week11", label: "Week 11" },
+
+  { value: "week12", label: "Week 12" },
+
+];
+
+
+
+const lectureOptions: Option[] = [
+
+  { value: "lecture1", label: "Lecture 1" },
+
+  { value: "lecture2", label: "Lecture 2" },
+
+  { value: "lecture3", label: "Lecture 3" },
+
+  { value: "lecture4", label: "Lecture 4" },
+
+  { value: "lecture5", label: "Lecture 5" },
+
+  { value: "lecture6", label: "Lecture 6" },
+
+  { value: "lecture7", label: "Lecture 7" },
+
+  { value: "lecture8", label: "Lecture 8" },
+
+  { value: "lecture9", label: "Lecture 9" },
+
+  { value: "lecture10", label: "Lecture 10" },
+
+];
 
 
 
@@ -182,15 +242,19 @@ const baseFilterOptions: Omit<OptionsByCategory, "rotation"> = {
 
 
 
-type Category = keyof OptionsByCategory;
+type Category = string; // Can be rotation, week, lecture, resource, discipline, or system
 
 
 
 // All options combined for lookup purposes (used in formatTagDisplay)
 
-const allOptionsForLookup: OptionsByCategory = {
+const allOptionsForLookup: Record<string, Option[]> = {
 
   rotation: [...allRotationOptions.Y4, ...allRotationOptions.Y5],
+
+  week: weekOptions,
+
+  lecture: lectureOptions,
 
   ...baseFilterOptions,
 
@@ -228,21 +292,39 @@ function applySingleCategoryTag(tags: string[], category: Category, value: strin
 
 
 
-export default function TagSelector({ selectedTags, onChange, className = "", aiSuggestions = [], year }: TagSelectorProps) {
+export default function TagSelector({ selectedTags, onChange, className = "", aiSuggestions = [], year, mode }: TagSelectorProps) {
 
-  const [openDropdown, setOpenDropdown] = useState<Category | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
 
 
-  // Build filterOptions based on year prop - defaults to Y4 if not provided for backwards compatibility
+  // Determine if we're in preclerkship mode based on year or explicit mode prop
 
-  const filterOptions: OptionsByCategory = {
+  const isPreclerkship = mode === "preclerkship" || year === "Y1" || year === "Y2" || year === "Y3";
 
-    rotation: year === "Y5" ? allRotationOptions.Y5 : allRotationOptions.Y4,
 
-    ...baseFilterOptions,
 
-  };
+  // Build filterOptions based on mode
+
+  const filterOptions: Record<string, Option[]> = isPreclerkship
+
+    ? {
+
+        week: weekOptions,
+
+        lecture: lectureOptions,
+
+        ...baseFilterOptions,
+
+      }
+
+    : {
+
+        rotation: year === "Y5" ? allRotationOptions.Y5 : allRotationOptions.Y4,
+
+        ...baseFilterOptions,
+
+      };
 
 
 
