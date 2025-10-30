@@ -25,10 +25,13 @@ export default function DashboardStatsClient() {
       try {
         const res = await fetch("/api/year4/dashboard-stats", { cache: "no-store" });
         if (!res.ok) {
-          if (res.status === 503) {
-            setIsOffline(true);
+          if (!cancelled) {
+            if (res.status === 503) {
+              setIsOffline(true);
+            }
+            setStats(null);
+            setLoading(false);
           }
-          setStats(null);
           return;
         }
         const data = (await res.json()) as DashboardStats;
