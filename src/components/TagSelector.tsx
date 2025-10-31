@@ -76,31 +76,29 @@ const allRotationOptions = {
 
 // Week and Lecture options for preclerkship years (Y1, Y2, Y3)
 
+// IMPORTANT: These values must match create-test page exactly (capital W/L)
+
 const weekOptions: Option[] = [
 
-  { value: "week1", label: "Week 1" },
+  { value: "Week 1", label: "Week 1" },
 
-  { value: "week2", label: "Week 2" },
+  { value: "Week 2", label: "Week 2" },
 
-  { value: "week3", label: "Week 3" },
+  { value: "Week 3", label: "Week 3" },
 
-  { value: "week4", label: "Week 4" },
+  { value: "Week 4", label: "Week 4" },
 
-  { value: "week5", label: "Week 5" },
+  { value: "Week 5", label: "Week 5" },
 
-  { value: "week6", label: "Week 6" },
+  { value: "Week 6", label: "Week 6" },
 
-  { value: "week7", label: "Week 7" },
+  { value: "Week 7", label: "Week 7" },
 
-  { value: "week8", label: "Week 8" },
+  { value: "Week 8", label: "Week 8" },
 
-  { value: "week9", label: "Week 9" },
+  { value: "Week 9", label: "Week 9" },
 
-  { value: "week10", label: "Week 10" },
-
-  { value: "week11", label: "Week 11" },
-
-  { value: "week12", label: "Week 12" },
+  { value: "Week 10", label: "Week 10" },
 
 ];
 
@@ -108,25 +106,25 @@ const weekOptions: Option[] = [
 
 const lectureOptions: Option[] = [
 
-  { value: "lecture1", label: "Lecture 1" },
+  { value: "Lecture 1", label: "Lecture 1" },
 
-  { value: "lecture2", label: "Lecture 2" },
+  { value: "Lecture 2", label: "Lecture 2" },
 
-  { value: "lecture3", label: "Lecture 3" },
+  { value: "Lecture 3", label: "Lecture 3" },
 
-  { value: "lecture4", label: "Lecture 4" },
+  { value: "Lecture 4", label: "Lecture 4" },
 
-  { value: "lecture5", label: "Lecture 5" },
+  { value: "Lecture 5", label: "Lecture 5" },
 
-  { value: "lecture6", label: "Lecture 6" },
+  { value: "Lecture 6", label: "Lecture 6" },
 
-  { value: "lecture7", label: "Lecture 7" },
+  { value: "Lecture 7", label: "Lecture 7" },
 
-  { value: "lecture8", label: "Lecture 8" },
+  { value: "Lecture 8", label: "Lecture 8" },
 
-  { value: "lecture9", label: "Lecture 9" },
+  { value: "Lecture 9", label: "Lecture 9" },
 
-  { value: "lecture10", label: "Lecture 10" },
+  { value: "Lecture 10", label: "Lecture 10" },
 
 ];
 
@@ -304,23 +302,81 @@ export default function TagSelector({ selectedTags, onChange, className = "", ai
 
 
 
-  // Year 2 specific system options (filtered subset)
+  // Year-specific system options (must match create-test pages exactly)
+
+  const year1And3SystemOptions: Option[] = [
+
+    { value: "cardio", label: "Cardiovascular System" },
+
+    { value: "gi", label: "Gastrointestinal System" },
+
+    { value: "neuro", label: "Nervous System" },
+
+    { value: "pulm", label: "Pulmonary System" },
+
+    { value: "renal", label: "Renal System" },
+
+    { value: "endocrine", label: "Endocrine System" },
+
+    { value: "heme", label: "Hematology" },
+
+    { value: "immuno", label: "Immunology" },
+
+    { value: "repro", label: "Reproductive System" },
+
+    { value: "musculoskeletal", label: "Musculoskeletal System" },
+
+  ];
+
+
 
   const year2SystemOptions: Option[] = [
 
     { value: "cardio", label: "Cardiovascular System" },
 
-    { value: "pulm", label: "Pulmonary & Critical Care" },
+    { value: "pulm", label: "Pulmonary System" },
 
-    { value: "endocrine", label: "Endocrine, Diabetes & Metabolism" },
+    { value: "endocrine", label: "Endocrine System" },
 
-    { value: "gi", label: "Gastrointestinal & Nutrition" },
+    { value: "gi", label: "Gastrointestinal System" },
 
-    { value: "renal", label: "Renal, Urinary Systems & Electrolytes" },
+    { value: "renal", label: "Renal System" },
 
     { value: "female_repro", label: "Female Reproductive System & Breast" },
 
     { value: "male_repro", label: "Male Reproductive System" },
+
+  ];
+
+
+
+  // Preclerkship disciplines (same for all years)
+
+  const preclerkshipDisciplineOptions: Option[] = [
+
+    { value: "anatomy", label: "Anatomy" },
+
+    { value: "behavioral", label: "Behavioral science" },
+
+    { value: "biochem", label: "Biochemistry" },
+
+    { value: "biostat", label: "Biostatistics" },
+
+    { value: "embryology", label: "Embryology" },
+
+    { value: "genetics", label: "Genetics" },
+
+    { value: "histology", label: "Histology" },
+
+    { value: "immunology", label: "Immunology" },
+
+    { value: "micro", label: "Microbiology" },
+
+    { value: "path", label: "Pathology" },
+
+    { value: "pharm", label: "Pharmacology" },
+
+    { value: "physio", label: "Physiology" },
 
   ];
 
@@ -336,9 +392,9 @@ export default function TagSelector({ selectedTags, onChange, className = "", ai
 
         lecture: lectureOptions,
 
-        discipline: baseFilterOptions.discipline,
+        discipline: preclerkshipDisciplineOptions,
 
-        system: year === "Y2" ? year2SystemOptions : baseFilterOptions.system, // Use filtered systems for Y2
+        system: year === "Y2" ? year2SystemOptions : year1And3SystemOptions,
 
         // PreClerkship: No rotation or resource tags
 

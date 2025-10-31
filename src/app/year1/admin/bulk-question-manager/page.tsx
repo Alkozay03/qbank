@@ -1309,7 +1309,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         occurrences: normalizedDrafts,
         questionYear: primaryMeta.questionYear,
         rotationNumber: primaryMeta.rotationNumber,
-        source: 'existing' as const, // CRITICAL: Mark as existing so handleSaveQuestion actually saves it!
+        // Only mark as existing if it actually has a dbId, otherwise keep original source
+        source: (editedQuestion.dbId ? 'existing' : editedQuestion.source) as const,
       };
       
       console.warn('🔵 [MODAL] Calling onSave with question:', {
