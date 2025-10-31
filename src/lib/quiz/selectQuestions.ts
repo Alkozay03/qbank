@@ -19,9 +19,9 @@ function buildTagFilter(type: TagType, rawValues: string[]): Prisma.QuestionWher
   }));
 
   return {
-    questionTags: {
+    QuestionTag: {
       some: {
-        tag: {
+        Tag: {
           type,
           ...(orClauses.length ? { OR: orClauses } : {}),
         },
@@ -77,7 +77,7 @@ export async function selectQuestions(opts: {
   // Filter by year if provided (Year 5 vs Year 4)
   if (year) {
     whereClauses.push({
-      occurrences: {
+      QuestionOccurrence: {
         some: {
           year: year,
         },
@@ -89,7 +89,7 @@ export async function selectQuestions(opts: {
     const answeredQuestions = await prisma.response.findMany({
       where: { userId },
       include: {
-        quizItem: {
+        QuizItem: {
           select: {
             questionId: true,
             marked: true,
@@ -100,7 +100,7 @@ export async function selectQuestions(opts: {
     });
 
     const userQuizItems = await prisma.quizItem.findMany({
-      where: { quiz: { userId } },
+      where: { Quiz: { userId } },
       select: { questionId: true, marked: true },
     });
 
@@ -116,8 +116,8 @@ export async function selectQuestions(opts: {
     }
 
     for (const response of answeredQuestions) {
-      const questionId = response.quizItem.questionId;
-      if (response.quizItem.marked) {
+      const questionId = response.QuizItem.questionId;
+      if (response.QuizItem.marked) {
         markedQuestions.add(questionId);
       }
       const existing = responsesByQuestion.get(questionId);
