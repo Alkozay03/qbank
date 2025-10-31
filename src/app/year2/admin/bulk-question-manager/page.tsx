@@ -455,7 +455,8 @@ function BulkQuestionManagerContent() {
         ? (data.occurrences as Array<RawOccurrenceInput>).map((occ, index) => ({
             id: occ?.id,
             year: occ?.year ?? '',
-            rotation: occ?.rotation ?? '',
+            weekNumber: occ?.weekNumber ?? null,
+            lecture: occ?.lecture ?? '',
             orderIndex:
               typeof occ?.orderIndex === 'number' && Number.isFinite(occ.orderIndex)
                 ? occ.orderIndex
@@ -466,9 +467,8 @@ function BulkQuestionManagerContent() {
 
       if (rawOccurrences.length === 0) {
         const fallbackYear = typeof data?.questionYear === 'string' ? data.questionYear.trim() : '';
-        const fallbackRotation = typeof data?.rotationNumber === 'string' ? data.rotationNumber.trim() : '';
-        if (fallbackYear || fallbackRotation) {
-          rawOccurrences.push({ year: fallbackYear, rotation: fallbackRotation, orderIndex: 0 });
+        if (fallbackYear) {
+          rawOccurrences.push({ year: fallbackYear, weekNumber: null, lecture: '', orderIndex: 0 });
         }
       }
 
@@ -916,18 +916,21 @@ ${formattedList}`);
       }
       
       console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS COMPLETED ==========');
-    } catch (error) {
+    } catch (error: unknown) {
       console.warn('🔷 [SAVE ALL] ❌❌❌ CRITICAL ERROR CAUGHT ❌❌❌');
-      console.warn('🔷 [SAVE ALL] Error type:', error instanceof Error ? error.constructor.name : typeof error);
-      console.warn('🔷 [SAVE ALL] Error message:', error instanceof Error ? error.message : String(error));
-      console.warn('🔷 [SAVE ALL] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      const errorType = error instanceof Error ? error.constructor.name : typeof error;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+      console.warn('🔷 [SAVE ALL] Error type:', errorType);
+      console.warn('🔷 [SAVE ALL] Error message:', errorMessage);
+      console.warn('🔷 [SAVE ALL] Error stack:', errorStack);
       console.warn('🔷 [SAVE ALL] Full error object:', error);
       
       setState(prev => ({
         ...prev,
         status: 'ready',
         progress: 0,
-        message: `Error saving questions: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Error saving questions: ${errorMessage}`,
       }));
       
       console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS FAILED ==========');
@@ -1407,7 +1410,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           id: undefined,
           clientKey: makeOccurrenceKey(),
           year: '',
-          rotation: '',
+          weekNumber: null,
+          lecture: '',
           orderIndex: existing.length,
         },
       ]);
@@ -1421,7 +1425,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     });
   }, []);
 
-  const handleOccurrenceChange = useCallback((index: number, field: 'year' | 'rotation', value: string) => {
+  const handleOccurrenceChange = useCallback((index: number, field: 'year', value: string) => {
     setEditedQuestion((prev) => {
       const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
       if (!existing[index]) return prev;
@@ -1596,7 +1600,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                     const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
                     const hasY2 = existing.some((occ) => occ.year === 'Y2');
                     if (!hasY2) {
-                      existing.push({ clientKey: makeOccurrenceKey(), year: 'Y2', rotation: '', orderIndex: existing.length });
+                      existing.push({ clientKey: makeOccurrenceKey(), year: 'Y2', weekNumber: null, lecture: '', orderIndex: existing.length });
                     }
                     const reindexed = normalizeOccurrencesForEditing(existing);
                     const primaryMeta = derivePrimaryOccurrenceMeta(reindexed);
@@ -1866,8 +1870,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                   const actualIndex = occurrences.findIndex(occ => occ === occurrence);
                   return (
                     <div
-                      key={occurrence.clientKey ?? occurrence.id ?? `${actualIndex}-${occurrence.year}-${occurrence.rotation}`}
-                      className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+                      key={occurrence.clientKey ?? occurrence.id ?? `${actualIndex}-${occurrence.year}`}
+                      className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
                     >
                       <div>
                         <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
@@ -1875,17 +1879,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                           type="text"
                           value={occurrence.year ?? ''}
                           onChange={(e) => handleOccurrenceChange(actualIndex, 'year', e.target.value)}
-                          placeholder="e.g. 2025"
-                          className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Repetitions</label>
-                        <input
-                          type="text"
-                          value={occurrence.rotation ?? ''}
-                          onChange={(e) => handleOccurrenceChange(actualIndex, 'rotation', e.target.value)}
-                          placeholder="(e.g Repeated 3 Times)"
+                          placeholder="e.g. Y2 or 2025"
                           className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
                         />
                       </div>

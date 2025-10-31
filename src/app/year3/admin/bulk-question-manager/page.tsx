@@ -909,18 +909,21 @@ ${formattedList}`);
       }
       
       console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS COMPLETED ==========');
-    } catch (error) {
+    } catch (error: unknown) {
       console.warn('🔷 [SAVE ALL] ❌❌❌ CRITICAL ERROR CAUGHT ❌❌❌');
-      console.warn('🔷 [SAVE ALL] Error type:', error instanceof Error ? error.constructor.name : typeof error);
-      console.warn('🔷 [SAVE ALL] Error message:', error instanceof Error ? error.message : String(error));
-      console.warn('🔷 [SAVE ALL] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      const errorType = error instanceof Error ? error.constructor.name : typeof error;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+      console.warn('🔷 [SAVE ALL] Error type:', errorType);
+      console.warn('🔷 [SAVE ALL] Error message:', errorMessage);
+      console.warn('🔷 [SAVE ALL] Error stack:', errorStack);
       console.warn('🔷 [SAVE ALL] Full error object:', error);
       
       setState(prev => ({
         ...prev,
         status: 'ready',
         progress: 0,
-        message: `Error saving questions: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Error saving questions: ${errorMessage}`,
       }));
       
       console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS FAILED ==========');
