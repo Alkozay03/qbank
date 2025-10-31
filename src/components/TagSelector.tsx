@@ -336,9 +336,11 @@ export default function TagSelector({ selectedTags, onChange, className = "", ai
 
         lecture: lectureOptions,
 
-        ...baseFilterOptions,
+        discipline: baseFilterOptions.discipline,
 
         system: year === "Y2" ? year2SystemOptions : baseFilterOptions.system, // Use filtered systems for Y2
+
+        // PreClerkship: No rotation or resource tags
 
       }
 

@@ -645,7 +645,8 @@ function BulkQuestionManagerContent() {
       
       const normalizedCorrect = (updatedQuestion.correctAnswer || '').trim().toUpperCase();
       const uniqueTags = normalizeTagValues(updatedQuestion.tags);
-      const requiredCategories = ['rotation', 'resource', 'discipline', 'system'];
+      // PreClerkship only requires discipline and system (not rotation/resource)
+      const requiredCategories = ['discipline', 'system'];
       const missing = requiredCategories.filter((category) => !uniqueTags.some((tag) => tag.startsWith(`${category}:`)));
       if (missing.length) {
         console.error('🔴 [SAVE] Missing required tags:', missing);
@@ -752,7 +753,8 @@ function BulkQuestionManagerContent() {
     console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS STARTED ==========');
     console.warn('🔷 [SAVE ALL] Total questions to save:', state.questions.length);
     
-    const requiredCategories = ['rotation', 'resource', 'discipline', 'system'];
+    // PreClerkship only requires discipline and system (not rotation/resource)
+    const requiredCategories = ['discipline', 'system'];
 
     try {
       console.warn('🔷 [SAVE ALL] Step 1: Normalizing questions...');
