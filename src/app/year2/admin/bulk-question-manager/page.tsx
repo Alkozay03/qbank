@@ -760,10 +760,6 @@ function BulkQuestionManagerContent() {
   }, [setSearchMessage, setSearchStatus]);
 
   const handleSaveAllQuestions = async () => {
-    // TODO: Implement PreClerkship bulk save API
-    alert('Bulk save is not yet implemented for PreClerkship years. Please save questions individually by clicking "Edit" then "Save" for each question.');
-    return;
-    
     console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS STARTED ==========');
     console.warn('🔷 [SAVE ALL] Total questions to save:', state.questions.length);
     
