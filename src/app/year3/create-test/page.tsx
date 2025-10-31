@@ -2,7 +2,7 @@
 
 import Shell from "@/components/Shell";
 import SimpleTooltip from "@/components/SimpleTooltip";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type Option = { key: string; label: string; hint?: string };
@@ -81,6 +81,18 @@ export default function CreateTest() {
   const [qCount, setQCount] = useState<number>(0);
   const [busy, setBusy] = useState(false);
 
+  // Question counts state
+  const [modeCounts, setModeCounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<{
+    systems: Record<string, number>;
+    disciplines: Record<string, number>;
+    weeks: Record<string, number>;
+    lectures: Record<string, number>;
+  } | null>(null);
+
+  // Helper to get mode count
+  const getModeCount = (modeKey: string) => modeCounts[modeKey] ?? 0;
+
   // Progressive disclosure locks - NEW ORDER: Mode → System → Discipline → Week → Lecture
   const allowSystems = selModes.length > 0;
   const allowDisciplines = selSystems.length > 0;
@@ -109,6 +121,62 @@ export default function CreateTest() {
   function toggleAll(setter: (_v: string[]) => void, list: Option[], _checked: boolean) {
     setter(_checked ? list.map((o) => o.key) : []);
   }
+
+  // Fetch initial mode counts when component mounts
+  useEffect(() => {
+    const fetchInitialCounts = async () => {
+      try {
+        const res = await fetch("/api/preclerkship/quiz/filtered-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            yearLevel: 3,
+            selectedModes: [],
+            systems: [],
+            disciplines: [],
+            weekKeys: [],
+            lectureKeys: []
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.modeCounts) {
+          setModeCounts(data.modeCounts);
+        }
+      } catch (error) {
+        console.error("Failed to fetch initial mode counts:", error);
+      }
+    };
+
+    fetchInitialCounts();
+  }, []);
+
+  // Fetch filtered counts when user changes selections (debounced)
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/preclerkship/quiz/filtered-counts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            yearLevel: 3,
+            selectedModes: selModes,
+            systems: selSystems,
+            disciplines: selDisciplines,
+            weekKeys: selWeeks,
+            lectureKeys: selLectures
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.tagCounts) {
+          setCounts(data.tagCounts);
+        }
+      } catch (error) {
+        console.error("Failed to fetch filtered counts:", error);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [selModes, selSystems, selDisciplines, selWeeks, selLectures]);
 
   async function submit() {
     if (!valid || busy) return;
@@ -149,6 +217,7 @@ export default function CreateTest() {
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {modes.map((m) => {
               const isSelected = selModes.includes(m.key);
+              const displayCount = getModeCount(m.key);
               return (
                 <label
                   key={m.key}
@@ -162,6 +231,17 @@ export default function CreateTest() {
                 >
                   <span className={`flex-1 font-semibold break-words ${isSelected ? '' : 'text-primary'}`}>{m.label}</span>
                   <div className="flex items-center gap-3">
+                    <span className={`
+                      text-xs rounded-full px-3 py-1.5 min-w-8 text-center font-bold transition-colors
+                      ${isSelected 
+                        ? 'bg-white' 
+                        : 'theme-gradient text-inverse'
+                      }
+                    `}>
+                      <span className={isSelected ? 'theme-gradient-text' : ''}>
+                        {displayCount}
+                      </span>
+                    </span>
                     {m.hint && (
                       <SimpleTooltip text={m.hint}>
                         <span 
@@ -209,6 +289,8 @@ export default function CreateTest() {
             selected={selSystems}
             onToggle={(optKey) => toggle(setSelSystems, optKey)}
             disabled={!allowSystems}
+            counts={counts}
+            section="systems"
           />
           {!allowSystems && (
             <p className="mt-2 text-sm text-red-600">
@@ -230,6 +312,8 @@ export default function CreateTest() {
             selected={selDisciplines}
             onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
             disabled={!allowDisciplines}
+            counts={counts}
+            section="disciplines"
           />
           {!allowDisciplines && (
             <p className="mt-2 text-sm text-red-600">
@@ -251,6 +335,8 @@ export default function CreateTest() {
             selected={selWeeks}
             onToggle={(optKey) => toggle(setSelWeeks, optKey)}
             disabled={!allowWeeks}
+            counts={counts}
+            section="weeks"
           />
           {!allowWeeks && (
             <p className="mt-2 text-sm text-red-600">
@@ -272,6 +358,8 @@ export default function CreateTest() {
             selected={selLectures}
             onToggle={(optKey) => toggle(setSelLectures, optKey)}
             disabled={!allowLectures}
+            counts={counts}
+            section="lectures"
           />
           {!allowLectures && (
             <p className="mt-2 text-sm text-red-600">
@@ -362,16 +450,26 @@ function CheckGrid({
   selected,
   onToggle,
   disabled,
+  counts,
+  section,
 }: {
   list: Option[];
   selected: string[];
   onToggle: (_optKey: string) => void;
   disabled?: boolean;
+  counts?: {
+    systems: Record<string, number>;
+    disciplines: Record<string, number>;
+    weeks: Record<string, number>;
+    lectures: Record<string, number>;
+  } | null;
+  section: "systems" | "disciplines" | "weeks" | "lectures";
 }) {
   return (
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {list.map((o) => {
         const isSelected = selected.includes(o.key);
+        const displayCount = disabled ? '—' : (counts?.[section]?.[o.key] ?? 0);
         return (
           <label
             key={o.key}
@@ -386,6 +484,17 @@ function CheckGrid({
           >
             <span className={`flex-1 font-semibold break-words ${isSelected ? '' : 'text-primary'}`}>{o.label}</span>
             <div className="flex items-center gap-3">
+              <span className={`
+                text-xs rounded-full px-3 py-1.5 min-w-8 text-center font-bold transition-colors
+                ${isSelected 
+                  ? 'bg-white' 
+                  : 'theme-gradient text-inverse'
+                }
+              `}>
+                <span className={isSelected ? 'theme-gradient-text' : ''}>
+                  {displayCount}
+                </span>
+              </span>
               <div className="relative inline-flex items-center justify-center w-4 h-4">
                 <input
                   type="checkbox"
