@@ -12,14 +12,16 @@ type OccurrenceDraft = {
   id?: string;
   clientKey: string;
   year: string;
-  rotation: string;
+  weekNumber?: number | null;
+  lecture?: string;
   orderIndex: number;
 };
 
 type RawOccurrenceInput = {
   id?: string;
   year?: string | null;
-  rotation?: string | null;
+  weekNumber?: number | null;
+  lecture?: string | null;
   orderIndex?: number | null;
   clientKey?: string | null;
 };
@@ -43,7 +45,8 @@ function normalizeOccurrencesForState(source?: RawOccurrenceInput[]): Occurrence
   const cleaned = source
     .map((occ, index) => {
       const year = typeof occ?.year === "string" ? occ.year.trim() : "";
-      const rotation = typeof occ?.rotation === "string" ? occ.rotation.trim() : "";
+      const weekNumber = typeof occ?.weekNumber === "number" ? occ.weekNumber : null;
+      const lecture = typeof occ?.lecture === "string" ? occ.lecture.trim() : "";
       const orderIndex =
         typeof occ?.orderIndex === "number" && Number.isFinite(occ.orderIndex) ? occ.orderIndex : index;
       const keyCandidateRaw =
@@ -58,12 +61,13 @@ function normalizeOccurrencesForState(source?: RawOccurrenceInput[]): Occurrence
       return {
         id: occ?.id,
         year,
-        rotation,
+        weekNumber,
+        lecture,
         orderIndex,
         clientKey: keyCandidate,
       };
     })
-    .filter((occ) => occ.year.length > 0 || occ.rotation.length > 0)
+    .filter((occ) => occ.year.length > 0)
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .map((occ, index) => ({ ...occ, orderIndex: index }));
 
@@ -75,10 +79,11 @@ function prepareOccurrencesForSave(occurrences: OccurrenceDraft[]) {
     .map((occ, index) => ({
       id: occ.id,
       year: occ.year.trim(),
-      rotation: occ.rotation.trim(),
+      weekNumber: occ.weekNumber,
+      lecture: occ.lecture?.trim() || null,
       orderIndex: index,
     }))
-    .filter((occ) => occ.year.length > 0 || occ.rotation.length > 0);
+    .filter((occ) => occ.year.length > 0);
 }
 
 function normalizeOccurrencesForEditing(drafts?: Array<OccurrenceDraft | Partial<OccurrenceDraft>>) {
@@ -87,7 +92,8 @@ function normalizeOccurrencesForEditing(drafts?: Array<OccurrenceDraft | Partial
 
   return drafts.map((occ, index) => {
     const year = typeof occ?.year === "string" ? occ.year : "";
-    const rotation = typeof occ?.rotation === "string" ? occ.rotation : "";
+    const weekNumber = typeof occ?.weekNumber === "number" ? occ.weekNumber : null;
+    const lecture = typeof occ?.lecture === "string" ? occ.lecture : "";
     const baseKey =
       typeof occ?.clientKey === "string" && occ.clientKey.trim().length > 0
         ? occ.clientKey.trim()
@@ -102,7 +108,8 @@ function normalizeOccurrencesForEditing(drafts?: Array<OccurrenceDraft | Partial
       id: occ?.id,
       clientKey,
       year,
-      rotation,
+      weekNumber,
+      lecture,
       orderIndex: index,
     } satisfies OccurrenceDraft;
   });
@@ -113,7 +120,7 @@ function derivePrimaryOccurrenceMeta(occurrences: OccurrenceDraft[]) {
   const primary = prepared[0];
   return {
     questionYear: primary?.year ?? "",
-    rotationNumber: primary?.rotation ?? "",
+    rotationNumber: "", // PreClerkship doesn't use rotationNumber
   };
 }
 
@@ -347,7 +354,7 @@ function BulkQuestionManagerContent() {
     iduScreenshotUrl: '',
     questionImageUrl: '',
     explanationImageUrl: '',
-    occurrences: [{ clientKey: makeOccurrenceKey(), year: 'Y2', rotation: '', orderIndex: 0 }],
+    occurrences: [{ clientKey: makeOccurrenceKey(), year: 'Y2', weekNumber: null, lecture: '', orderIndex: 0 }],
     source: 'manual',
     isAnswerConfirmed: true, // Default to confirmed for new questions
   }), []);
