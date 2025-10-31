@@ -135,7 +135,7 @@ function normalizeTagValues(tags?: string[]) {
   );
 }
 
-const DISPLAYABLE_TAG_CATEGORIES: ReadonlyArray<TagCategory> = ["week", "lecture", "resource", "discipline", "system"];
+const DISPLAYABLE_TAG_CATEGORIES: ReadonlyArray<TagCategory> = ["week", "lecture", "discipline", "system"];
 const DISPLAYABLE_TAG_SET = new Set(DISPLAYABLE_TAG_CATEGORIES);
 
 function tagLabelFromPair(raw: string): string | null {
