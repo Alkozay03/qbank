@@ -10,82 +10,32 @@ import { requireRole } from "@/lib/rbac";
  * Creates an empty draft question with just an ID so comments can be added
  */
 export async function POST() {
-  try {
-    console.error("🔵 [DRAFT API] POST request received");
-    console.error("🔵 [DRAFT API] Checking permissions...");
-    
-    const userInfo = await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
-    console.error("🟢 [DRAFT API] Permission granted:", userInfo);
+  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
-    console.error("🔵 [DRAFT API] Creating draft question in database...");
-    
-    // Import crypto dynamically
-    const crypto = await import("node:crypto");
-    
-    // Generate UUIDs
-    const questionId = crypto.randomUUID();
-    const choiceIds = [
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID()
-    ];
-    
-    // Create a minimal draft question with IDs
-    const question = await prisma.question.create({
-      data: {
-        id: questionId,
-        text: "[Draft - Not yet saved]",
-        explanation: "",
-        objective: "",
-        references: null,
-        Choice: {
-          create: [
-            { id: choiceIds[0], text: "Option A", isCorrect: false },
-            { id: choiceIds[1], text: "Option B", isCorrect: false },
-            { id: choiceIds[2], text: "Option C", isCorrect: false },
-            { id: choiceIds[3], text: "Option D", isCorrect: false },
-            { id: choiceIds[4], text: "Option E", isCorrect: false },
-          ],
-        },
+  // Create a minimal draft question (Prisma auto-generates IDs via @default(cuid()))
+  const question = await prisma.question.create({
+    data: {
+      text: "[Draft - Not yet saved]",
+      explanation: "",
+      objective: "",
+      references: null,
+      Choice: {
+        create: [
+          { text: "Option A", isCorrect: false },
+          { text: "Option B", isCorrect: false },
+          { text: "Option C", isCorrect: false },
+          { text: "Option D", isCorrect: false },
+          { text: "Option E", isCorrect: false },
+        ],
       },
-    });
+    },
+  });
 
-    console.error("🟢 [DRAFT API] Draft question created successfully:", {
-      id: question.id,
-      customId: question.customId,
-      text: question.text
-    });
-
-    return NextResponse.json({ 
-      ok: true, 
-      questionId: question.id,
-      customId: question.customId 
-    });
-  } catch (error) {
-    console.error("🔴 [DRAFT API] Error creating draft question:", error);
-    
-    if (error instanceof Error) {
-      console.error("🔴 [DRAFT API] Error name:", error.name);
-      console.error("🔴 [DRAFT API] Error message:", error.message);
-      console.error("🔴 [DRAFT API] Error stack:", error.stack);
-    }
-
-    // Check if it's an RBAC error
-    if (error && typeof error === 'object' && 'status' in error) {
-      const httpError = error as { status: number; message: string };
-      return NextResponse.json(
-        { error: httpError.message || "Permission denied" },
-        { status: httpError.status }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Failed to create draft question" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    ok: true,
+    questionId: question.id,
+    customId: question.customId
+  });
 }
 
 /**

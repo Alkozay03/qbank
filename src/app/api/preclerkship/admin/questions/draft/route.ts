@@ -16,25 +16,13 @@ export async function POST(req: Request) {
     // Use dynamic imports (avoids static import issues in serverless)
     const { prisma } = await import("@/server/db");
     const { requireRole } = await import("@/lib/rbac");
-    const crypto = await import("node:crypto");
     
     // Check permissions
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
-    // Generate UUIDs
-    const questionId = crypto.randomUUID();
-    const answerIds = [
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID()
-    ];
-
-    // Create draft PreClerkship question
+    // Create draft PreClerkship question (Prisma auto-generates IDs via @default(cuid()))
     const question = await prisma.preClerkshipQuestion.create({
       data: {
-        id: questionId,
         yearLevel,
         text: "[Draft - Not yet saved]",
         explanation: "",
@@ -42,11 +30,11 @@ export async function POST(req: Request) {
         references: null,
         PreClerkshipAnswer: {
           create: [
-            { id: answerIds[0], text: "Option A", isCorrect: false },
-            { id: answerIds[1], text: "Option B", isCorrect: false },
-            { id: answerIds[2], text: "Option C", isCorrect: false },
-            { id: answerIds[3], text: "Option D", isCorrect: false },
-            { id: answerIds[4], text: "Option E", isCorrect: false },
+            { text: "Option A", isCorrect: false },
+            { text: "Option B", isCorrect: false },
+            { text: "Option C", isCorrect: false },
+            { text: "Option D", isCorrect: false },
+            { text: "Option E", isCorrect: false },
           ],
         },
       },

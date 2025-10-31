@@ -67,7 +67,7 @@ model AnswerVote {
 }
 
 model Choice {
-  id         String   @id
+  id         String   @id @default(cuid())
   questionId String
   text       String
   isCorrect  Boolean  @default(false)
@@ -187,7 +187,7 @@ model PreClerkshipAIExtraction {
 }
 
 model PreClerkshipAnswer {
-  id                   String               @id
+  id                   String               @id @default(cuid())
   questionId           String
   text                 String
   isCorrect            Boolean              @default(false)
@@ -243,7 +243,7 @@ model PreClerkshipExtractionImage {
 }
 
 model PreClerkshipQuestion {
-  id                             String                           @id
+  id                             String                           @id @default(cuid())
   yearLevel                      Int
   explanation                    String?
   createdAt                      DateTime                         @default(now())
@@ -411,7 +411,7 @@ model PreClerkshipUserQuestionMode {
 }
 
 model Question {
-  id                  String               @id
+  id                  String               @id @default(cuid())
   explanation         String?
   createdAt           DateTime             @default(now())
   objective           String?
