@@ -10,16 +10,16 @@ import { requireRole } from "@/lib/rbac";
  * Creates an empty draft PreClerkship question with just an ID so comments can be added
  */
 export async function POST(req: Request) {
-  console.error("🔵 [PRECLERKSHIP DRAFT] POST request received");
+  console.error("[PRECLERKSHIP DRAFT] POST request received");
   
   // Parse body to get yearLevel
   const body = await req.json();
   const yearLevel = body.yearLevel || 1;
-  console.error("🔵 [PRECLERKSHIP DRAFT] Year level:", yearLevel);
+  console.error("[PRECLERKSHIP DRAFT] Year level:", yearLevel);
   
   // Check permissions
   await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
-  console.error("🟢 [PRECLERKSHIP DRAFT] Permission granted");
+  console.error("[PRECLERKSHIP DRAFT] Permission granted");
 
   // Create draft PreClerkship question (Prisma auto-generates IDs via @default(cuid()))
   const question = await prisma.preClerkshipQuestion.create({
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     },
   });
 
-  console.error("🟢 [PRECLERKSHIP DRAFT] Question created:", question.id);
+  console.error("[PRECLERKSHIP DRAFT] Question created:", question.id);
   return NextResponse.json({
     ok: true,
     questionId: question.id,
