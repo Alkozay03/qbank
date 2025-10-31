@@ -10,38 +10,58 @@ import { requireRole } from "@/lib/rbac";
  * Creates an empty draft PreClerkship question with just an ID so comments can be added
  */
 export async function POST(req: Request) {
-  // Parse body to get yearLevel
-  const body = await req.json();
-  const yearLevel = body.yearLevel || 1;
-  
-  // Check permissions
-  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+  try {
+    // Parse body to get yearLevel
+    const body = await req.json();
+    const yearLevel = body.yearLevel || 1;
+    
+    // Check permissions
+    await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
-  // Create draft PreClerkship question (Prisma auto-generates IDs via @default(cuid()))
-  const question = await prisma.preClerkshipQuestion.create({
-    data: {
-      yearLevel,
-      text: "[Draft - Not yet saved]",
-      explanation: "",
-      objective: "",
-      references: null,
-      PreClerkshipAnswer: {
-        create: [
-          { text: "Option A", isCorrect: false },
-          { text: "Option B", isCorrect: false },
-          { text: "Option C", isCorrect: false },
-          { text: "Option D", isCorrect: false },
-          { text: "Option E", isCorrect: false },
-        ],
+    // Create draft PreClerkship question (Prisma auto-generates IDs via @default(cuid()))
+    const question = await prisma.preClerkshipQuestion.create({
+      data: {
+        yearLevel,
+        text: "[Draft - Not yet saved]",
+        explanation: "",
+        objective: "",
+        references: null,
+        PreClerkshipAnswer: {
+          create: [
+            { text: "Option A", isCorrect: false },
+            { text: "Option B", isCorrect: false },
+            { text: "Option C", isCorrect: false },
+            { text: "Option D", isCorrect: false },
+            { text: "Option E", isCorrect: false },
+          ],
+        },
       },
-    },
-  });
+    });
 
-  return NextResponse.json({
-    ok: true,
-    questionId: question.id,
-    customId: question.customId
-  });
+    return NextResponse.json({
+      ok: true,
+      questionId: question.id,
+      customId: question.customId
+    });
+  } catch (error) {
+    console.error("[PRECLERKSHIP DRAFT] Error:", error);
+    
+    if (error && typeof error === 'object' && 'status' in error) {
+      const httpError = error as { status: number; message: string };
+      return NextResponse.json(
+        { error: httpError.message || "Permission denied" },
+        { status: httpError.status }
+      );
+    }
+    
+    return NextResponse.json(
+      { 
+        error: "Failed to create draft PreClerkship question",
+        details: error instanceof Error ? error.message : String(error)
+      },
+      { status: 500 }
+    );
+  }
 }
 
 /**
