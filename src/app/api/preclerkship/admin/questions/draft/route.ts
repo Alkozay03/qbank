@@ -9,18 +9,24 @@ import { NextResponse } from "next/server";
  */
 export async function POST(req: Request) {
   try {
+    console.error("[PRECLERKSHIP DRAFT] 1. Starting request");
+    
     // Parse body first
     const body = await req.json();
     const yearLevel = body.yearLevel || 1;
+    console.error("[PRECLERKSHIP DRAFT] 2. Parsed body, yearLevel:", yearLevel);
 
     // Use dynamic imports (avoids static import issues in serverless)
     const { prisma } = await import("@/server/db");
     const { requireRole } = await import("@/lib/rbac");
+    console.error("[PRECLERKSHIP DRAFT] 3. Imports loaded");
     
     // Check permissions
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+    console.error("[PRECLERKSHIP DRAFT] 4. Permission check passed");
 
     // Create draft PreClerkship question (Prisma auto-generates IDs via @default(cuid()))
+    console.error("[PRECLERKSHIP DRAFT] 5. About to create question in database...");
     const question = await prisma.preClerkshipQuestion.create({
       data: {
         yearLevel,
@@ -39,6 +45,7 @@ export async function POST(req: Request) {
         },
       },
     });
+    console.error("[PRECLERKSHIP DRAFT] 6. Question created! ID:", question.id);
 
     return NextResponse.json({ 
       ok: true, 
@@ -46,7 +53,13 @@ export async function POST(req: Request) {
       customId: question.customId 
     });
   } catch (error) {
-    console.error("[PRECLERKSHIP DRAFT API] Error:", error);
+    console.error("[PRECLERKSHIP DRAFT] ❌ ERROR CAUGHT:", error);
+    console.error("[PRECLERKSHIP DRAFT] Error type:", typeof error);
+    console.error("[PRECLERKSHIP DRAFT] Error name:", error instanceof Error ? error.name : 'unknown');
+    console.error("[PRECLERKSHIP DRAFT] Error message:", error instanceof Error ? error.message : String(error));
+    if (error instanceof Error && error.stack) {
+      console.error("[PRECLERKSHIP DRAFT] Error stack:", error.stack);
+    }
     
     // Check if it's an RBAC error
     if (error && typeof error === 'object' && 'status' in error) {
