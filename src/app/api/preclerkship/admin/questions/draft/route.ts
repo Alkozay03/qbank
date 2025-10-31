@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 
 /**
  * POST /api/preclerkship/admin/questions/draft
@@ -20,14 +21,14 @@ export async function POST(req: Request) {
     // Check permissions
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
-    // Generate UUIDs using global crypto (no import needed in Node 19+)
-    const questionId = crypto.randomUUID();
+    // Generate UUIDs
+    const questionId = randomUUID();
     const answerIds = [
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID(),
-      crypto.randomUUID()
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      randomUUID()
     ];
 
     // Create draft PreClerkship question
