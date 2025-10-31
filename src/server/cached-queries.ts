@@ -46,9 +46,9 @@ export async function getCachedQuestion(questionId: string) {
     .findUnique({
       where: { id: questionId },
       include: {
-        questionTags: { include: { tag: true } },
-        comments: {
-          include: { createdBy: { select: { id: true, firstName: true, lastName: true, email: true } } },
+        QuestionTag: { include: { Tag: true } },
+        QuestionComment: {
+          include: { User: { select: { id: true, firstName: true, lastName: true, email: true } } },
           orderBy: { createdAt: 'asc' }
         }
       },
@@ -64,7 +64,7 @@ export async function getCachedQuestionsByYear(year: string) {
     .findMany({
       where: { yearCaptured: year },
       include: {
-        questionTags: { include: { tag: true } },
+        QuestionTag: { include: { Tag: true } },
       },
       cacheStrategy: {
         ttl: 3600, // 1 hour
@@ -81,7 +81,7 @@ export async function getCachedAllTags() {
   return prisma.tag
     .findMany({
       include: {
-        questions: { select: { questionId: true } }
+        QuestionTag: { select: { questionId: true } }
       },
       cacheStrategy: {
         ttl: 86400, // 24 hours (tags rarely change)
@@ -112,11 +112,11 @@ export async function getCachedUserQuizHistory(userId: string) {
         userId,
       },
       include: {
-        items: {
+        QuizItem: {
           include: {
-            question: {
+            Question: {
               include: {
-                questionTags: { include: { tag: true } }
+                QuestionTag: { include: { Tag: true } }
               }
             }
           }

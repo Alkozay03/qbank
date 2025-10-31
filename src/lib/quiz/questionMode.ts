@@ -22,11 +22,11 @@ export function canonicalizeQuestionMode(value: string | null | undefined): Ques
 
 export async function getCurrentQuestionMode(questionId: string): Promise<QuestionMode | null> {
   const record = await prisma.questionTag.findFirst({
-    where: { questionId, tag: { type: TagType.MODE } },
-    include: { tag: true },
+    where: { questionId, Tag: { type: TagType.MODE } },
+    include: { Tag: true },
   });
 
-  return canonicalizeQuestionMode(record?.tag?.value ?? null);
+  return canonicalizeQuestionMode(record?.Tag?.value ?? null);
 }
 
 /**
@@ -67,7 +67,7 @@ export async function setQuestionMode(_questionId?: string, _mode?: QuestionMode
 
 export async function deriveModeFromHistory(questionId: string): Promise<QuestionMode> {
   const latest = await prisma.response.findFirst({
-    where: { quizItem: { questionId } },
+    where: { QuizItem: { questionId } },
     orderBy: { createdAt: "desc" },
     select: { choiceId: true, isCorrect: true },
   });
