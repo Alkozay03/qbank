@@ -294,14 +294,14 @@ model PreClerkshipQuestionComment {
 }
 
 model PreClerkshipQuestionOccurrence {
-  id                   String               @id
+  id                   String               @id @default(cuid())
   questionId           String
   year                 String?
   weekNumber           Int?
   lecture              String?
   orderIndex           Int                  @default(0)
   createdAt            DateTime             @default(now())
-  updatedAt            DateTime
+  updatedAt            DateTime             @default(now()) @updatedAt
   PreClerkshipQuestion PreClerkshipQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, year, weekNumber, lecture], map: "uniq_preclerkship_questionoccurrence")
@@ -386,7 +386,7 @@ model PreClerkshipSimilarQuestionGroup {
 }
 
 model PreClerkshipTag {
-  id                      String                    @id
+  id                      String                    @id @default(cuid())
   type                    PreClerkshipTagType
   value                   String
   PreClerkshipQuestionTag PreClerkshipQuestionTag[]

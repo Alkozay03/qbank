@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { PreClerkshipTagType } from "@prisma/client";
 import { requireRole } from "@/lib/rbac";
-import { randomUUID } from "crypto";
 
 type TagPayload = {
   type: PreClerkshipTagType;
@@ -90,21 +89,12 @@ function normaliseTags(raw: IncomingTag[] | undefined): TagPayload[] {
 }
 
 async function upsertPreClerkshipTag(questionId: string, payload: TagPayload) {
-  // Check if tag exists first
-  let tag = await prisma.preClerkshipTag.findUnique({
+  // Use upsert to create tag if it doesn't exist
+  const tag = await prisma.preClerkshipTag.upsert({
     where: { type_value: { type: payload.type, value: payload.value } },
+    update: {},
+    create: { type: payload.type, value: payload.value },
   });
-
-  // Create tag if it doesn't exist
-  if (!tag) {
-    tag = await prisma.preClerkshipTag.create({
-      data: {
-        id: randomUUID(),
-        type: payload.type,
-        value: payload.value,
-      },
-    });
-  }
 
   await prisma.preClerkshipQuestionTag.create({
     data: { questionId, tagId: tag.id },
@@ -309,7 +299,6 @@ export async function PUT(
     await prisma.preClerkshipAnswer.deleteMany({ where: { questionId } });
     await prisma.preClerkshipAnswer.createMany({
       data: answerCandidates.map((candidate) => ({
-        id: randomUUID(),
         questionId,
         text: candidate.text!.trim(),
         isCorrect: candidate.label === normalizedCorrect,
@@ -319,17 +308,13 @@ export async function PUT(
     if (Array.isArray(body.occurrences)) {
       await prisma.preClerkshipQuestionOccurrence.deleteMany({ where: { questionId } });
       if (cleanOccurrences.length > 0) {
-        const now = new Date();
         await prisma.preClerkshipQuestionOccurrence.createMany({
           data: cleanOccurrences.map((occ) => ({
-            id: randomUUID(),
             questionId,
             year: occ.year || null,
             weekNumber: occ.weekNumber,
             lecture: occ.lecture || null,
             orderIndex: occ.orderIndex,
-            createdAt: now,
-            updatedAt: now,
           })),
         });
       }
