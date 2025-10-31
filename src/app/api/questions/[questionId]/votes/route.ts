@@ -40,7 +40,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         rotationName: true,
         selectedAnswer: true,
         isFinal: true,
-        user: {
+        User: {
           select: {
             firstName: true,
             lastName: true,
@@ -111,7 +111,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       rotationName: string; 
       selectedAnswer: string; 
       isFinal: boolean;
-      user: { firstName: string | null; lastName: string | null };
+      User: { firstName: string | null; lastName: string | null };
     }) => {
       const periodKey = `${vote.academicYear}-${vote.rotationNumber}-${vote.rotationName}`;
       
@@ -126,8 +126,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         votersByPeriodAndAnswer[periodKey] = { A: [], B: [], C: [], D: [], E: [] };
       }
       votersByPeriodAndAnswer[periodKey][vote.selectedAnswer].push({
-        firstName: vote.user.firstName,
-        lastName: vote.user.lastName,
+        firstName: vote.User.firstName,
+        lastName: vote.User.lastName,
       });
     });
 
@@ -293,6 +293,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         isFinal: false, // Not final until period ends
       },
       create: {
+        id: crypto.randomUUID(),
         questionId,
         userId: user.id,
         academicYear: user.gradYear,
@@ -300,6 +301,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         rotationName: user.rotation,
         selectedAnswer,
         isFinal: false,
+        updatedAt: new Date(),
       },
     });
 

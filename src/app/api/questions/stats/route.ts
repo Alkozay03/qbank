@@ -28,14 +28,14 @@ export async function POST(req: NextRequest) {
     const responses = await prisma.response.findMany({
       where: {
         userId: { not: null },
-        quizItem: { questionId: { in: questionIds } },
+        QuizItem: { questionId: { in: questionIds } },
       },
       select: {
         userId: true,
         isCorrect: true,
         choiceId: true,
         createdAt: true,
-        quizItem: {
+        QuizItem: {
           select: { questionId: true },
         },
       },
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     >();
 
     for (const response of responses) {
-      const questionId = response.quizItem.questionId;
+      const questionId = response.QuizItem.questionId;
       const userId = response.userId;
       if (!questionId || !userId) continue;
       const key = `${questionId}::${userId}`;

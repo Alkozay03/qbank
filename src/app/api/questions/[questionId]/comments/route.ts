@@ -100,17 +100,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ques
     const allComments = await prisma.questionComment.findMany({
       where: { questionId },
       include: {
-        createdBy: {
+        User: {
           select: {
             role: true,
             email: true,
             gradYear: true,
           },
         },
-        replies: {
+        other_QuestionComment: {
           select: { id: true },
         },
-        votes: user ? {
+        CommentVote: user ? {
           where: { userId: user.id },
           select: { id: true },
         } : false,
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ques
         sortedParents.sort((a, b) => b.upvoteCount - a.upvoteCount);
         break;
       case "popular":
-        sortedParents.sort((a, b) => b.replies.length - a.replies.length);
+        sortedParents.sort((a, b) => b.other_QuestionComment.length - a.other_QuestionComment.length);
         break;
       case "oldest":
         sortedParents.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -158,32 +158,32 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ques
         body: comment.body,
         imageUrl: comment.imageUrl,
         origin: hasOriginColumn && "origin" in comment ? comment.origin ?? "runner" : (
-          comment.createdBy?.role === "ADMIN" || comment.createdBy?.role === "MASTER_ADMIN"
+          comment.User?.role === "Admin" || comment.User?.role === "MASTER_ADMIN"
             ? "editor"
             : "runner"
         ),
         createdAt: comment.createdAt,
-        createdByRole: comment.createdBy?.role ?? null,
-        createdByEmail: comment.createdBy?.email ?? null,
-        createdByGradYear: comment.createdBy?.gradYear ?? null,
+        createdByRole: comment.User?.role ?? null,
+        createdByEmail: comment.User?.email ?? null,
+        createdByGradYear: comment.User?.gradYear ?? null,
         parentId: null,
         upvoteCount: comment.upvoteCount,
         replyCount: replies.length,
-        hasVoted: user ? (comment.votes && comment.votes.length > 0) : false,
+        hasVoted: user ? (comment.CommentVote && comment.CommentVote.length > 0) : false,
         replies: replies.map(reply => ({
           id: reply.id,
           authorName: reply.authorName,
           body: reply.body,
           imageUrl: reply.imageUrl,
           origin: hasOriginColumn && "origin" in reply ? reply.origin ?? "runner" : (
-            reply.createdBy?.role === "ADMIN" || reply.createdBy?.role === "MASTER_ADMIN"
+            reply.User?.role === "Admin" || reply.User?.role === "MASTER_ADMIN"
               ? "editor"
               : "runner"
           ),
           createdAt: reply.createdAt,
-          createdByRole: reply.createdBy?.role ?? null,
-          createdByEmail: reply.createdBy?.email ?? null,
-          createdByGradYear: reply.createdBy?.gradYear ?? null,
+          createdByRole: reply.User?.role ?? null,
+          createdByEmail: reply.User?.email ?? null,
+          createdByGradYear: reply.User?.gradYear ?? null,
           parentId: reply.parentId,
         })),
       };
@@ -289,6 +289,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ que
     try {
       comment = await prisma.questionComment.create({
         data: {
+          id: crypto.randomUUID(),
           questionId: question.id,
           body: text || "",
           imageUrl: sanitizedImageUrl || null,
@@ -296,9 +297,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ que
           ...(hasOriginColumn ? { origin: requestedOrigin } : {}),
           createdById: user.id,
           parentId: parentId,
+          updatedAt: new Date(),
         },
         include: {
-          createdBy: {
+          User: {
             select: {
               role: true,
               email: true,
@@ -315,18 +317,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ que
 
     const responseOrigin = hasOriginColumn && "origin" in comment ? comment.origin ?? "runner" : requestedOrigin;
 
+    // TypeScript type narrowing: include User relation
+    const commentWithUser = comment as typeof comment & {
+      User: { role: string; email: string; gradYear: number } | null;
+    };
+
     return NextResponse.json(
       {
         comment: {
-          id: comment.id,
-          authorName: comment.authorName,
-          body: comment.body,
-          imageUrl: comment.imageUrl,
+          id: commentWithUser.id,
+          authorName: commentWithUser.authorName,
+          body: commentWithUser.body,
+          imageUrl: commentWithUser.imageUrl,
           origin: responseOrigin,
-          createdAt: comment.createdAt,
-          createdByRole: comment.createdBy?.role ?? null,
-          createdByEmail: comment.createdBy?.email ?? null,
-          createdByGradYear: comment.createdBy?.gradYear ?? null,
+          createdAt: commentWithUser.createdAt,
+          createdByRole: commentWithUser.User?.role ?? null,
+          createdByEmail: commentWithUser.User?.email ?? null,
+          createdByGradYear: commentWithUser.User?.gradYear ?? null,
         },
       },
       { status: 201 }
