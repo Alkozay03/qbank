@@ -2,82 +2,46 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { prisma } from "@/server/db";
+import { requireRole } from "@/lib/rbac";
 
 /**
  * POST /api/preclerkship/admin/questions/draft
  * Creates an empty draft PreClerkship question with just an ID so comments can be added
  */
 export async function POST(req: Request) {
-  try {
-    console.error("[PRECLERKSHIP DRAFT] 1. Starting request");
-    
-    // Parse body first
-    const body = await req.json();
-    const yearLevel = body.yearLevel || 1;
-    console.error("[PRECLERKSHIP DRAFT] 2. Parsed body, yearLevel:", yearLevel);
+  // Parse body to get yearLevel
+  const body = await req.json();
+  const yearLevel = body.yearLevel || 1;
+  
+  // Check permissions
+  await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
-    // Use dynamic imports (avoids static import issues in serverless)
-    const { prisma } = await import("@/server/db");
-    const { requireRole } = await import("@/lib/rbac");
-    console.error("[PRECLERKSHIP DRAFT] 3. Imports loaded");
-    
-    // Check permissions
-    await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
-    console.error("[PRECLERKSHIP DRAFT] 4. Permission check passed");
-
-    // Create draft PreClerkship question (Prisma auto-generates IDs via @default(cuid()))
-    console.error("[PRECLERKSHIP DRAFT] 5. About to create question in database...");
-    const question = await prisma.preClerkshipQuestion.create({
-      data: {
-        yearLevel,
-        text: "[Draft - Not yet saved]",
-        explanation: "",
-        objective: "",
-        references: null,
-        PreClerkshipAnswer: {
-          create: [
-            { text: "Option A", isCorrect: false },
-            { text: "Option B", isCorrect: false },
-            { text: "Option C", isCorrect: false },
-            { text: "Option D", isCorrect: false },
-            { text: "Option E", isCorrect: false },
-          ],
-        },
+  // Create draft PreClerkship question (Prisma auto-generates IDs via @default(cuid()))
+  const question = await prisma.preClerkshipQuestion.create({
+    data: {
+      yearLevel,
+      text: "[Draft - Not yet saved]",
+      explanation: "",
+      objective: "",
+      references: null,
+      PreClerkshipAnswer: {
+        create: [
+          { text: "Option A", isCorrect: false },
+          { text: "Option B", isCorrect: false },
+          { text: "Option C", isCorrect: false },
+          { text: "Option D", isCorrect: false },
+          { text: "Option E", isCorrect: false },
+        ],
       },
-    });
-    console.error("[PRECLERKSHIP DRAFT] 6. Question created! ID:", question.id);
+    },
+  });
 
-    return NextResponse.json({ 
-      ok: true, 
-      questionId: question.id,
-      customId: question.customId 
-    });
-  } catch (error) {
-    console.error("[PRECLERKSHIP DRAFT] ❌ ERROR CAUGHT:", error);
-    console.error("[PRECLERKSHIP DRAFT] Error type:", typeof error);
-    console.error("[PRECLERKSHIP DRAFT] Error name:", error instanceof Error ? error.name : 'unknown');
-    console.error("[PRECLERKSHIP DRAFT] Error message:", error instanceof Error ? error.message : String(error));
-    if (error instanceof Error && error.stack) {
-      console.error("[PRECLERKSHIP DRAFT] Error stack:", error.stack);
-    }
-    
-    // Check if it's an RBAC error
-    if (error && typeof error === 'object' && 'status' in error) {
-      const httpError = error as { status: number; message: string };
-      return NextResponse.json(
-        { error: httpError.message || "Permission denied" },
-        { status: httpError.status }
-      );
-    }
-
-    return NextResponse.json(
-      { 
-        error: "Failed to create draft PreClerkship question",
-        details: error instanceof Error ? error.message : String(error)
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    ok: true,
+    questionId: question.id,
+    customId: question.customId
+  });
 }
 
 /**
@@ -86,10 +50,6 @@ export async function POST(req: Request) {
  */
 export async function DELETE(req: Request) {
   try {
-    // Use dynamic imports
-    const { prisma } = await import("@/server/db");
-    const { requireRole } = await import("@/lib/rbac");
-    
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
     const url = new URL(req.url);
