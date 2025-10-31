@@ -6,7 +6,6 @@ import { prisma } from "@/server/db";
 import { requireRole } from "@/lib/rbac";
 import { generateShortNumericId } from "@/lib/ids";
 import { PreClerkshipTagType } from "@prisma/client";
-import { canonicalizeTagValue } from "@/lib/tags/server";
 
 type AnswerInput = { text: unknown; isCorrect: unknown };
 type TagInput = { type: string; value: unknown };
@@ -66,7 +65,7 @@ function normalizeReferences(input: unknown): string | null {
 }
 
 // Simple canonicalization for PreClerkship tags
-function canonicalizePreClerkshipTagValue(tagType: PreClerkshipTagType, value: string): string | null {
+function canonicalizePreClerkshipTagValue(_tagType: PreClerkshipTagType, value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   

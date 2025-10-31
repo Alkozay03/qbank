@@ -120,9 +120,8 @@ export default function Years() {
           </Link>
         </div>
 
-        {/* Year 1, 2, 3 buttons - second row */}
-        <div className="mt-8 flex items-center gap-8">
-          {/* Year 1 button - white background, sky blue text, pill-shaped */}
+        {/* Year 1, 2, 3 buttons hidden - pages still accessible via direct URL */}
+        {/* <div className="mt-8 flex items-center gap-8">
           <Link
             href="/year1"
             className="bg-white text-sky-500 font-semibold text-2xl px-12 py-5 w-56 text-center rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out"
@@ -144,7 +143,6 @@ export default function Years() {
             Year 1
           </Link>
 
-          {/* Year 2 button - white background, sky blue text, pill-shaped */}
           <Link
             href="/year2"
             className="bg-white text-sky-500 font-semibold text-2xl px-12 py-5 w-56 text-center rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out"
@@ -166,7 +164,6 @@ export default function Years() {
             Year 2
           </Link>
 
-          {/* Year 3 button - white background, sky blue text, pill-shaped */}
           <Link
             href="/year3"
             className="bg-white text-sky-500 font-semibold text-2xl px-12 py-5 w-56 text-center rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 ease-in-out"
@@ -187,7 +184,7 @@ export default function Years() {
           >
             Year 3
           </Link>
-        </div>
+        </div> */}
       </main>
     </ForceBlueTheme>
   );
