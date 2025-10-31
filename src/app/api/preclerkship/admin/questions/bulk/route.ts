@@ -19,6 +19,8 @@ const CATEGORY_TO_PRECLERKSHIP_TAG_TYPE: Record<string, PreClerkshipTagType> = {
   topic: PreClerkshipTagType.TOPIC,
   week: PreClerkshipTagType.WEEK,
   lecture: PreClerkshipTagType.LECTURE,
+  questiontype: PreClerkshipTagType.QUESTION_TYPE,
+  question_type: PreClerkshipTagType.QUESTION_TYPE,
   resource: PreClerkshipTagType.RESOURCE,
   mode: PreClerkshipTagType.MODE,
 };
@@ -63,6 +65,15 @@ function normalizeReferences(input: unknown): string | null {
   return Array.from(values).join("\n");
 }
 
+// Simple canonicalization for PreClerkship tags
+function canonicalizePreClerkshipTagValue(tagType: PreClerkshipTagType, value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  
+  // For most tag types, just trim and uppercase
+  return trimmed.toUpperCase();
+}
+
 function normalizeTags(input: unknown): Array<{ type: PreClerkshipTagType; value: string }> | undefined {
   if (!Array.isArray(input)) return undefined;
   const arr = input as TagInput[];
@@ -82,7 +93,7 @@ function normalizeTags(input: unknown): Array<{ type: PreClerkshipTagType; value
     if (!entry || typeof entry.type !== "string" || entry.value == null) continue;
     const tagType = resolveType(entry.type);
     if (!tagType) continue;
-    const canonical = canonicalizeTagValue(tagType, String(entry.value));
+    const canonical = canonicalizePreClerkshipTagValue(tagType, String(entry.value));
     if (!canonical) continue;
     const key = `${tagType}:${canonical}`;
     if (seen.has(key)) continue;

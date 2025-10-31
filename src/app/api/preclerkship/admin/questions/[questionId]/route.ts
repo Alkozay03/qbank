@@ -42,6 +42,8 @@ const CATEGORY_TO_PRECLERKSHIP_TAGTYPE: Record<string, PreClerkshipTagType> = {
   topic: PreClerkshipTagType.TOPIC,
   week: PreClerkshipTagType.WEEK,
   lecture: PreClerkshipTagType.LECTURE,
+  questiontype: PreClerkshipTagType.QUESTION_TYPE,
+  question_type: PreClerkshipTagType.QUESTION_TYPE,
   resource: PreClerkshipTagType.RESOURCE,
   mode: PreClerkshipTagType.MODE,
 };

@@ -698,6 +698,7 @@ enum PreClerkshipTagType {
   TOPIC
   WEEK
   LECTURE
+  QUESTION_TYPE
   RESOURCE
   MODE
 }

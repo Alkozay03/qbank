@@ -41,6 +41,13 @@ const lectures: Option[] = [
   { key: "Lecture 10", label: "Lecture 10" },
 ];
 
+const questionTypes: Option[] = [
+  { key: "Previous", label: "Previous" },
+  { key: "TBL", label: "TBL" },
+  { key: "Books", label: "Books" },
+  { key: "Others", label: "Others" },
+];
+
 const disciplines: Option[] = [
   { key: "anatomy", label: "Anatomy" },
   { key: "behavioral", label: "Behavioral science" },
@@ -75,6 +82,7 @@ export default function CreateTest() {
   const [selDisciplines, setSelDisciplines] = useState<string[]>([]);
   const [selWeeks, setSelWeeks] = useState<string[]>([]);
   const [selLectures, setSelLectures] = useState<string[]>([]);
+  const [selQuestionTypes, setSelQuestionTypes] = useState<string[]>([]);
   const [qCount, setQCount] = useState<number>(0);
   const [busy, setBusy] = useState(false);
   const [modeCounts, setModeCounts] = useState<{
