@@ -913,19 +913,20 @@ ${formattedList}`);
 
       if (!result.errors?.length && fileInputRef.current) {
         console.warn('🔷 [SAVE ALL] Clearing file input');
-        fileInputRef.current.value = '';
+        fileInputRef.current!.value = '';
       }
       
       console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS COMPLETED ==========');
-    } catch (error: unknown) {
+    } catch (err: unknown) {
       console.warn('🔷 [SAVE ALL] ❌❌❌ CRITICAL ERROR CAUGHT ❌❌❌');
-      const errorType = error instanceof Error ? error.constructor.name : typeof error;
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const error = err as Error;
+      const errorType = error instanceof Error ? error.constructor.name : typeof err;
+      const errorMessage = error instanceof Error ? error.message : String(err);
       const errorStack = error instanceof Error ? error.stack : 'No stack trace';
       console.warn('🔷 [SAVE ALL] Error type:', errorType);
       console.warn('🔷 [SAVE ALL] Error message:', errorMessage);
       console.warn('🔷 [SAVE ALL] Error stack:', errorStack);
-      console.warn('🔷 [SAVE ALL] Full error object:', error);
+      console.warn('🔷 [SAVE ALL] Full error object:', err);
       
       setState(prev => ({
         ...prev,
