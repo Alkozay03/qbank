@@ -356,10 +356,11 @@ function BulkQuestionManagerContent() {
   const handleAddManualQuestion = useCallback(async () => {
     try {
       // Create a draft question in the database immediately so it has an ID
-      console.warn('🆕 [ADD QUESTION] Calling draft API...');
-      const response = await fetch('/api/admin/questions/draft', {
+      console.warn('🆕 [ADD QUESTION] Calling PreClerkship draft API...');
+      const response = await fetch('/api/preclerkship/admin/questions/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yearLevel: 1 }),
       });
       
       console.warn('🆕 [ADD QUESTION] Draft API response:', { status: response.status, ok: response.ok });
@@ -411,7 +412,7 @@ function BulkQuestionManagerContent() {
     setSearchStatus('loading');
     setSearchMessage('Searching for question...');
     try {
-      const response = await fetch(`/api/admin/questions/${trimmed}`);
+      const response = await fetch(`/api/preclerkship/admin/questions/${trimmed}`);
       if (!response.ok) {
         let message = `Unable to find question ${trimmed}.`;
         try {
@@ -609,7 +610,7 @@ function BulkQuestionManagerContent() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`/api/admin/questions/${question.dbId}`, {
+      const response = await fetch(`/api/preclerkship/admin/questions/${question.dbId}`, {
         method: 'DELETE',
       });
 
@@ -688,8 +689,8 @@ function BulkQuestionManagerContent() {
         isAnswerConfirmed: updatedQuestion.isAnswerConfirmed !== false, // Default to true if undefined
       };
 
-      console.warn('🟡 [SAVE] Sending PUT request to API:', {
-        url: `/api/admin/questions/${updatedQuestion.dbId}`,
+      console.warn('🟡 [SAVE] Sending PUT request to PreClerkship API:', {
+        url: `/api/preclerkship/admin/questions/${updatedQuestion.dbId}`,
         payloadPreview: {
           questionText: payload.questionText?.substring(0, 50),
           correctAnswer: payload.correctAnswer,
@@ -698,7 +699,7 @@ function BulkQuestionManagerContent() {
         }
       });
 
-      const response = await fetch(`/api/admin/questions/${updatedQuestion.dbId}`, {
+      const response = await fetch(`/api/preclerkship/admin/questions/${updatedQuestion.dbId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -751,6 +752,10 @@ function BulkQuestionManagerContent() {
   }, [setSearchMessage, setSearchStatus]);
 
   const handleSaveAllQuestions = async () => {
+    // TODO: Implement PreClerkship bulk save API
+    alert('Bulk save is not yet implemented for PreClerkship years. Please save questions individually by clicking "Edit" then "Save" for each question.');
+    return;
+    
     console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS STARTED ==========');
     console.warn('🔷 [SAVE ALL] Total questions to save:', state.questions.length);
     
@@ -1270,12 +1275,12 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       });
       
       if (currentIsDraft && !wasSaved && currentQuestionId) {
-        console.warn('🗑️ [CLEANUP] Deleting unsaved draft:', currentQuestionId);
+        console.warn('🗑️ [CLEANUP] Deleting unsaved PreClerkship draft:', currentQuestionId);
         // Fire and forget - delete the draft question
-        fetch(`/api/admin/questions/draft?id=${currentQuestionId}`, {
+        fetch(`/api/preclerkship/admin/questions/draft?id=${currentQuestionId}`, {
           method: 'DELETE',
         }).catch((error) => {
-          console.error('🔴 [CLEANUP] Failed to delete draft question:', error);
+          console.error('🔴 [CLEANUP] Failed to delete PreClerkship draft question:', error);
         });
       } else {
         console.warn('✅ [CLEANUP] NOT deleting - question was saved or is not a draft');
@@ -1378,11 +1383,11 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     // If it's a draft that hasn't been saved, delete it
     if (isDraft && !hasBeenSaved && stableQuestionId) {
       try {
-        await fetch(`/api/admin/questions/draft?id=${stableQuestionId}`, {
+        await fetch(`/api/preclerkship/admin/questions/draft?id=${stableQuestionId}`, {
           method: 'DELETE',
         });
       } catch (error) {
-        console.error('Failed to delete draft question:', error);
+        console.error('Failed to delete PreClerkship draft question:', error);
       }
     }
     onClose();
