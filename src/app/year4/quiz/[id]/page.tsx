@@ -183,6 +183,16 @@ export default async function QuizPage({
   // Narrow status to the union the UI expects
   const status: QuizStatus = "Active"; // DB status type mismatch safe default
 
+  // Map Prisma Role enum to QuizRunner expected role type
+  const mapRole = (role: string | null): "MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | null => {
+    if (!role) return null;
+    if (role === "User") return "MEMBER";
+    if (role === "Admin") return "ADMIN";
+    if (role === "MASTER_ADMIN") return "MASTER_ADMIN";
+    if (role === "WEBSITE_CREATOR") return "WEBSITE_CREATOR";
+    return null;
+  };
+
   const initialQuiz = {
     id: quiz.id,
     status,
@@ -193,7 +203,7 @@ export default async function QuizPage({
         .join(" ")
         .trim() || session?.user?.name || null,
       email,
-      role: viewer?.role ?? null,
+      role: mapRole(viewer?.role ?? null),
     },
   };
 
