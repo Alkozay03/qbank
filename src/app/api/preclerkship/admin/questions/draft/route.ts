@@ -2,7 +2,6 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 
 /**
  * POST /api/preclerkship/admin/questions/draft
@@ -17,18 +16,19 @@ export async function POST(req: Request) {
     // Use dynamic imports (avoids static import issues in serverless)
     const { prisma } = await import("@/server/db");
     const { requireRole } = await import("@/lib/rbac");
+    const crypto = await import("node:crypto");
     
     // Check permissions
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
     // Generate UUIDs
-    const questionId = randomUUID();
+    const questionId = crypto.randomUUID();
     const answerIds = [
-      randomUUID(),
-      randomUUID(),
-      randomUUID(),
-      randomUUID(),
-      randomUUID()
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID()
     ];
 
     // Create draft PreClerkship question

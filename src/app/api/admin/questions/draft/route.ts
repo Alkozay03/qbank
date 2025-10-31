@@ -4,7 +4,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
 import { requireRole } from "@/lib/rbac";
-import { randomUUID } from "node:crypto";
 
 /**
  * POST /api/admin/questions/draft
@@ -20,14 +19,17 @@ export async function POST() {
 
     console.error("🔵 [DRAFT API] Creating draft question in database...");
     
+    // Import crypto dynamically
+    const crypto = await import("node:crypto");
+    
     // Generate UUIDs
-    const questionId = randomUUID();
+    const questionId = crypto.randomUUID();
     const choiceIds = [
-      randomUUID(),
-      randomUUID(),
-      randomUUID(),
-      randomUUID(),
-      randomUUID()
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID()
     ];
     
     // Create a minimal draft question with IDs
