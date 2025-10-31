@@ -23,7 +23,7 @@ export async function POST() {
 
       // Delete all user quiz items and their quizzes
       await tx.quizItem.deleteMany({
-        where: { quiz: { userId } }
+        where: { Quiz: { userId } }
       });
 
       await tx.quiz.deleteMany({

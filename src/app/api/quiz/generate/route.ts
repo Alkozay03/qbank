@@ -7,75 +7,90 @@ import { NextResponse } from "next/server";
 import { selectQuestions } from "@/lib/quiz/selectQuestions";
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.email || !session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const session = await auth();
+    if (!session?.user?.email || !session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const body = (await req.json().catch(() => ({}))) as Partial<{
-    year: string;
-    rotationKeys: string[];
-    resources: string[];
-    disciplines: string[];
-    systems: string[];
-    count: number;
-    mode: string;
-    types: string[];
-  }>;
+    const body = (await req.json().catch(() => ({}))) as Partial<{
+      year: string;
+      rotationKeys: string[];
+      resources: string[];
+      disciplines: string[];
+      systems: string[];
+      count: number;
+      mode: string;
+      types: string[];
+    }>;
 
-  const year = typeof body.year === "string" ? body.year : "Y4"; // Default to Y4 for backwards compatibility
+    const year = typeof body.year === "string" ? body.year : "Y4"; // Default to Y4 for backwards compatibility
 
-  const rotationKeys = Array.isArray(body.rotationKeys)
-    ? body.rotationKeys.filter((value): value is string => typeof value === "string" && value.length > 0)
-    : [];
-  const resourceValues = Array.isArray(body.resources)
-    ? body.resources.filter((value): value is string => typeof value === "string" && value.length > 0)
-    : [];
-  const disciplineValues = Array.isArray(body.disciplines)
-    ? body.disciplines.filter((value): value is string => typeof value === "string" && value.length > 0)
-    : [];
-  const systemValues = Array.isArray(body.systems)
-    ? body.systems.filter((value): value is string => typeof value === "string" && value.length > 0)
-    : [];
-  const types = Array.isArray(body.types)
-    ? body.types.filter((value): value is string => typeof value === "string" && value.length > 0)
-    : [];
+    const rotationKeys = Array.isArray(body.rotationKeys)
+      ? body.rotationKeys.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    const resourceValues = Array.isArray(body.resources)
+      ? body.resources.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    const disciplineValues = Array.isArray(body.disciplines)
+      ? body.disciplines.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    const systemValues = Array.isArray(body.systems)
+      ? body.systems.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    const types = Array.isArray(body.types)
+      ? body.types.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
 
-  const take = Math.max(1, Math.min(40, Number(body.count) || 10));
-  if (!rotationKeys.length) {
-    return NextResponse.json({ error: "Select at least one rotation" }, { status: 400 });
-  }
+    const take = Math.max(1, Math.min(40, Number(body.count) || 10));
+    if (!rotationKeys.length) {
+      return NextResponse.json({ error: "Select at least one rotation" }, { status: 400 });
+    }
 
-  const userId = session.user.id;
+    const userId = session.user.id;
 
-  const ids = await selectQuestions({
-    userId,
-    year,
-    rotationKeys,
-    resourceValues,
-    disciplineValues,
-    systemValues,
-    types,
-    take,
-  });
-
-  if (ids.length === 0) {
-    return NextResponse.json({ error: "No questions match your filters." }, { status: 400 });
-  }
-
-  const quiz = await prisma.quiz.create({
-    data: {
+    const ids = await selectQuestions({
       userId,
-      status: "Active",
-      mode: "RANDOM",
-      count: ids.length,
-      items: {
-        create: ids.map((qid, i) => ({ questionId: qid, orderInQuiz: i })),
-      },
-    },
-    select: { id: true },
-  });
+      year,
+      rotationKeys,
+      resourceValues,
+      disciplineValues,
+      systemValues,
+      types,
+      take,
+    });
 
-  return NextResponse.json({ id: quiz.id });
+    if (ids.length === 0) {
+      return NextResponse.json({ error: "No questions match your filters." }, { status: 400 });
+    }
+
+    const quizId = `quiz-${Date.now()}`;
+    const quiz = await prisma.quiz.create({
+      data: {
+        id: quizId,
+        userId,
+        status: "Active",
+        mode: "RANDOM",
+        count: ids.length,
+        QuizItem: {
+          create: ids.map((qid, i) => ({ 
+            id: `qi-${quizId}-${i}`,
+            questionId: qid, 
+            orderInQuiz: i,
+            updatedAt: new Date(),
+          })),
+        },
+      },
+      select: { id: true },
+    });
+
+    return NextResponse.json({ id: quiz.id });
+  } catch (error) {
+    console.error("Error generating quiz:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to generate quiz" },
+      { status: 500 }
+    );
+  }
 }
 
