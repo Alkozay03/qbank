@@ -128,6 +128,16 @@ const lectureOptions: Option[] = [
 
   { value: "lecture10", label: "Lecture 10" },
 
+  { value: "lecture11", label: "Lecture 11" },
+
+  { value: "lecture12", label: "Lecture 12" },
+
+  { value: "lecture13", label: "Lecture 13" },
+
+  { value: "lecture14", label: "Lecture 14" },
+
+  { value: "lecture15", label: "Lecture 15" },
+
 ];
 
 

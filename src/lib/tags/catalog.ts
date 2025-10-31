@@ -109,6 +109,11 @@ const lectureOptions: TagOption[] = [
   { key: "lecture8", label: "Lecture 8", aliases: ["lecture 8", "l8"] },
   { key: "lecture9", label: "Lecture 9", aliases: ["lecture 9", "l9"] },
   { key: "lecture10", label: "Lecture 10", aliases: ["lecture 10", "l10"] },
+  { key: "lecture11", label: "Lecture 11", aliases: ["lecture 11", "l11"] },
+  { key: "lecture12", label: "Lecture 12", aliases: ["lecture 12", "l12"] },
+  { key: "lecture13", label: "Lecture 13", aliases: ["lecture 13", "l13"] },
+  { key: "lecture14", label: "Lecture 14", aliases: ["lecture 14", "l14"] },
+  { key: "lecture15", label: "Lecture 15", aliases: ["lecture 15", "l15"] },
 ];
 
 export const TAG_OPTIONS: Record<TagCategory, TagOption[]> = {
