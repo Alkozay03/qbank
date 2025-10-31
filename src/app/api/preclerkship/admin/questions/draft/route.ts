@@ -13,17 +13,22 @@ export async function POST(req: Request) {
     const body = await req.json();
     const yearLevel = body.yearLevel || 1;
 
-    // Use dynamic imports like the test endpoint (avoids static import issues)
+    // Use dynamic imports (avoids static import issues in serverless)
     const { prisma } = await import("@/server/db");
     const { requireRole } = await import("@/lib/rbac");
-    const { randomUUID } = await import("crypto");
     
     // Check permissions
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
 
-    // Generate UUIDs
-    const questionId = randomUUID();
-    const answerIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    // Generate UUIDs using global crypto (no import needed in Node 19+)
+    const questionId = crypto.randomUUID();
+    const answerIds = [
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID()
+    ];
 
     // Create draft PreClerkship question
     const question = await prisma.preClerkshipQuestion.create({
