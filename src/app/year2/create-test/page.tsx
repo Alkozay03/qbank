@@ -2,7 +2,7 @@
 
 import Shell from "@/components/Shell";
 import SimpleTooltip from "@/components/SimpleTooltip";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Option = { key: string; label: string; hint?: string };
