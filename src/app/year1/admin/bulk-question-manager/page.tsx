@@ -1310,7 +1310,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
         questionYear: primaryMeta.questionYear,
         rotationNumber: primaryMeta.rotationNumber,
         // Only mark as existing if it actually has a dbId, otherwise keep original source
-        source: (editedQuestion.dbId ? 'existing' : editedQuestion.source) as const,
+        source: editedQuestion.dbId ? ('existing' as const) : editedQuestion.source,
       };
       
       console.warn('🔵 [MODAL] Calling onSave with question:', {
