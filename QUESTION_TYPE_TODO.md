@@ -35,9 +35,12 @@
 3. Update tag validation if needed
 
 ### 3. Run database migration
-```bash
-npx prisma migrate dev --name add_question_type_tag
+**Run this in Neon SQL Editor:**
+```sql
+ALTER TYPE "PreClerkshipTagType" ADD VALUE IF NOT EXISTS 'QUESTION_TYPE';
 ```
+
+Or find the enum in your database and add the value manually.
 
 ### 4. Fix TypeScript error in server/db.ts
 Remove unused eslint-disable directive on line 6
