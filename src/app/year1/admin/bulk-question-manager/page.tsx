@@ -192,6 +192,8 @@ const TAG_TYPE_TO_CATEGORY: Record<string, string> = {
   SYSTEM: 'system',
   MODE: 'mode',
   TOPIC: 'topic',
+  WEEK: 'week',
+  LECTURE: 'lecture',
 };
 
 interface MultipleReferencesEditorProps {
