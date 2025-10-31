@@ -12,14 +12,16 @@ type OccurrenceDraft = {
   id?: string;
   clientKey: string;
   year: string;
-  rotation: string;
+  weekNumber?: number | null;
+  lecture?: string;
   orderIndex: number;
 };
 
 type RawOccurrenceInput = {
   id?: string;
   year?: string | null;
-  rotation?: string | null;
+  weekNumber?: number | null;
+  lecture?: string | null;
   orderIndex?: number | null;
   clientKey?: string | null;
 };
@@ -43,7 +45,8 @@ function normalizeOccurrencesForState(source?: RawOccurrenceInput[]): Occurrence
   const cleaned = source
     .map((occ, index) => {
       const year = typeof occ?.year === "string" ? occ.year.trim() : "";
-      const rotation = typeof occ?.rotation === "string" ? occ.rotation.trim() : "";
+      const weekNumber = typeof occ?.weekNumber === "number" ? occ.weekNumber : null;
+      const lecture = typeof occ?.lecture === "string" ? occ.lecture.trim() : "";
       const orderIndex =
         typeof occ?.orderIndex === "number" && Number.isFinite(occ.orderIndex) ? occ.orderIndex : index;
       const keyCandidateRaw =
@@ -58,12 +61,13 @@ function normalizeOccurrencesForState(source?: RawOccurrenceInput[]): Occurrence
       return {
         id: occ?.id,
         year,
-        rotation,
+        weekNumber,
+        lecture,
         orderIndex,
         clientKey: keyCandidate,
       };
     })
-    .filter((occ) => occ.year.length > 0 || occ.rotation.length > 0)
+    .filter((occ) => occ.year.length > 0)
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .map((occ, index) => ({ ...occ, orderIndex: index }));
 
@@ -75,10 +79,11 @@ function prepareOccurrencesForSave(occurrences: OccurrenceDraft[]) {
     .map((occ, index) => ({
       id: occ.id,
       year: occ.year.trim(),
-      rotation: occ.rotation.trim(),
+      weekNumber: occ.weekNumber,
+      lecture: occ.lecture?.trim() || null,
       orderIndex: index,
     }))
-    .filter((occ) => occ.year.length > 0 || occ.rotation.length > 0);
+    .filter((occ) => occ.year.length > 0);
 }
 
 function normalizeOccurrencesForEditing(drafts?: Array<OccurrenceDraft | Partial<OccurrenceDraft>>) {
@@ -87,7 +92,8 @@ function normalizeOccurrencesForEditing(drafts?: Array<OccurrenceDraft | Partial
 
   return drafts.map((occ, index) => {
     const year = typeof occ?.year === "string" ? occ.year : "";
-    const rotation = typeof occ?.rotation === "string" ? occ.rotation : "";
+    const weekNumber = typeof occ?.weekNumber === "number" ? occ.weekNumber : null;
+    const lecture = typeof occ?.lecture === "string" ? occ.lecture : "";
     const baseKey =
       typeof occ?.clientKey === "string" && occ.clientKey.trim().length > 0
         ? occ.clientKey.trim()
@@ -102,7 +108,8 @@ function normalizeOccurrencesForEditing(drafts?: Array<OccurrenceDraft | Partial
       id: occ?.id,
       clientKey,
       year,
-      rotation,
+      weekNumber,
+      lecture,
       orderIndex: index,
     } satisfies OccurrenceDraft;
   });
@@ -113,7 +120,7 @@ function derivePrimaryOccurrenceMeta(occurrences: OccurrenceDraft[]) {
   const primary = prepared[0];
   return {
     questionYear: primary?.year ?? "",
-    rotationNumber: primary?.rotation ?? "",
+    rotationNumber: "",
   };
 }
 
@@ -347,7 +354,7 @@ function BulkQuestionManagerContent() {
     iduScreenshotUrl: '',
     questionImageUrl: '',
     explanationImageUrl: '',
-    occurrences: [{ clientKey: makeOccurrenceKey(), year: 'Y3', rotation: '', orderIndex: 0 }],
+    occurrences: [{ clientKey: makeOccurrenceKey(), year: 'Y3', weekNumber: null, lecture: '', orderIndex: 0 }],
     source: 'manual',
     isAnswerConfirmed: true, // Default to confirmed for new questions
   }), []);
@@ -448,7 +455,8 @@ function BulkQuestionManagerContent() {
         ? (data.occurrences as Array<RawOccurrenceInput>).map((occ, index) => ({
             id: occ?.id,
             year: occ?.year ?? '',
-            rotation: occ?.rotation ?? '',
+            weekNumber: occ?.weekNumber ?? null,
+            lecture: occ?.lecture ?? '',
             orderIndex:
               typeof occ?.orderIndex === 'number' && Number.isFinite(occ.orderIndex)
                 ? occ.orderIndex
@@ -459,9 +467,8 @@ function BulkQuestionManagerContent() {
 
       if (rawOccurrences.length === 0) {
         const fallbackYear = typeof data?.questionYear === 'string' ? data.questionYear.trim() : '';
-        const fallbackRotation = typeof data?.rotationNumber === 'string' ? data.rotationNumber.trim() : '';
-        if (fallbackYear || fallbackRotation) {
-          rawOccurrences.push({ year: fallbackYear, rotation: fallbackRotation, orderIndex: 0 });
+        if (fallbackYear) {
+          rawOccurrences.push({ year: fallbackYear, weekNumber: null, lecture: '', orderIndex: 0 });
         }
       }
 
@@ -905,19 +912,20 @@ ${formattedList}`);
 
       if (!result.errors?.length && fileInputRef.current) {
         console.warn('🔷 [SAVE ALL] Clearing file input');
-        fileInputRef.current.value = '';
+        fileInputRef.current!.value = '';
       }
       
       console.warn('🔷 [SAVE ALL] ========== SAVE ALL QUESTIONS COMPLETED ==========');
-    } catch (error: unknown) {
+    } catch (err: unknown) {
       console.warn('🔷 [SAVE ALL] ❌❌❌ CRITICAL ERROR CAUGHT ❌❌❌');
-      const errorType = error instanceof Error ? error.constructor.name : typeof error;
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const error = err as Error;
+      const errorType = error instanceof Error ? error.constructor.name : typeof err;
+      const errorMessage = error instanceof Error ? error.message : String(err);
       const errorStack = error instanceof Error ? error.stack : 'No stack trace';
       console.warn('🔷 [SAVE ALL] Error type:', errorType);
       console.warn('🔷 [SAVE ALL] Error message:', errorMessage);
       console.warn('🔷 [SAVE ALL] Error stack:', errorStack);
-      console.warn('🔷 [SAVE ALL] Full error object:', error);
+      console.warn('🔷 [SAVE ALL] Full error object:', err);
       
       setState(prev => ({
         ...prev,
@@ -1403,7 +1411,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
           id: undefined,
           clientKey: makeOccurrenceKey(),
           year: '',
-          rotation: '',
+          weekNumber: null,
+          lecture: '',
           orderIndex: existing.length,
         },
       ]);
@@ -1417,7 +1426,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     });
   }, []);
 
-  const handleOccurrenceChange = useCallback((index: number, field: 'year' | 'rotation', value: string) => {
+  const handleOccurrenceChange = useCallback((index: number, field: 'year', value: string) => {
     setEditedQuestion((prev) => {
       const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
       if (!existing[index]) return prev;
@@ -1592,7 +1601,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                     const existing = Array.isArray(prev.occurrences) ? [...prev.occurrences] : [];
                     const hasY3 = existing.some((occ) => occ.year === 'Y3');
                     if (!hasY3) {
-                      existing.push({ clientKey: makeOccurrenceKey(), year: 'Y3', rotation: '', orderIndex: existing.length });
+                      existing.push({ clientKey: makeOccurrenceKey(), year: 'Y3', weekNumber: null, lecture: '', orderIndex: existing.length });
                     }
                     const reindexed = normalizeOccurrencesForEditing(existing);
                     const primaryMeta = derivePrimaryOccurrenceMeta(reindexed);
@@ -1862,8 +1871,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                   const actualIndex = occurrences.findIndex(occ => occ === occurrence);
                   return (
                     <div
-                      key={occurrence.clientKey ?? occurrence.id ?? `${actualIndex}-${occurrence.year}-${occurrence.rotation}`}
-                      className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+                      key={occurrence.clientKey ?? occurrence.id ?? `${actualIndex}-${occurrence.year}`}
+                      className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
                     >
                       <div>
                         <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
@@ -1871,17 +1880,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                           type="text"
                           value={occurrence.year ?? ''}
                           onChange={(e) => handleOccurrenceChange(actualIndex, 'year', e.target.value)}
-                          placeholder="e.g. 2025"
-                          className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Repetitions</label>
-                        <input
-                          type="text"
-                          value={occurrence.rotation ?? ''}
-                          onChange={(e) => handleOccurrenceChange(actualIndex, 'rotation', e.target.value)}
-                          placeholder="(e.g Repeated 3 Times)"
+                          placeholder="e.g. Y3 or 2025"
                           className="mt-1 w-full rounded-lg border border-[#E6F0F7] px-3 py-2 text-sm focus:border-[#56A2CD] focus:ring-2 focus:ring-[#56A2CD] outline-none"
                         />
                       </div>
