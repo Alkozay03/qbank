@@ -91,57 +91,19 @@ const disciplines: Option[] = [
 
 const systems: Option[] = [
 
-  { key: "bio_general", label: "Biochemistry (General Principles)" },
-
-  { key: "gen_general", label: "Genetics (General Principles)" },
-
-  { key: "micro_general", label: "Microbiology (General Principles)" },
-
-  { key: "path_general", label: "Pathology (General Principles)" },
-
-  { key: "pharm_general", label: "Pharmacology (General Principles)" },
-
-  { key: "biostat_epi", label: "Biostatistics & Epidemiology" },
-
-  { key: "poison_env", label: "Poisoning & Environmental Exposure" },
-
-  { key: "psych", label: "Psychiatric/Behavioral & Substance Use Disorder" },
-
-  { key: "social", label: "Social Sciences (Ethics/Legal/Professional)" },
-
-  { key: "misc", label: "Miscellaneous (Multisystem)" },
-
-  { key: "allergy_immuno", label: "Allergy & Immunology" },
-
   { key: "cardio", label: "Cardiovascular System" },
-
-  { key: "derm", label: "Dermatology" },
-
-  { key: "ent", label: "Ear, Nose & Throat (ENT)" },
-
-  { key: "endocrine", label: "Endocrine, Diabetes & Metabolism" },
-
-  { key: "female_repro", label: "Female Reproductive System & Breast" },
-
-  { key: "gi", label: "Gastrointestinal & Nutrition" },
-
-  { key: "heme_onc", label: "Hematology & Oncology" },
-
-  { key: "id", label: "Infectious Diseases" },
-
-  { key: "male_repro", label: "Male Reproductive System" },
-
-  { key: "neuro", label: "Nervous System" },
-
-  { key: "ophtho", label: "Ophthalmology" },
-
-  { key: "pregnancy", label: "Pregnancy, Childbirth & Puerperium" },
 
   { key: "pulm", label: "Pulmonary & Critical Care" },
 
+  { key: "endocrine", label: "Endocrine, Diabetes & Metabolism" },
+
+  { key: "gi", label: "Gastrointestinal & Nutrition" },
+
   { key: "renal", label: "Renal, Urinary Systems & Electrolytes" },
 
-  { key: "rheum", label: "Rheumatology/Orthopedics & Sports" },
+  { key: "female_repro", label: "Female Reproductive System & Breast" },
+
+  { key: "male_repro", label: "Male Reproductive System" },
 
 ];
 

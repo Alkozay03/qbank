@@ -304,7 +304,29 @@ export default function TagSelector({ selectedTags, onChange, className = "", ai
 
 
 
-  // Build filterOptions based on mode
+  // Year 2 specific system options (filtered subset)
+
+  const year2SystemOptions: Option[] = [
+
+    { value: "cardio", label: "Cardiovascular System" },
+
+    { value: "pulm", label: "Pulmonary & Critical Care" },
+
+    { value: "endocrine", label: "Endocrine, Diabetes & Metabolism" },
+
+    { value: "gi", label: "Gastrointestinal & Nutrition" },
+
+    { value: "renal", label: "Renal, Urinary Systems & Electrolytes" },
+
+    { value: "female_repro", label: "Female Reproductive System & Breast" },
+
+    { value: "male_repro", label: "Male Reproductive System" },
+
+  ];
+
+
+
+  // Build filterOptions based on mode and year
 
   const filterOptions: Record<string, Option[]> = isPreclerkship
 
@@ -315,6 +337,8 @@ export default function TagSelector({ selectedTags, onChange, className = "", ai
         lecture: lectureOptions,
 
         ...baseFilterOptions,
+
+        system: year === "Y2" ? year2SystemOptions : baseFilterOptions.system, // Use filtered systems for Y2
 
       }
 

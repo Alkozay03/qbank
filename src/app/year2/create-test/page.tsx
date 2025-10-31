@@ -58,15 +58,12 @@ const disciplines: Option[] = [
 
 const systems: Option[] = [
   { key: "cardio", label: "Cardiovascular System" },
-  { key: "gi", label: "Gastrointestinal System" },
-  { key: "neuro", label: "Nervous System" },
   { key: "pulm", label: "Pulmonary System" },
-  { key: "renal", label: "Renal System" },
   { key: "endocrine", label: "Endocrine System" },
-  { key: "heme", label: "Hematology" },
-  { key: "immuno", label: "Immunology" },
-  { key: "repro", label: "Reproductive System" },
-  { key: "musculoskeletal", label: "Musculoskeletal System" },
+  { key: "gi", label: "Gastrointestinal System" },
+  { key: "renal", label: "Renal System" },
+  { key: "female_repro", label: "Female Reproductive System & Breast" },
+  { key: "male_repro", label: "Male Reproductive System" },
 ];
 
 export default function CreateTest() {
