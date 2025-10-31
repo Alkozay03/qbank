@@ -462,13 +462,13 @@ model QuestionComment {
 }
 
 model QuestionOccurrence {
-  id         String   @id
+  id         String   @id @default(cuid())
   questionId String
   year       String?
   rotation   String?
   orderIndex Int      @default(0)
   createdAt  DateTime @default(now())
-  updatedAt  DateTime
+  updatedAt  DateTime @default(now()) @updatedAt
   Question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, year, rotation], map: "uniq_questionoccurrence_questionid_year_rotation")
@@ -605,7 +605,7 @@ model SimilarQuestionGroup {
 }
 
 model Tag {
-  id          String        @id
+  id          String        @id @default(cuid())
   type        TagType
   value       String
   QuestionTag QuestionTag[]

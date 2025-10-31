@@ -122,11 +122,11 @@ export async function GET(
     const question = await prisma.question.findUnique({
       where: { id: questionId },
       include: {
-        answers: { orderBy: { id: "asc" } },
-        questionTags: {
-          include: { tag: true },
+        Choice: { orderBy: { id: "asc" } },
+        QuestionTag: {
+          include: { Tag: true },
         },
-        occurrences: {
+        QuestionOccurrence: {
           orderBy: { orderIndex: "asc" },
         },
       },
@@ -136,20 +136,20 @@ export async function GET(
       return NextResponse.json({ error: "Question not found" }, { status: 404 });
     }
 
-    const tags = question.questionTags.map((qt) => ({
-      type: qt.tag.type,
-      value: qt.tag.value,
+    const tags = question.QuestionTag.map((qt) => ({
+      type: qt.Tag.type,
+      value: qt.Tag.value,
     }));
 
     const answerLabels = ['A', 'B', 'C', 'D', 'E'];
     const optionsByLabel: Record<string, string> = {} as Record<string, string>;
-    question.answers.forEach((answer, index) => {
+    question.Choice.forEach((answer, index) => {
       if (index < answerLabels.length) {
         optionsByLabel[answerLabels[index]] = answer.text;
       }
     });
 
-    const correctIndex = question.answers.findIndex((ans) => ans.isCorrect);
+    const correctIndex = question.Choice.findIndex((ans) => ans.isCorrect);
     const correctLetter = correctIndex >= 0 && correctIndex < answerLabels.length ? answerLabels[correctIndex] : '';
 
     return NextResponse.json({
@@ -165,17 +165,17 @@ export async function GET(
       explanation: question.explanation ?? '',
       educationalObjective: question.objective ?? '',
       references: question.references ?? '',
-      rotation: question.questionTags.find((qt) => qt.tag.type === TagType.ROTATION)?.tag.value ?? '',
-      system: question.questionTags.find((qt) => qt.tag.type === TagType.SYSTEM)?.tag.value ?? '',
-      discipline: question.questionTags.find((qt) => qt.tag.type === TagType.SUBJECT)?.tag.value ?? '',
-      resource: question.questionTags.find((qt) => qt.tag.type === TagType.RESOURCE)?.tag.value ?? '',
+      rotation: question.QuestionTag.find((qt) => qt.Tag.type === TagType.ROTATION)?.Tag.value ?? '',
+      system: question.QuestionTag.find((qt) => qt.Tag.type === TagType.SYSTEM)?.Tag.value ?? '',
+      discipline: question.QuestionTag.find((qt) => qt.Tag.type === TagType.SUBJECT)?.Tag.value ?? '',
+      resource: question.QuestionTag.find((qt) => qt.Tag.type === TagType.RESOURCE)?.Tag.value ?? '',
       tags,
       questionYear: question.yearCaptured ?? '',
       rotationNumber: question.rotationNumber ?? '',
       iduScreenshotUrl: question.iduScreenshotUrl ?? '',
       questionImageUrl: question.questionImageUrl ?? '',
       explanationImageUrl: question.explanationImageUrl ?? '',
-      occurrences: question.occurrences
+      occurrences: question.QuestionOccurrence
         .sort((a, b) => a.orderIndex - b.orderIndex)
         .map((occ) => ({
           id: occ.id,
@@ -211,7 +211,7 @@ export async function PUT(
 
     const existing = await prisma.question.findUnique({
       where: { id: questionId },
-      include: { answers: true },
+      include: { Choice: true },
     });
 
     if (!existing) {
@@ -327,8 +327,8 @@ export async function PUT(
       },
     });
 
-    await prisma.answer.deleteMany({ where: { questionId } });
-    await prisma.answer.createMany({
+    await prisma.choice.deleteMany({ where: { questionId } });
+    await prisma.choice.createMany({
       data: answerCandidates.map((candidate) => ({
         questionId,
         text: candidate.text!.trim(),
