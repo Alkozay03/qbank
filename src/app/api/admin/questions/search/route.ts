@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       select: { role: true },
     });
 
-    if (!user || (user.role !== "ADMIN" && user.role !== "MASTER_ADMIN" && user.role !== "WEBSITE_CREATOR")) {
+    if (!user || (user.role !== "Admin" && user.role !== "MASTER_ADMIN" && user.role !== "WEBSITE_CREATOR")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -103,9 +103,9 @@ export async function POST(request: NextRequest) {
 
     if (rotationValues.length) {
       whereFilters.push({
-        questionTags: {
+        QuestionTag: {
           some: {
-            tag: {
+            Tag: {
               type: TagType.ROTATION,
               value: { in: rotationValues },
             },
@@ -116,9 +116,9 @@ export async function POST(request: NextRequest) {
 
     if (resourceValues.length) {
       whereFilters.push({
-        questionTags: {
+        QuestionTag: {
           some: {
-            tag: {
+            Tag: {
               type: TagType.RESOURCE,
               value: { in: resourceValues },
             },
@@ -129,9 +129,9 @@ export async function POST(request: NextRequest) {
 
     if (disciplineValues.length) {
       whereFilters.push({
-        questionTags: {
+        QuestionTag: {
           some: {
-            tag: {
+            Tag: {
               type: TagType.SUBJECT,
               value: { in: disciplineValues },
             },
@@ -142,9 +142,9 @@ export async function POST(request: NextRequest) {
 
     if (systemValues.length) {
       whereFilters.push({
-        questionTags: {
+        QuestionTag: {
           some: {
-            tag: {
+            Tag: {
               type: TagType.SYSTEM,
               value: { in: systemValues },
             },
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
               },
             },
             {
-              occurrences: {
+              QuestionOccurrence: {
                 some: {
                   OR: [
                     { year: { contains: term, mode: "insensitive" } },
@@ -176,9 +176,9 @@ export async function POST(request: NextRequest) {
               },
             },
             {
-              questionTags: {
+              QuestionTag: {
                 some: {
-                  tag: {
+                  Tag: {
                     value: { contains: term, mode: "insensitive" },
                   },
                 },
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     // Add year filter if specified
     if (yearFilter) {
       whereFilters.push({
-        occurrences: {
+        QuestionOccurrence: {
           some: {
             year: yearFilter,
           },
@@ -205,8 +205,8 @@ export async function POST(request: NextRequest) {
     const questions = await prisma.question.findMany({
       where,
       include: {
-        answers: { orderBy: { id: "asc" }, select: { text: true, isCorrect: true } },
-        questionTags: { include: { tag: true } },
+        Choice: { orderBy: { id: "asc" }, select: { text: true, isCorrect: true } },
+        QuestionTag: { include: { Tag: true } },
       },
       orderBy: { updatedAt: "desc" },
       take,
@@ -214,11 +214,11 @@ export async function POST(request: NextRequest) {
 
     const formatted = questions.map((question) => {
       const answerLabels = ["A", "B", "C", "D", "E"];
-      const correctIndex = question.answers.findIndex((answer) => answer.isCorrect);
+      const correctIndex = question.Choice.findIndex((answer) => answer.isCorrect);
       const correctAnswer = correctIndex >= 0 ? answerLabels[correctIndex] : "";
 
       const tagsSet = new Set<string>();
-      for (const { tag } of question.questionTags) {
+      for (const { Tag: tag } of question.QuestionTag) {
         const typeKey = tag.type as TagType;
         const category = TAG_TYPE_TO_CATEGORY[typeKey];
         if (!category || category === "topic" || category === "mode") continue;
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
       const tags = Array.from(tagsSet);
 
       const categoryMap = new Map<string, string>();
-      for (const { tag } of question.questionTags) {
+      for (const { Tag: tag } of question.QuestionTag) {
         const category = TAG_TYPE_TO_CATEGORY[tag.type];
         if (!category || category === "topic" || category === "mode") continue;
         if (!categoryMap.has(category)) {

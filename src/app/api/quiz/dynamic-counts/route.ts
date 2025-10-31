@@ -30,9 +30,9 @@ function buildTagFilter(type: TagType, rawValues: string[]): Prisma.QuestionWher
   }));
 
   return {
-    questionTags: {
+    QuestionTag: {
       some: {
-        tag: {
+        Tag: {
           type,
           OR: orClauses,
         },
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       const answeredQuestions = await prisma.response.findMany({
         where: { userId },
         include: {
-          quizItem: {
+          QuizItem: {
             select: {
               questionId: true,
               marked: true,
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
       });
 
       const userQuizItems = await prisma.quizItem.findMany({
-        where: { quiz: { userId } },
+        where: { Quiz: { userId } },
         select: { questionId: true, marked: true },
       });
 
@@ -94,8 +94,8 @@ export async function POST(req: Request) {
       }
 
       for (const response of answeredQuestions) {
-        const questionId = response.quizItem.questionId;
-        if (response.quizItem.marked) {
+        const questionId = response.QuizItem.questionId;
+        if (response.QuizItem.marked) {
           markedQuestions.add(questionId);
         }
         const existing = responsesByQuestion.get(questionId);
@@ -152,7 +152,7 @@ export async function POST(req: Request) {
 
     // Step 2: Build base where clause
     const baseWhere: Prisma.QuestionWhereInput = {
-      occurrences: {
+      QuestionOccurrence: {
         some: { year },
       },
       ...(modeFilteredIds ? { id: { in: Array.from(modeFilteredIds) } } : {}),

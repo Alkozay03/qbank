@@ -26,9 +26,9 @@ export async function POST(request: Request) {
         customId: true,
         text: true,
         yearCaptured: true,
-        questionTags: {
+        QuestionTag: {
           include: {
-            tag: true,
+            Tag: true,
           },
         },
       },
@@ -42,10 +42,10 @@ export async function POST(request: Request) {
     }
 
     // Get rotation
-    const rotationTag = question.questionTags.find(
-      (qt) => qt.tag.type === "ROTATION"
+    const rotationTag = question.QuestionTag.find(
+      (qt) => qt.Tag.type === "ROTATION"
     );
-    const rotation = rotationTag?.tag.value ?? "No Rotation";
+    const rotation = rotationTag?.Tag.value ?? "No Rotation";
 
     // Support both "4" and "Y4" year formats
     const yearNumber = yearContext === "year4" ? "4" : "5";
@@ -60,9 +60,9 @@ export async function POST(request: Request) {
         id: { not: questionId }, // Exclude the question itself
         text: { not: null },
         ...(rotation !== "No Rotation" && {
-          questionTags: {
+          QuestionTag: {
             some: {
-              tag: {
+              Tag: {
                 type: "ROTATION",
                 value: rotation,
               },
@@ -149,9 +149,11 @@ export async function POST(request: Request) {
         // Create new group
         await prisma.similarQuestionGroup.create({
           data: {
+            id: crypto.randomUUID(),
             yearContext,
             questionIds: questionIdsInSet,
             similarityScores,
+            updatedAt: new Date(),
           },
         });
         groupAction = "created";

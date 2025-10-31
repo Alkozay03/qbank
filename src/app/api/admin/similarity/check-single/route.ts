@@ -93,8 +93,8 @@ export async function POST(request: Request) {
           customId: true,
           text: true,
           embedding: true,
-          questionTags: {
-            include: { tag: true },
+          QuestionTag: {
+            include: { Tag: true },
           },
         },
       });
@@ -212,15 +212,15 @@ export async function POST(request: Request) {
 
     // Step 5: Get rotation tag
     console.error(`🔵 [SIMILARITY] Checking rotation tags for Q${question.customId}...`);
-    const rotationTag = question.questionTags.find((qt) =>
+    const rotationTag = question.QuestionTag.find((qt) =>
       ["peds", "surgery", "medicine", "obgyn", "psych", "fp"].includes(
-        qt.tag.value.toLowerCase()
+        qt.Tag.value.toLowerCase()
       )
     );
 
     if (!rotationTag) {
       console.error(`🔴 [SIMILARITY] No rotation tag found for Q${question.customId}`);
-      console.error(`   Available tags:`, question.questionTags.map(qt => qt.tag.value).join(", "));
+      console.error(`   Available tags:`, question.QuestionTag.map(qt => qt.Tag.value).join(", "));
       return NextResponse.json({
         error: "No rotation tag",
         details: `Question ${question.customId} must have a rotation tag (peds, surgery, medicine, obgyn, psych, or fp)`,
@@ -228,11 +228,11 @@ export async function POST(request: Request) {
         success: false,
         questionId,
         similarFound: 0,
-        availableTags: question.questionTags.map(qt => qt.tag.value)
+        availableTags: question.QuestionTag.map(qt => qt.Tag.value)
       });
     }
 
-    const rotation = rotationTag.tag.value.toLowerCase();
+    const rotation = rotationTag.Tag.value.toLowerCase();
     console.error(`🟢 [SIMILARITY] Rotation tag found: ${rotation}`);
 
     // Step 6: Fetch candidate questions for comparison
@@ -252,9 +252,9 @@ export async function POST(request: Request) {
           text: { not: null },
           embedding: { not: Prisma.JsonNull }, // Only compare questions that have embeddings
           // ✅ REMOVED createdAt filter - compare against ALL existing questions
-          questionTags: {
+          QuestionTag: {
             some: {
-              tag: {
+              Tag: {
                 value: { equals: rotation, mode: "insensitive" },
               },
             },
@@ -375,9 +375,11 @@ export async function POST(request: Request) {
           // Create new group
           const newGroup = await prisma.similarQuestionGroup.create({
             data: {
+              id: crypto.randomUUID(),
               questionIds: [question.id, ...similarQuestions.map((q) => q.questionId)],
               similarityScores,
               yearContext,
+              updatedAt: new Date(),
             },
           });
           groupCreated = true;

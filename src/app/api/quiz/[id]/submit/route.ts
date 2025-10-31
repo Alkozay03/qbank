@@ -35,14 +35,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const { id: quizId } = await ctx.params;
     const item = await prisma.quizItem.findFirst({
       where: { id: quizItemId, quizId },
-      include: { question: { include: { answers: true } } },
+      include: { Question: { include: { Choice: true } } },
     });
 
     if (!item) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const answers = item.question.answers;
+    const answers = item.Question.Choice;
     const correctChoice = answers.find((a) => a.isCorrect) || null;
 
     // Prefer explicit choiceId, then match by text, then try legacy chosenLabel as text
@@ -82,6 +82,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     } else {
       await prisma.response.create({
         data: {
+          id: crypto.randomUUID(),
           quizItemId,
           userId: userId ?? null,
           choiceId: pickedChoice.id,

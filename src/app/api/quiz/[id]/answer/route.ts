@@ -28,7 +28,7 @@ export async function GET(
 
   const item = await prisma.quizItem.findFirst({
     where: { id: quizItemId, quizId },
-    include: { question: { include: { answers: true } } },
+    include: { Question: { include: { Choice: true } } },
   });
 
   if (!item) {
@@ -39,7 +39,7 @@ export async function GET(
     quizId,
     quizItemId,
     questionId: item.questionId,
-    choices: item.question.answers.map((a) => ({
+    choices: item.Question.Choice.map((a) => ({
       id: a.id,
       text: a.text,
     })),
@@ -65,13 +65,13 @@ export async function POST(
 
   const item = await prisma.quizItem.findFirst({
     where: { id: quizItemId, quizId },
-    include: { question: { include: { answers: true } } },
+    include: { Question: { include: { Choice: true } } },
   });
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({
     quizId,
     quizItemId,
     questionId: item.questionId,
-    choices: item.question.answers.map((a) => ({ id: a.id, text: a.text })),
+    choices: item.Question.Choice.map((a) => ({ id: a.id, text: a.text })),
   });
 }
