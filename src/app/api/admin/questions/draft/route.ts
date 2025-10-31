@@ -19,20 +19,31 @@ export async function POST() {
 
     console.error("🔵 [DRAFT API] Creating draft question in database...");
     
-    // Create a minimal draft question
+    // Generate UUIDs using global crypto (available in Node.js 19+)
+    const questionId = crypto.randomUUID();
+    const choiceIds = [
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      crypto.randomUUID()
+    ];
+    
+    // Create a minimal draft question with IDs
     const question = await prisma.question.create({
       data: {
+        id: questionId,
         text: "[Draft - Not yet saved]",
         explanation: "",
         objective: "",
         references: null,
-        answers: {
+        Choice: {
           create: [
-            { text: "Option A", isCorrect: false },
-            { text: "Option B", isCorrect: false },
-            { text: "Option C", isCorrect: false },
-            { text: "Option D", isCorrect: false },
-            { text: "Option E", isCorrect: false },
+            { id: choiceIds[0], text: "Option A", isCorrect: false },
+            { id: choiceIds[1], text: "Option B", isCorrect: false },
+            { id: choiceIds[2], text: "Option C", isCorrect: false },
+            { id: choiceIds[3], text: "Option D", isCorrect: false },
+            { id: choiceIds[4], text: "Option E", isCorrect: false },
           ],
         },
       },
