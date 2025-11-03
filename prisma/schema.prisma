@@ -74,6 +74,8 @@ model Choice {
   stemImageUrl String?
   correctOptionIds Json?
   Question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId], map: "idx_choice_questionid")
 }
 
 model CommentVote {
@@ -293,6 +295,8 @@ model PreClerkshipQuestionComment {
   @@index([createdById], map: "idx_preclerkship_questioncomment_createdbyid")
   @@index([parentId], map: "idx_preclerkship_questioncomment_parentid")
   @@index([questionId], map: "idx_preclerkship_questioncomment_questionid")
+  @@index([upvoteCount], map: "idx_preclerkship_questioncomment_upvotecount")
+  @@index([questionId, createdAt], map: "idx_preclerkship_questioncomment_questionid_createdat")
 }
 
 model PreClerkshipQuestionOccurrence {
@@ -336,6 +340,8 @@ model PreClerkshipQuiz {
   @@index([userId], map: "idx_preclerkship_quiz_userid")
   @@index([userId, createdAt], map: "idx_preclerkship_quiz_userid_createdat")
   @@index([yearLevel], map: "idx_preclerkship_quiz_yearlevel")
+  @@index([status], map: "idx_preclerkship_quiz_status")
+  @@index([userId, status], map: "idx_preclerkship_quiz_userid_status")
 }
 
 model PreClerkshipQuizItem {
@@ -442,6 +448,8 @@ model Question {
 
   @@index([id], map: "idx_question_id")
   @@index([questionType], map: "idx_question_type")
+  @@index([createdAt], map: "idx_question_createdat")
+  @@index([yearCaptured], map: "idx_question_yearcaptured")
 }
 
 model QuestionComment {
@@ -465,6 +473,8 @@ model QuestionComment {
   @@index([createdById], map: "idx_questioncomment_createdbyid")
   @@index([parentId], map: "idx_questioncomment_parentid")
   @@index([questionId], map: "idx_questioncomment_questionid")
+  @@index([upvoteCount], map: "idx_questioncomment_upvotecount")
+  @@index([questionId, createdAt], map: "idx_questioncomment_questionid_createdat")
 }
 
 model QuestionOccurrence {
@@ -479,6 +489,8 @@ model QuestionOccurrence {
 
   @@unique([questionId, year, rotation], map: "uniq_questionoccurrence_questionid_year_rotation")
   @@index([questionId], map: "idx_questionoccurrence_questionid")
+  @@index([year], map: "idx_questionoccurrence_year")
+  @@index([year, rotation], map: "idx_questionoccurrence_year_rotation")
 }
 
 model QuestionTag {
@@ -490,6 +502,7 @@ model QuestionTag {
   @@id([questionId, tagId])
   @@index([questionId], map: "idx_questiontag_questionid")
   @@index([tagId], map: "idx_questiontag_tagid")
+  @@index([tagId, questionId], map: "idx_questiontag_tagid_questionid")
 }
 
 model Quiz {
@@ -505,6 +518,8 @@ model Quiz {
 
   @@index([userId], map: "idx_quiz_userid")
   @@index([userId, createdAt], map: "idx_quiz_userid_createdat")
+  @@index([status], map: "idx_quiz_status")
+  @@index([userId, status], map: "idx_quiz_userid_status")
 }
 
 model QuizItem {
@@ -619,6 +634,7 @@ model Tag {
   @@unique([type, value])
   @@index([type], map: "idx_tag_type")
   @@index([type, value], map: "idx_tag_type_value")
+  @@index([value], map: "idx_tag_value")
 }
 
 model User {
