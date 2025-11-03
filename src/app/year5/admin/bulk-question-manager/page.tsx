@@ -140,8 +140,22 @@ function tagLabelFromPair(raw: string): string | null {
   return getTagLabel(normalized, value) ?? value;
 }
 
+type EMQOption = {
+  id: string;
+  text: string;
+};
+
+type EMQStem = {
+  id: string;
+  text: string;
+  correctOptionIds: string[];
+  stemImageUrl?: string;
+};
+
 interface ExtractedQuestion {
   id: string;
+  questionType?: 'MCQ' | 'EMQ';
+  // MCQ fields
   questionText: string;
   optionA: string;
   optionB: string;
@@ -149,6 +163,11 @@ interface ExtractedQuestion {
   optionD: string;
   optionE?: string;
   correctAnswer: string;
+  // EMQ fields
+  emqTheme?: string;
+  emqOptions?: EMQOption[];
+  emqStems?: EMQStem[];
+  // Common fields
   explanation: string;
   educationalObjective: string;
   references: string;
@@ -732,10 +751,30 @@ function BulkQuestionManagerContent() {
           console.warn(`🔷 [SAVE ALL] Validation issue:`, issue);
           validationIssues.push(issue);
         }
-        if (!question.answers.some(a => a.isCorrect)) {
-          const issue = `Question ${index + 1}: must have at least one correct answer`;
-          console.warn(`🔷 [SAVE ALL] Validation issue:`, issue);
-          validationIssues.push(issue);
+        
+        // Check if this is an EMQ question by checking if it has questionType or emqOptions
+        const originalQuestion = state.questions[index];
+        const isEMQ = originalQuestion.questionType === 'EMQ' || 
+                      (originalQuestion.emqOptions && originalQuestion.emqOptions.length > 0);
+        
+        if (isEMQ) {
+          // For EMQ: validate that all stems have at least one correct option
+          const stems = originalQuestion.emqStems || [];
+          const hasInvalidStem = stems.some(stem => 
+            !stem.correctOptionIds || stem.correctOptionIds.length === 0
+          );
+          if (hasInvalidStem) {
+            const issue = `Question ${index + 1}: each EMQ stem must have at least one correct answer`;
+            console.warn(`🔷 [SAVE ALL] Validation issue:`, issue);
+            validationIssues.push(issue);
+          }
+        } else {
+          // For MCQ: check that at least one answer is marked correct
+          if (!question.answers.some(a => a.isCorrect)) {
+            const issue = `Question ${index + 1}: must have at least one correct answer`;
+            console.warn(`🔷 [SAVE ALL] Validation issue:`, issue);
+            validationIssues.push(issue);
+          }
         }
       });
 
@@ -1002,11 +1041,36 @@ ${formattedList}`);
                     <tr key={question.id} className="border-b border-sky-100 hover:bg-sky-50 transition-colors duration-200">
                       <td className="px-4 py-3 text-sm font-medium text-[#0ea5e9]">{index + 1}</td>
                       <td className="px-4 py-3 text-sm text-slate-800 max-w-xs">
-                        <div className="truncate" title={question.questionText}>
-                          {question.questionText.substring(0, 100)}...
-                        </div>
+                        {(() => {
+                          const isEMQ = question.questionType === 'EMQ' || 
+                                        (question.emqOptions && question.emqOptions.length > 0);
+                          const displayText = isEMQ 
+                            ? (question.emqTheme || question.questionText || 'EMQ Question (No lead)')
+                            : question.questionText;
+                          const previewText = displayText.length > 100 
+                            ? displayText.substring(0, 100) + '...' 
+                            : displayText;
+                          
+                          return (
+                            <div className="truncate" title={displayText}>
+                              {isEMQ && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mr-2">EMQ</span>}
+                              {previewText}
+                            </div>
+                          );
+                        })()}
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-[#0ea5e9]">{question.correctAnswer}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-[#0ea5e9]">
+                        {(() => {
+                          const isEMQ = question.questionType === 'EMQ' || 
+                                        (question.emqOptions && question.emqOptions.length > 0);
+                          if (isEMQ) {
+                            const stemCount = question.emqStems?.length || 0;
+                            const optionCount = question.emqOptions?.length || 0;
+                            return `EMQ (${stemCount} stems, ${optionCount} options)`;
+                          }
+                          return question.correctAnswer;
+                        })()}
+                      </td>
                       <td className="px-4 py-3 text-sm">
                         <input
                           type="text"
