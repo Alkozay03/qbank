@@ -965,10 +965,31 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         <div className="h-full overflow-auto">
           <div className="flex flex-col">
             {items.map((it, i) => {
-              const response = getSafeResponse(it);
-              const _answered = Boolean(response.choiceId);
-              const _correct = response.isCorrect ?? false;
+              const isEMQ = it.question.questionType === 'EMQ';
               const even = i % 2 === 0;
+              
+              // For EMQ, calculate correct/incorrect counts
+              let correctCount = 0;
+              let incorrectCount = 0;
+              let _answered = false;
+              
+              if (isEMQ && it.responses && it.responses.length > 0) {
+                _answered = true;
+                it.responses.forEach(r => {
+                  if (r.isCorrect) correctCount++;
+                  else incorrectCount++;
+                });
+              } else {
+                // MCQ logic
+                const response = getSafeResponse(it);
+                _answered = Boolean(response.choiceId);
+                const _correct = response.isCorrect ?? false;
+                if (_answered) {
+                  if (_correct) correctCount = 1;
+                  else incorrectCount = 1;
+                }
+              }
+              
               return (
                 <button
                   key={it.id}
@@ -994,14 +1015,23 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   title={`Question ${i + 1}`}
                 >
                   <span className="text-base">{i + 1}</span>
-                  <span className="ml-auto inline-flex items-center gap-2">
+                  <span className="ml-auto inline-flex items-center gap-1.5">
                     {it.marked && <Flag aria-hidden size={18} className="text-[#e11d48]" />}
                     {_answered && (
-                      _correct ? (
-                        <Check aria-hidden size={18} className="text-[#16a34a]" />
-                      ) : (
-                        <X aria-hidden size={18} className="text-[#e11d48]" />
-                      )
+                      <>
+                        {correctCount > 0 && (
+                          <span className="inline-flex items-center gap-0.5">
+                            {isEMQ && <span className="text-[10px]">{correctCount}</span>}
+                            <Check aria-hidden size={18} className="text-[#16a34a]" />
+                          </span>
+                        )}
+                        {incorrectCount > 0 && (
+                          <span className="inline-flex items-center gap-0.5">
+                            {isEMQ && <span className="text-[10px]">{incorrectCount}</span>}
+                            <X aria-hidden size={18} className="text-[#e11d48]" />
+                          </span>
+                        )}
+                      </>
                     )}
                   </span>
                 </button>

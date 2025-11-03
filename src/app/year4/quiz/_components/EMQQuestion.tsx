@@ -74,73 +74,64 @@ const EMQQuestion = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Theme/Lead-in */}
+    <div className="space-y-4">
+      {/* Theme/Lead-in - Matches MCQ stem styling */}
       <div 
-        className="rounded-xl border-l-4 p-5 shadow-sm"
+        className="quiz-question rounded-2xl border p-5"
         style={{ 
-          backgroundColor: isDark ? '#0f172a' : '#f0f9ff',
-          borderColor: isDark ? '#56A2CD' : 'var(--color-primary)',
+          borderColor: 'var(--color-primary)',
+          backgroundColor: isDark ? '#000000' : '#ffffff',
           transition: 'all 0.2s ease-out'
         }}
       >
         <div 
-          className="prose prose-sm max-w-none font-medium"
+          className="text-[15px] leading-relaxed prose prose-sm max-w-none"
           style={{ 
-            fontSize: `${fontScale * 1.05}em`,
-            color: isDark ? '#e0f2fe' : '#0c4a6e'
+            fontSize: `${fontScale}rem`,
+            color: isDark ? 'var(--color-text-primary)' : '#171717'
           }}
           dangerouslySetInnerHTML={{ __html: theme }}
         />
       </div>
 
-      {/* Options List */}
+      {/* Options List - Simple border like MCQ choices */}
       <div 
-        className="rounded-xl border-2 p-6 shadow-md"
+        className="rounded-2xl border p-5"
         style={{
-          backgroundColor: isDark ? '#1e293b' : '#ffffff',
-          borderColor: isDark ? '#475569' : '#cbd5e1',
+          backgroundColor: isDark ? '#000000' : '#ffffff',
+          borderColor: 'var(--color-primary)',
           transition: 'all 0.2s ease-out'
         }}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <div 
-            className="w-1 h-6 rounded-full"
-            style={{ backgroundColor: isDark ? '#56A2CD' : 'var(--color-primary)' }}
-          />
-          <h3 
-            className="font-bold tracking-tight" 
-            style={{ 
-              fontSize: `${fontScale * 1.1}em`,
-              color: isDark ? '#56A2CD' : 'var(--color-primary)'
-            }}
-          >
-            Available Options
-          </h3>
-        </div>
-        <div className="space-y-3">
+        <h3 
+          className="mb-3 font-semibold text-sm" 
+          style={{ 
+            fontSize: `${fontScale}rem`,
+            color: isDark ? 'var(--color-text-primary)' : '#171717'
+          }}
+        >
+          Options:
+        </h3>
+        <div className="space-y-2">
           {options.map((option, idx) => (
             <div 
               key={option.id} 
-              className="flex gap-4 p-3 rounded-lg transition-all"
-              style={{ 
-                fontSize: `${fontScale}em`,
-                backgroundColor: isDark ? '#0f172a' : '#f8fafc',
-                border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
-              }}
+              className="flex gap-3 items-start"
+              style={{ fontSize: `${fontScale}rem` }}
             >
               <span 
-                className="font-bold min-w-[2.5rem] text-center px-2 py-1 rounded-md"
-                style={{ 
-                  backgroundColor: isDark ? '#1e40af' : '#dbeafe',
-                  color: isDark ? '#93c5fd' : '#1e40af'
+                className="grid h-5 w-5 place-items-center rounded-full border text-[11px] font-bold shrink-0 mt-0.5"
+                style={{
+                  backgroundColor: 'transparent',
+                  borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
+                  color: isDark ? 'var(--color-text-primary)' : 'var(--color-primary)'
                 }}
               >
                 {getOptionLabel(idx)}
               </span>
               <div 
                 className="flex-1 prose prose-sm max-w-none"
-                style={{ color: isDark ? '#cbd5e1' : '#334155' }}
+                style={{ color: isDark ? 'var(--color-text-primary)' : '#171717' }}
                 dangerouslySetInnerHTML={{ __html: option.text }}
               />
             </div>
@@ -148,23 +139,17 @@ const EMQQuestion = ({
         </div>
       </div>
 
-      {/* Stems */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-2 mb-2">
-          <div 
-            className="w-1 h-6 rounded-full"
-            style={{ backgroundColor: isDark ? '#56A2CD' : 'var(--color-primary)' }}
-          />
-          <h3 
-            className="font-bold tracking-tight" 
-            style={{ 
-              fontSize: `${fontScale * 1.1}em`,
-              color: isDark ? '#56A2CD' : 'var(--color-primary)'
-            }}
-          >
-            Match each scenario to the most appropriate option
-          </h3>
-        </div>
+      {/* Stems - Each stem is like an MCQ question */}
+      <div className="space-y-4">
+        <h3 
+          className="font-semibold text-sm" 
+          style={{ 
+            fontSize: `${fontScale}rem`,
+            color: isDark ? 'var(--color-text-primary)' : '#171717'
+          }}
+        >
+          Match each scenario to the most appropriate option:
+        </h3>
         
         {stems.map((stem, stemIdx) => {
           const selectedOptionId = selectedAnswers[stem.id];
@@ -174,59 +159,35 @@ const EMQQuestion = ({
           return (
             <div 
               key={stem.id}
-              className="rounded-xl border-2 p-5 transition-all shadow-md"
+              className="rounded-2xl border p-5"
               style={{
-                backgroundColor: submitted && isCorrect 
-                  ? (isDark ? '#064e3b' : '#dcfce7')
-                  : submitted && isIncorrect
-                  ? (isDark ? '#7f1d1d' : '#fee2e2')
-                  : (isDark ? '#1e293b' : '#ffffff'),
-                borderColor: submitted && isCorrect
-                  ? (isDark ? '#10b981' : '#22c55e')
-                  : submitted && isIncorrect
-                  ? (isDark ? '#ef4444' : '#ef4444')
-                  : (isDark ? '#475569' : '#cbd5e1'),
-                transform: submitted && isCorrect ? 'scale(1.01)' : 'scale(1)'
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                borderColor: 'var(--color-primary)',
+                transition: 'all 0.2s ease-out'
               }}
             >
-              {/* Stem number and text */}
-              <div className="mb-4">
-                <div className="flex items-center gap-3 mb-3">
+              {/* Stem text */}
+              <div className="mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <span 
-                    className="font-bold px-3 py-1.5 rounded-lg"
-                    style={{ 
-                      fontSize: `${fontScale * 0.95}em`,
-                      backgroundColor: isDark ? '#1e40af' : '#dbeafe',
-                      color: isDark ? '#93c5fd' : '#1e40af'
+                    className="grid h-5 w-5 place-items-center rounded-full border text-[11px] font-bold"
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
+                      color: isDark ? 'var(--color-text-primary)' : 'var(--color-primary)'
                     }}
                   >
-                    Scenario {stemIdx + 1}
+                    {stemIdx + 1}
                   </span>
-                  {submitted && isCorrect && (
-                    <span 
-                      className="font-bold text-lg px-2"
-                      style={{ color: isDark ? '#10b981' : '#16a34a' }}
-                    >
-                      ✓ Correct
-                    </span>
-                  )}
-                  {submitted && isIncorrect && (
-                    <span 
-                      className="font-bold text-lg px-2"
-                      style={{ color: isDark ? '#ef4444' : '#dc2626' }}
-                    >
-                      ✗ Incorrect
-                    </span>
-                  )}
+                  <div 
+                    className="prose prose-sm max-w-none flex-1 text-[15px] leading-relaxed"
+                    style={{ 
+                      fontSize: `${fontScale}rem`,
+                      color: isDark ? 'var(--color-text-primary)' : '#171717'
+                    }}
+                    dangerouslySetInnerHTML={{ __html: stem.text }}
+                  />
                 </div>
-                <div 
-                  className="prose prose-sm max-w-none leading-relaxed"
-                  style={{ 
-                    fontSize: `${fontScale}em`,
-                    color: isDark ? '#e2e8f0' : '#1e293b'
-                  }}
-                  dangerouslySetInnerHTML={{ __html: stem.text }}
-                />
               </div>
 
               {/* Stem image if present */}
@@ -237,76 +198,68 @@ const EMQQuestion = ({
                     alt={`Stem ${stemIdx + 1} image`}
                     width={800}
                     height={600}
-                    className="max-h-80 w-full object-contain rounded border"
-                    style={{ borderColor: isDark ? '#374151' : '#E6F0F7' }}
+                    className="max-h-80 w-full object-contain rounded-lg border"
+                    style={{ borderColor: isDark ? '#4b5563' : '#E6F0F7' }}
                     unoptimized
                   />
                 </div>
               )}
 
-              {/* Answer selector */}
-              <div className="flex items-center gap-3 flex-wrap mt-4 p-4 rounded-lg" style={{
-                backgroundColor: isDark ? '#0f172a' : '#f8fafc',
-                border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`
-              }}>
+              {/* Answer selector - inline like MCQ */}
+              <div className="flex items-center gap-3 flex-wrap">
                 <label 
                   htmlFor={`stem-${stem.id}`}
-                  className="font-semibold"
+                  className="text-sm font-medium"
                   style={{ 
-                    fontSize: `${fontScale * 0.95}em`,
-                    color: isDark ? '#94a3b8' : '#475569'
+                    fontSize: `${fontScale * 0.9}rem`,
+                    color: isDark ? 'var(--color-text-primary)' : '#374151'
                   }}
                 >
-                  Select answer:
+                  Your answer:
                 </label>
                 <select
                   id={`stem-${stem.id}`}
                   value={selectedAnswers[stem.id] || ""}
                   onChange={(e) => handleStemAnswerChange(stem.id, e.target.value)}
                   disabled={submitted}
-                  className="rounded-lg border-2 px-4 py-2.5 font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-100 shadow-sm"
+                  className="rounded-lg border px-3 py-1.5 font-medium transition-colors disabled:cursor-not-allowed"
                   style={{ 
-                    fontSize: `${fontScale}em`,
-                    backgroundColor: submitted && isCorrect
-                      ? (isDark ? '#065f46' : '#d1fae5')
-                      : submitted && isIncorrect
-                      ? (isDark ? '#991b1b' : '#fecaca')
-                      : (isDark ? '#1e293b' : '#ffffff'),
-                    borderColor: submitted && isCorrect
-                      ? '#22c55e'
-                      : submitted && isIncorrect
-                      ? '#ef4444'
-                      : (isDark ? '#475569' : '#cbd5e1'),
-                    color: submitted && isCorrect
-                      ? (isDark ? '#10b981' : '#065f46')
-                      : submitted && isIncorrect
-                      ? (isDark ? '#ef4444' : '#991b1b')
-                      : (isDark ? '#e2e8f0' : '#1e293b')
+                    fontSize: `${fontScale}rem`,
+                    backgroundColor: isDark ? '#000000' : '#ffffff',
+                    borderColor: isDark ? '#4b5563' : '#d1d5db',
+                    color: isDark ? 'var(--color-text-primary)' : '#171717'
                   }}
                 >
-                  <option value="">Choose option...</option>
+                  <option value="">Select...</option>
                   {options.map((option, idx) => (
                     <option key={option.id} value={option.id}>
-                      Option {getOptionLabel(idx)}
+                      {getOptionLabel(idx)}
                     </option>
                   ))}
                 </select>
 
-                {/* Show correct answer after submission if wrong */}
+                {/* Show tick/cross and stats after submission */}
+                {submitted && (
+                  <>
+                    {isCorrect ? (
+                      <span className="text-lg font-extrabold" style={{ color: isDark ? "#ffffff" : "#16a34a" }} title="Correct">✓</span>
+                    ) : (
+                      <span className="text-lg font-extrabold" style={{ color: isDark ? "#ffffff" : "#e11d48" }} title="Incorrect">×</span>
+                    )}
+                  </>
+                )}
+
+                {/* Show correct answer if wrong */}
                 {submitted && isIncorrect && (
-                  <div 
-                    className="px-3 py-1.5 rounded-lg font-semibold text-sm"
-                    style={{ 
-                      backgroundColor: isDark ? '#064e3b' : '#d1fae5',
-                      color: isDark ? '#10b981' : '#065f46',
-                      border: `1px solid ${isDark ? '#059669' : '#10b981'}`
-                    }}
+                  <span 
+                    className="text-xs font-medium"
+                    style={{ color: isDark ? '#10b981' : '#16a34a' }}
                   >
-                    Correct answer: {stem.correctOptionIds.map(id => {
+                    Correct: {stem.correctOptionIds.map(id => {
                       const optIdx = options.findIndex(opt => opt.id === id);
                       return optIdx >= 0 ? getOptionLabel(optIdx) : '';
                     }).join(', ')}
-                  </div>
+                  </span>
                 )}
               </div>
             </div>
@@ -314,53 +267,41 @@ const EMQQuestion = ({
         })}
       </div>
 
-      {/* Submit button */}
+      {/* Submit button - matches MCQ styling */}
       {!submitted && (
-        <div className="flex flex-col items-end gap-2 mt-8">
-          {!allStemsAnswered && (
-            <p 
-              className="text-sm font-medium px-3 py-1 rounded-lg"
-              style={{ 
-                color: isDark ? '#fbbf24' : '#d97706',
-                backgroundColor: isDark ? '#422006' : '#fef3c7',
-                border: `1px solid ${isDark ? '#92400e' : '#fcd34d'}`
-              }}
-            >
-              Please answer all scenarios before submitting
-            </p>
-          )}
+        <div className="mt-3 flex justify-end">
           <button
             onClick={onSubmit}
             disabled={!allStemsAnswered}
-            className="rounded-xl px-8 py-3 font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed shadow-lg text-lg"
+            className="rounded-2xl px-6 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
             style={{
               backgroundColor: allStemsAnswered 
                 ? (isDark ? '#56A2CD' : 'var(--color-primary)') 
-                : '#6b7280',
+                : undefined,
               transition: 'all 0.2s ease-out',
             }}
             onMouseEnter={(e) => {
               if (!e.currentTarget.disabled) {
-                e.currentTarget.style.transform = 'translateY(-3px)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
                 if (!isDark) {
                   e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
                 } else {
                   e.currentTarget.style.backgroundColor = '#2F6F8F';
                 }
                 e.currentTarget.style.boxShadow = isDark 
-                  ? '0 15px 35px rgba(86, 162, 205, 0.4)' 
-                  : '0 15px 35px rgba(0, 0, 0, 0.2)';
+                  ? '0 10px 25px rgba(75, 85, 99, 0.25)' 
+                  : '0 10px 25px rgba(0, 0, 0, 0.15)';
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = allStemsAnswered
-                ? (isDark ? '#56A2CD' : 'var(--color-primary)')
-                : '#6b7280';
+              if (allStemsAnswered) {
+                e.currentTarget.style.backgroundColor = isDark ? '#56A2CD' : 'var(--color-primary)';
+              }
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)';
+              e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
             }}
           >
-            Submit All Answers ({stems.length} scenarios)
+            Submit Answer
           </button>
         </div>
       )}
