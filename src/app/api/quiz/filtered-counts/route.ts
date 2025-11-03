@@ -126,7 +126,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // Get USER-SPECIFIC question modes from the cached table
+    // Get USER-SPECIFIC question modes from the cached table (with index optimization)
     const userQuestionModes = await prisma.userQuestionMode.findMany({
       where: {
         userId: userId,
@@ -136,6 +136,11 @@ export async function POST(req: Request) {
         questionId: true,
         mode: true,
       },
+      // Use cacheStrategy for repeated queries with same filters
+      cacheStrategy: {
+        ttl: 60, // Cache for 60 seconds
+        swr: 30  // Stale-while-revalidate for 30 seconds
+      }
     });
 
     // Create a map of questionId -> mode for fast lookup
@@ -174,171 +179,165 @@ export async function POST(req: Request) {
       }
     });
 
-    // OPTIMIZED: Count tags with single-pass approach for each cascade level
-    // Instead of querying 6000 questions multiple times, we query once per level
+    // OPTIMIZED V2: Fetch ALL question data with tags in ONE query, then filter in memory
+    // This eliminates 8 database queries → replaces with 1 query + fast in-memory operations
     
-    // Helper: Get questions matching specific filters (optimized to run once per cascade level)
-    async function getFilteredQuestionIds(includeRotation: boolean, includeResource: boolean, includeDiscipline: boolean, includeSystem: boolean) {
-      const conditions: Prisma.Sql[] = [];
-      
-      // Always include year filter
-      if (year) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionOccurrence" qo
-            WHERE qo."questionId" = q.id AND qo.year = ${year}
-          )`
-        );
+    type QuestionWithTags = {
+      id: string;
+      tags: Array<{ type: string; value: string }>;
+    };
+
+    // Single query to get ALL approved questions with their tags for the selected year
+    const allQuestionsData = await prisma.$queryRaw<Array<{
+      id: string;
+      tags: unknown;
+    }>>`
+      SELECT 
+        q.id,
+        COALESCE(
+          json_agg(
+            json_build_object('type', t.type::text, 'value', t.value)
+          ) FILTER (WHERE t.id IS NOT NULL),
+          '[]'::json
+        ) as tags
+      FROM "Question" q
+      LEFT JOIN "QuestionTag" qt ON q.id = qt."questionId"
+      LEFT JOIN "Tag" t ON qt."tagId" = t.id
+      WHERE q.status = 'APPROVED'
+        ${year ? Prisma.sql`AND EXISTS (
+          SELECT 1 FROM "QuestionOccurrence" qo 
+          WHERE qo."questionId" = q.id AND qo.year = ${year}
+        )` : Prisma.empty}
+      GROUP BY q.id
+    `;
+
+    // Parse tags and create lookup structure
+    const allQuestions: QuestionWithTags[] = allQuestionsData.map(q => ({
+      id: q.id,
+      tags: Array.isArray(q.tags) ? q.tags as Array<{ type: string; value: string }> : []
+    }));
+
+    // Create tag lookup maps for fast filtering
+    const questionTagMap = new Map<string, Map<string, Set<string>>>();
+    for (const q of allQuestions) {
+      const tagsByType = new Map<string, Set<string>>();
+      for (const tag of q.tags) {
+        if (!tagsByType.has(tag.type)) {
+          tagsByType.set(tag.type, new Set());
+        }
+        tagsByType.get(tag.type)!.add(tag.value);
       }
-      
-      // Conditionally add other filters based on cascade level
-      if (includeRotation && rotValues.length) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionTag" qr
-            JOIN "Tag" tr ON tr.id = qr."tagId"
-            WHERE qr."questionId" = q.id
-              AND tr.type = ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)}
-              AND tr.value IN (${Prisma.join(rotValues.map((value) => Prisma.sql`${value}`))})
-          )`
-        );
-      }
-      
-      if (includeResource && resValues.length) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionTag" qr2
-            JOIN "Tag" tr2 ON tr2.id = qr2."tagId"
-            WHERE qr2."questionId" = q.id
-              AND tr2.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
-              AND tr2.value IN (${Prisma.join(resValues.map((value) => Prisma.sql`${value}`))})
-          )`
-        );
-      }
-      
-      if (includeDiscipline && discValues.length) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionTag" qs
-            JOIN "Tag" ts ON ts.id = qs."tagId"
-            WHERE qs."questionId" = q.id
-              AND ts.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
-              AND ts.value IN (${Prisma.join(discValues.map((value) => Prisma.sql`${value}`))})
-          )`
-        );
-      }
-      
-      if (includeSystem && sysValues.length) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionTag" qy
-            JOIN "Tag" ty ON ty.id = qy."tagId"
-            WHERE qy."questionId" = q.id
-              AND ty.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
-              AND ty.value IN (${Prisma.join(sysValues.map((value) => Prisma.sql`${value}`))})
-          )`
-        );
-      }
-      
-      const where = conditions.length 
-        ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
-        : Prisma.empty;
-        
-      const questions = await prisma.$queryRaw<Array<{ id: string }>>(
-        Prisma.sql`SELECT DISTINCT q.id FROM "Question" q ${where}`
-      );
-      
-      const questionIds = questions.map(q => q.id);
-      
-      // Apply mode filter (user-specific)
-      if (selectedModes.length > 0) {
-        return questionIds.filter(questionId => {
-          const mode = modeMap.get(questionId);
+      questionTagMap.set(q.id, tagsByType);
+    }
+
+    // Helper: Filter questions by tags (in-memory, very fast)
+    function filterQuestionsByTags(
+      questions: QuestionWithTags[],
+      includeRotation: boolean,
+      includeResource: boolean,
+      includeDiscipline: boolean,
+      includeSystem: boolean
+    ): string[] {
+      return questions
+        .filter(q => {
+          const tagsByType = questionTagMap.get(q.id)!;
+          
+          // Check rotation filter (OR within category)
+          if (includeRotation && rotValues.length > 0) {
+            const rotTags = tagsByType.get(TagType.ROTATION) || new Set();
+            if (!rotValues.some(val => rotTags.has(val))) return false;
+          }
+          
+          // Check resource filter (OR within category)
+          if (includeResource && resValues.length > 0) {
+            const resTags = tagsByType.get(TagType.RESOURCE) || new Set();
+            if (!resValues.some(val => resTags.has(val))) return false;
+          }
+          
+          // Check discipline filter (OR within category)
+          if (includeDiscipline && discValues.length > 0) {
+            const discTags = tagsByType.get(TagType.SUBJECT) || new Set();
+            if (!discValues.some(val => discTags.has(val))) return false;
+          }
+          
+          // Check system filter (OR within category)
+          if (includeSystem && sysValues.length > 0) {
+            const sysTags = tagsByType.get(TagType.SYSTEM) || new Set();
+            if (!sysValues.some(val => sysTags.has(val))) return false;
+          }
+          
+          return true;
+        })
+        .filter(q => {
+          // Apply mode filter (user-specific)
+          if (selectedModes.length === 0) return true;
+          
+          const mode = modeMap.get(q.id);
           if (!mode || mode === "unused") {
             return selectedModes.includes("unused");
           }
           return selectedModes.includes(mode);
-        });
-      }
-      
-      return questionIds;
+        })
+        .map(q => q.id);
     }
-    
-    // OPTIMIZED: Count all tag types in ONE query instead of separate queries
-    async function countAllTagsInQuestions(questionIds: string[]) {
-      if (questionIds.length === 0) {
-        return {
-          rotations: {},
-          resources: {},
-          disciplines: {},
-          systems: {}
-        };
-      }
-      
-      // Single query to get ALL tag counts across ALL types
-      const rows = await prisma.$queryRaw<Array<{ type: string; value: string; c: number }>>(
-        Prisma.sql`
-          SELECT 
-            t.type::text as type,
-            t.value,
-            COUNT(DISTINCT q.id)::int AS c
-          FROM "Question" q
-          JOIN "QuestionTag" qt ON qt."questionId" = q.id
-          JOIN "Tag" t ON t.id = qt."tagId"
-          WHERE q.id IN (${Prisma.join(questionIds.map(id => Prisma.sql`${id}`))})
-            AND t.type IN (
-              ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)},
-              ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)},
-              ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)},
-              ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
-            )
-          GROUP BY t.type, t.value
-        `
-      );
-      
-      // Organize results by tag type
-      const result = {
-        rotations: {} as Record<string, number>,
-        resources: {} as Record<string, number>,
-        disciplines: {} as Record<string, number>,
-        systems: {} as Record<string, number>
+
+    // Helper: Count tags in filtered questions (in-memory, very fast)
+    function countTagsInQuestions(questionIds: Set<string>): {
+      rotations: Record<string, number>;
+      resources: Record<string, number>;
+      disciplines: Record<string, number>;
+      systems: Record<string, number>;
+    } {
+      const counts = {
+        rotations: new Map<string, number>(),
+        resources: new Map<string, number>(),
+        disciplines: new Map<string, number>(),
+        systems: new Map<string, number>()
       };
       
-      for (const row of rows) {
-        if (row.type === TagType.ROTATION) {
-          result.rotations[row.value] = row.c;
-        } else if (row.type === TagType.RESOURCE) {
-          result.resources[row.value] = row.c;
-        } else if (row.type === TagType.SUBJECT) {
-          result.disciplines[row.value] = row.c;
-        } else if (row.type === TagType.SYSTEM) {
-          result.systems[row.value] = row.c;
+      for (const q of allQuestions) {
+        if (!questionIds.has(q.id)) continue;
+        
+        for (const tag of q.tags) {
+          let map: Map<string, number> | undefined;
+          if (tag.type === TagType.ROTATION) map = counts.rotations;
+          else if (tag.type === TagType.RESOURCE) map = counts.resources;
+          else if (tag.type === TagType.SUBJECT) map = counts.disciplines;
+          else if (tag.type === TagType.SYSTEM) map = counts.systems;
+          
+          if (map) {
+            map.set(tag.value, (map.get(tag.value) || 0) + 1);
+          }
         }
       }
       
-      return result;
+      return {
+        rotations: Object.fromEntries(counts.rotations),
+        resources: Object.fromEntries(counts.resources),
+        disciplines: Object.fromEntries(counts.disciplines),
+        systems: Object.fromEntries(counts.systems)
+      };
     }
 
-    // Calculate counts for each cascade level (rotation → resource → discipline → system)
-    // Each level includes upstream filters but excludes its own category
+    // Calculate counts for each cascade level (all in-memory now, no more DB queries!)
     
-    // Rotation counts: based on mode only
-    const rotationQuestions = await getFilteredQuestionIds(false, false, false, false);
-    const rotationCounts = await countAllTagsInQuestions(rotationQuestions);
+    // Rotation counts: mode filter only (no tag filters)
+    const rotationFiltered = filterQuestionsByTags(allQuestions, false, false, false, false);
+    const rotationCounts = countTagsInQuestions(new Set(rotationFiltered));
     
-    // Resource counts: based on mode + rotations
-    const resourceQuestions = await getFilteredQuestionIds(true, false, false, false);
-    const resourceCounts = await countAllTagsInQuestions(resourceQuestions);
+    // Resource counts: mode + rotation filters
+    const resourceFiltered = filterQuestionsByTags(allQuestions, true, false, false, false);
+    const resourceCounts = countTagsInQuestions(new Set(resourceFiltered));
     
-    // Discipline counts: based on mode + rotations + resources
-    const disciplineQuestions = await getFilteredQuestionIds(true, true, false, false);
-    const disciplineCounts = await countAllTagsInQuestions(disciplineQuestions);
+    // Discipline counts: mode + rotation + resource filters
+    const disciplineFiltered = filterQuestionsByTags(allQuestions, true, true, false, false);
+    const disciplineCounts = countTagsInQuestions(new Set(disciplineFiltered));
     
-    // System counts: based on mode + rotations + resources + disciplines
-    const systemQuestions = await getFilteredQuestionIds(true, true, true, false);
-    const systemCounts = await countAllTagsInQuestions(systemQuestions);
+    // System counts: mode + rotation + resource + discipline filters
+    const systemFiltered = filterQuestionsByTags(allQuestions, true, true, true, false);
+    const systemCounts = countTagsInQuestions(new Set(systemFiltered));
     
-    // Combine results from each cascade level
+    // Extract results from each cascade level
     const rotations = rotationCounts.rotations;
     const resources = resourceCounts.resources;
     const disciplines = disciplineCounts.disciplines;
