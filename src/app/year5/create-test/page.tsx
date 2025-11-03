@@ -114,7 +114,7 @@ export default function CreateTest() {
     selDisciplines.length > 0 &&
     selSystems.length > 0 &&
     qCount >= 1 &&
-    qCount <= 40;
+    qCount <= 100;
 
   // effective selections
   const effectiveModes = selModes.length ? selModes : ["unused"];

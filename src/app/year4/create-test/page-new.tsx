@@ -166,7 +166,7 @@ export default function CreateTest() {
     selections.disciplines.length > 0 &&
     selections.systems.length > 0 &&
     qCount >= 1 &&
-    qCount <= 40;
+    qCount <= 100;
 
   async function submit() {
     if (!isValid || busy) return;
@@ -230,11 +230,11 @@ export default function CreateTest() {
               <input
                 type="number"
                 min={1}
-                max={40}
+                max={100}
                 value={qCount || ""}
                 onChange={(e) => setQCount(Number(e.target.value))}
                 className="w-32 rounded-2xl border-2 border-border px-4 py-3 text-center text-lg font-bold text-primary bg-card outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
-                placeholder="1-40"
+                placeholder="1-100"
               />
             </div>
           </div>

@@ -773,12 +773,17 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             ? {
                 ...it,
                 // Keep marked state unchanged - user controls it manually
-                responses: [
-                  {
-                    choiceId: data?.pickedId ?? selectedChoiceId,
-                    isCorrect: Boolean(finalCorrect),
-                  },
-                ],
+                responses: isEMQ && data?.results
+                  ? data.results.map(r => ({
+                      choiceId: r.stemId,
+                      isCorrect: r.isCorrect,
+                    }))
+                  : [
+                      {
+                        choiceId: data?.pickedId ?? selectedChoiceId,
+                        isCorrect: Boolean(finalCorrect),
+                      },
+                    ],
               }
             : it
         )
