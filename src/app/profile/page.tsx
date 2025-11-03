@@ -83,11 +83,26 @@ export default function Profile() {
         const to = sessionStorage.getItem("profileBackTo") || backTo.current || "/year4";
         sessionStorage.removeItem("profileBackTo");
         
-        // Use router.push to navigate back
-        router.push(to);
+        // Force navigation using window.location as fallback
+        try {
+          router.push(to);
+          // Fallback if router.push doesn't work
+          setTimeout(() => {
+            if (window.location.pathname === '/profile') {
+              window.location.href = to;
+            }
+          }, 500);
+        } catch (navError) {
+          console.error("Navigation error:", navError);
+          window.location.href = to;
+        }
+      } else {
+        console.error("Profile save failed with status:", r.status);
+        alert("Failed to save profile. Please try again.");
       }
     } catch (error) {
       console.error("Error saving profile:", error);
+      alert("An error occurred while saving. Please try again.");
     } finally {
       setSaving(false);
     }
