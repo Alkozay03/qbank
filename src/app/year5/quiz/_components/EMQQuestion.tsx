@@ -88,8 +88,7 @@ const EMQQuestion = ({
           className="text-[15px] leading-relaxed prose prose-sm max-w-none"
           style={{ 
             fontSize: `${fontScale}rem`,
-            color: isDark ? 'var(--color-text-primary)' : 'var(--color-primary-light)',
-            opacity: isDark ? 1 : 0.85
+            color: isDark ? '#ffffff' : '#000000'
           }}
           dangerouslySetInnerHTML={{ __html: theme }}
         />
@@ -223,12 +222,21 @@ const EMQQuestion = ({
                   value={selectedAnswers[stem.id] || ""}
                   onChange={(e) => handleStemAnswerChange(stem.id, e.target.value)}
                   disabled={submitted}
-                  className="rounded-lg border px-3 py-1.5 transition-colors disabled:cursor-not-allowed"
+                  className="rounded-xl border px-4 py-2 transition-all disabled:cursor-not-allowed shadow-sm hover:shadow-md focus:ring-2 focus:ring-opacity-50"
                   style={{ 
                     fontSize: `${fontScale}rem`,
                     backgroundColor: isDark ? '#000000' : '#ffffff',
                     borderColor: isDark ? '#4b5563' : '#d1d5db',
-                    color: 'var(--color-primary)'
+                    color: 'var(--color-primary)',
+                    appearance: 'none',
+                    backgroundImage: isDark 
+                      ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`
+                      : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23374151' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em',
+                    paddingRight: '2.5rem',
+                    outline: 'none'
                   }}
                 >
                   <option value="">Select...</option>
@@ -252,15 +260,23 @@ const EMQQuestion = ({
 
                 {/* Show correct answer if wrong */}
                 {submitted && isIncorrect && (
-                  <span 
-                    className="text-xs font-medium"
-                    style={{ color: isDark ? '#10b981' : '#16a34a' }}
+                  <div 
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg mt-2 w-full"
+                    style={{ 
+                      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(22, 163, 74, 0.1)',
+                      borderLeft: `3px solid ${isDark ? '#10b981' : '#16a34a'}`
+                    }}
                   >
-                    Correct: {stem.correctOptionIds.map(id => {
-                      const optIdx = options.findIndex(opt => opt.id === id);
-                      return optIdx >= 0 ? getOptionLabel(optIdx) : '';
-                    }).join(', ')}
-                  </span>
+                    <span 
+                      className="text-sm font-semibold"
+                      style={{ color: isDark ? '#10b981' : '#16a34a' }}
+                    >
+                      Correct Answer: {stem.correctOptionIds.map(id => {
+                        const optIdx = options.findIndex(opt => opt.id === id);
+                        return optIdx >= 0 ? getOptionLabel(optIdx) : '';
+                      }).join(', ')}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
