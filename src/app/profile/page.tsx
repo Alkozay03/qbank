@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import ThemePicker from "@/components/ThemePicker";
 
 type Me = {
@@ -18,7 +17,6 @@ type Me = {
 };
 
 export default function Profile() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<Me | null>(null);
   const [saving, setSaving] = useState(false);
@@ -68,42 +66,26 @@ export default function Profile() {
     try {
       const r = await fetch("/api/profile", { 
         method: "POST", 
-        body,
-        headers: {
-          'Accept': 'application/json'
-        }
+        body
       });
       
-      if (r.ok) {
-        // Refetch the profile data to update local state
-        const updatedData = await r.json();
-        setMe(updatedData);
-        
-        // Navigate back to previous page after saving
+      if (r.ok || r.redirected) {
+        // Profile saved successfully, navigate back
         const to = sessionStorage.getItem("profileBackTo") || backTo.current || "/year4";
         sessionStorage.removeItem("profileBackTo");
         
-        // Force navigation using window.location as fallback
-        try {
-          router.push(to);
-          // Fallback if router.push doesn't work
-          setTimeout(() => {
-            if (window.location.pathname === '/profile') {
-              window.location.href = to;
-            }
-          }, 500);
-        } catch (navError) {
-          console.error("Navigation error:", navError);
-          window.location.href = to;
-        }
+        // Use window.location for reliable navigation
+        window.location.href = to;
       } else {
         console.error("Profile save failed with status:", r.status);
+        const errorText = await r.text();
+        console.error("Error details:", errorText);
         alert("Failed to save profile. Please try again.");
+        setSaving(false);
       }
     } catch (error) {
       console.error("Error saving profile:", error);
       alert("An error occurred while saving. Please try again.");
-    } finally {
       setSaving(false);
     }
   }
