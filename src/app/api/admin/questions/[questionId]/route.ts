@@ -16,7 +16,21 @@ type TagPayload = {
 
 type IncomingTag = string | TagPayload;
 
+type EMQOption = {
+  id: string;
+  text: string;
+};
+
+type EMQStem = {
+  id: string;
+  text: string;
+  correctOptionIds: string[];
+  stemImageUrl?: string;
+};
+
 type QuestionUpdateBody = {
+  questionType?: 'MCQ' | 'EMQ';
+  // MCQ fields
   questionText?: string;
   optionA?: string;
   optionB?: string;
@@ -24,6 +38,11 @@ type QuestionUpdateBody = {
   optionD?: string;
   optionE?: string;
   correctAnswer?: string;
+  // EMQ fields
+  emqTheme?: string;
+  emqOptions?: EMQOption[];
+  emqStems?: EMQStem[];
+  // Common fields
   explanation?: string;
   educationalObjective?: string;
   references?: string;
@@ -141,27 +160,54 @@ export async function GET(
       value: qt.Tag.value,
     }));
 
-    const answerLabels = ['A', 'B', 'C', 'D', 'E'];
-    const optionsByLabel: Record<string, string> = {} as Record<string, string>;
-    question.Choice.forEach((answer, index) => {
-      if (index < answerLabels.length) {
-        optionsByLabel[answerLabels[index]] = answer.text;
-      }
-    });
+    // Handle both MCQ and EMQ question types
+    const questionType = question.questionType || 'MCQ';
+    
+    let mcqData = {};
+    let emqData = {};
+    
+    if (questionType === 'EMQ') {
+      // For EMQ: stems are stored as Choice records, options in emqOptions JSON
+      emqData = {
+        emqTheme: question.emqTheme ?? '',
+        emqOptions: (question.emqOptions as EMQOption[]) || [],
+        emqStems: question.Choice.map(choice => ({
+          id: choice.id,
+          text: choice.text,
+          correctOptionIds: (choice.correctOptionIds as string[]) || [],
+          stemImageUrl: choice.stemImageUrl || '',
+        })),
+      };
+    } else {
+      // For MCQ: options are stored as Choice records
+      const answerLabels = ['A', 'B', 'C', 'D', 'E'];
+      const optionsByLabel: Record<string, string> = {} as Record<string, string>;
+      question.Choice.forEach((answer, index) => {
+        if (index < answerLabels.length) {
+          optionsByLabel[answerLabels[index]] = answer.text;
+        }
+      });
 
-    const correctIndex = question.Choice.findIndex((ans) => ans.isCorrect);
-    const correctLetter = correctIndex >= 0 && correctIndex < answerLabels.length ? answerLabels[correctIndex] : '';
+      const correctIndex = question.Choice.findIndex((ans) => ans.isCorrect);
+      const correctLetter = correctIndex >= 0 && correctIndex < answerLabels.length ? answerLabels[correctIndex] : '';
+      
+      mcqData = {
+        optionA: optionsByLabel['A'] ?? '',
+        optionB: optionsByLabel['B'] ?? '',
+        optionC: optionsByLabel['C'] ?? '',
+        optionD: optionsByLabel['D'] ?? '',
+        optionE: optionsByLabel['E'] ?? '',
+        correctAnswer: correctLetter,
+      };
+    }
 
     return NextResponse.json({
       id: question.id,
       customId: question.customId,
+      questionType,
       questionText: question.text ?? '',
-      optionA: optionsByLabel['A'] ?? '',
-      optionB: optionsByLabel['B'] ?? '',
-      optionC: optionsByLabel['C'] ?? '',
-      optionD: optionsByLabel['D'] ?? '',
-      optionE: optionsByLabel['E'] ?? '',
-      correctAnswer: correctLetter,
+      ...mcqData,
+      ...emqData,
       explanation: question.explanation ?? '',
       educationalObjective: question.objective ?? '',
       references: question.references ?? '',
@@ -249,22 +295,45 @@ export async function PUT(
         ? body.explanationImageUrl.trim()
         : "";
 
-    const answerCandidates = [
-      { label: 'A', text: body.optionA?.trim() ?? '' },
-      { label: 'B', text: body.optionB?.trim() ?? '' },
-      { label: 'C', text: body.optionC?.trim() ?? '' },
-      { label: 'D', text: body.optionD?.trim() ?? '' },
-      { label: 'E', text: body.optionE?.trim() ?? '' },
-    ].filter((entry) => entry.text.length > 0);
+    const questionType = body.questionType || existing.questionType || 'MCQ';
+    
+    // Validate based on question type
+    if (questionType === 'EMQ') {
+      // EMQ validation
+      if (!body.emqTheme || !body.emqOptions || !body.emqStems) {
+        return NextResponse.json({ error: "EMQ requires theme, options, and stems" }, { status: 400 });
+      }
+      if (body.emqOptions.length < 3) {
+        return NextResponse.json({ error: "EMQ requires at least 3 options" }, { status: 400 });
+      }
+      if (body.emqStems.length < 1) {
+        return NextResponse.json({ error: "EMQ requires at least 1 stem" }, { status: 400 });
+      }
+      // Validate each stem has at least one correct option
+      for (const stem of body.emqStems) {
+        if (!stem.correctOptionIds || stem.correctOptionIds.length === 0) {
+          return NextResponse.json({ error: "Each EMQ stem must have at least one correct answer" }, { status: 400 });
+        }
+      }
+    } else {
+      // MCQ validation
+      const answerCandidates = [
+        { label: 'A', text: body.optionA?.trim() ?? '' },
+        { label: 'B', text: body.optionB?.trim() ?? '' },
+        { label: 'C', text: body.optionC?.trim() ?? '' },
+        { label: 'D', text: body.optionD?.trim() ?? '' },
+        { label: 'E', text: body.optionE?.trim() ?? '' },
+      ].filter((entry) => entry.text.length > 0);
 
-    if (answerCandidates.length < 2) {
-      return NextResponse.json({ error: "At least two answer choices are required" }, { status: 400 });
-    }
+      if (answerCandidates.length < 2) {
+        return NextResponse.json({ error: "At least two answer choices are required" }, { status: 400 });
+      }
 
-    const normalizedCorrect = (body.correctAnswer ?? '').trim().toUpperCase();
-    const hasMatchingLabel = answerCandidates.some((answer) => answer.label === normalizedCorrect);
-    if (!hasMatchingLabel) {
-      return NextResponse.json({ error: "Correct answer must match one of the provided options (A-E)" }, { status: 400 });
+      const normalizedCorrect = (body.correctAnswer ?? '').trim().toUpperCase();
+      const hasMatchingLabel = answerCandidates.some((answer) => answer.label === normalizedCorrect);
+      if (!hasMatchingLabel) {
+        return NextResponse.json({ error: "Correct answer must match one of the provided options (A-E)" }, { status: 400 });
+      }
     }
 
     const rawOccurrences = Array.isArray(body.occurrences) ? body.occurrences : [];
@@ -293,7 +362,10 @@ export async function PUT(
     await prisma.question.update({
       where: { id: questionId },
       data: {
-        text: body.questionText ?? existing.text,
+        questionType: questionType,
+        text: questionType === 'EMQ' ? (body.emqTheme ?? existing.text) : (body.questionText ?? existing.text),
+        emqTheme: questionType === 'EMQ' ? (body.emqTheme ?? null) : null,
+        emqOptions: questionType === 'EMQ' ? (body.emqOptions || []) : [],
         explanation: body.explanation ?? existing.explanation,
         objective: body.educationalObjective ?? existing.objective,
         references:
@@ -327,14 +399,40 @@ export async function PUT(
       },
     });
 
+    // Update choices based on question type
     await prisma.choice.deleteMany({ where: { questionId } });
-    await prisma.choice.createMany({
-      data: answerCandidates.map((candidate) => ({
-        questionId,
-        text: candidate.text!.trim(),
-        isCorrect: candidate.label === normalizedCorrect,
-      })),
-    });
+    
+    if (questionType === 'EMQ' && body.emqStems) {
+      // Create EMQ stems as Choice records
+      await prisma.choice.createMany({
+        data: body.emqStems.map((stem) => ({
+          questionId,
+          text: stem.text.trim(),
+          isCorrect: false, // Not used for EMQ
+          correctOptionIds: stem.correctOptionIds,
+          stemImageUrl: stem.stemImageUrl || null,
+        })),
+      });
+    } else {
+      // Create MCQ options as Choice records
+      const answerCandidates = [
+        { label: 'A', text: body.optionA?.trim() ?? '' },
+        { label: 'B', text: body.optionB?.trim() ?? '' },
+        { label: 'C', text: body.optionC?.trim() ?? '' },
+        { label: 'D', text: body.optionD?.trim() ?? '' },
+        { label: 'E', text: body.optionE?.trim() ?? '' },
+      ].filter((entry) => entry.text.length > 0);
+      
+      const normalizedCorrect = (body.correctAnswer ?? '').trim().toUpperCase();
+      
+      await prisma.choice.createMany({
+        data: answerCandidates.map((candidate) => ({
+          questionId,
+          text: candidate.text.trim(),
+          isCorrect: candidate.label === normalizedCorrect,
+        })),
+      });
+    }
 
     if (Array.isArray(body.occurrences)) {
       await prisma.questionOccurrence.deleteMany({ where: { questionId } });

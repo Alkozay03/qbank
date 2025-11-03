@@ -30,6 +30,7 @@ import React, {
 } from "react";
 import clsx from "clsx";
 import { ClientSideQuestionDetails } from "./ClientSideQuestionDetails";
+import EMQQuestion from "./EMQQuestion";
 
 // Helper to check if dark mode is active
 const isDarkMode = () => {
@@ -148,11 +149,21 @@ const ZoomButtons = memo(function ZoomButtons({
 type TagType = "SUBJECT" | "SYSTEM" | "TOPIC" | "ROTATION" | "RESOURCE" | "MODE";
 type DisplayTagType = Exclude<TagType, "MODE" | "TOPIC">;
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
-type Choice = { id: string; text: string; isCorrect: boolean };
+type Choice = { 
+  id: string; 
+  text: string; 
+  isCorrect: boolean;
+  correctOptionIds?: string[] | null;
+  stemImageUrl?: string | null;
+};
+type EMQOption = { id: string; text: string };
 type Question = {
   id: string;
   customId?: number | null;
+  questionType?: 'MCQ' | 'EMQ';
   stem: string;
+  emqTheme?: string | null;
+  emqOptions?: EMQOption[] | null;
   explanation?: string | null;
   objective?: string | null;
   questionYear?: string | null;
@@ -168,6 +179,7 @@ type Question = {
     rotation: string | null;
     orderIndex: number | null;
   }>;
+  isAnswerConfirmed?: boolean;
 };
 
 type Item = {
@@ -562,6 +574,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   // Answers
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [crossed, setCrossed] = useState<Record<string, boolean>>({});
+  
+  // EMQ answers: stemId -> optionId
+  const [emqAnswers, setEmqAnswers] = useState<Record<string, string>>({});
 
   // Persisted HTML with marks per item
   const [sectionHTMLByItem, setSectionHTMLByItem] = useState<Record<string, SectionHTML>>({});
@@ -625,6 +640,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     setQuestionSeconds(0);
     setSelectedChoiceId(null);
     setCrossed({});
+    setEmqAnswers({}); // Reset EMQ answers on question change
     // --- added: reset change counter & last choice on question change ---
     changeRef.current = 0;
     lastChoiceRef.current = null;
@@ -687,21 +703,55 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // Submit answer
   async function submitAnswer() {
-    if (!currentItem || !selectedChoiceId) return;
-    const localCorrect =
-      currentItem.question.choices.find((c) => c.id === selectedChoiceId)?.isCorrect ?? null;
+    if (!currentItem) return;
+    
+    const isEMQ = currentItem.question.questionType === 'EMQ';
+    
+    // For EMQ, check if all stems are answered
+    if (isEMQ) {
+      const allStemsAnswered = currentItem.question.choices.every(
+        (stem) => emqAnswers[stem.id]
+      );
+      if (!allStemsAnswered) return;
+    } else {
+      // For MCQ, check if an answer is selected
+      if (!selectedChoiceId) return;
+    }
+    
+    const localCorrect = isEMQ 
+      ? null // EMQ has multiple correct answers
+      : currentItem.question.choices.find((c) => c.id === selectedChoiceId)?.isCorrect ?? null;
+      
     try {
+      const body = isEMQ
+        ? {
+            quizItemId: currentItem.id,
+            emqAnswers,
+            timeSeconds: questionSeconds,
+            changeCount: changeRef.current,
+          }
+        : {
+            quizItemId: currentItem.id,
+            choiceId: selectedChoiceId,
+            timeSeconds: questionSeconds,
+            changeCount: changeRef.current,
+          };
+      
       const res = await fetch(`/api/quiz/${id}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          quizItemId: currentItem.id,
-          choiceId: selectedChoiceId,
-          timeSeconds: questionSeconds,
-          changeCount: changeRef.current,
-        }),
+        body: JSON.stringify(body),
       });
-      const data = (await res.json().catch(() => ({}))) as { isCorrect?: boolean; pickedId?: string; error?: string };
+      
+      const data = (await res.json().catch(() => ({}))) as { 
+        isCorrect?: boolean; 
+        pickedId?: string; 
+        error?: string;
+        isEMQ?: boolean;
+        results?: Array<{ stemId: string; isCorrect: boolean }>;
+        correctCount?: number;
+        totalCount?: number;
+      };
 
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to submit answer");
@@ -1331,41 +1381,76 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         style={{ top: `${TOP_H}px`, bottom: `${BOTTOM_H}px`, paddingLeft: `var(--sbw)` }}
       >
         <div className="mx-auto max-w-4xl px-4 py-6">
-          <div className="quiz-question rounded-2xl border bg-white p-5" style={{ borderColor: 'var(--color-primary)' }}>
-            <div
-              data-section="stem"
-              className="text-[15px] leading-relaxed"
+          {/* Render EMQ or MCQ based on questionType */}
+          {currentItem?.question.questionType === 'EMQ' ? (
+            <div 
+              className="quiz-question rounded-2xl border p-5" 
               style={{ 
-                fontSize: `${fontScale}rem`,
-                color: isDark ? 'var(--color-text-primary)' : '#171717'
+                borderColor: 'var(--color-primary)',
+                backgroundColor: isDark ? '#000000' : '#ffffff',
+                transition: 'all 0.2s ease-out'
               }}
-              dangerouslySetInnerHTML={{
-                __html: getSafeHTML(
-                  currentItem, 
-                  sectionHTMLByItem, 
-                  'stem', 
-                  () => toHTML(currentItem?.question.stem ?? "")
-                )
-              }}
-            />
-          </div>
-
-          {/* Question Image */}
-          {currentItem?.question.questionImageUrl && (
-            <div className="mt-4">
-              <Image
-                src={currentItem.question.questionImageUrl}
-                alt="Question image"
-                width={1024}
-                height={768}
-                className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
-                unoptimized
+            >
+              <EMQQuestion
+                theme={currentItem.question.emqTheme ?? currentItem.question.stem}
+                options={(currentItem.question.emqOptions as EMQOption[]) ?? []}
+                stems={currentItem.question.choices.map(ch => ({
+                  id: ch.id,
+                  text: ch.text,
+                  correctOptionIds: (ch.correctOptionIds as string[]) ?? [],
+                  stemImageUrl: ch.stemImageUrl ?? null,
+                }))}
+                submitted={isAnswered}
+                submittedAnswers={emqAnswers}
+                fontScale={fontScale}
+                onAnswersChange={setEmqAnswers}
+                onSubmit={submitAnswer}
               />
             </div>
-          )}
+          ) : (
+            <>
+              <div 
+                className="quiz-question rounded-2xl border p-5" 
+                style={{ 
+                  borderColor: 'var(--color-primary)',
+                  backgroundColor: isDark ? '#000000' : '#ffffff',
+                  transition: 'all 0.2s ease-out'
+                }}
+              >
+                <div
+                  data-section="stem"
+                  className="text-[15px] leading-relaxed"
+                  style={{ 
+                    fontSize: `${fontScale}rem`,
+                    color: isDark ? 'var(--color-text-primary)' : '#171717'
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: getSafeHTML(
+                      currentItem, 
+                      sectionHTMLByItem, 
+                      'stem', 
+                      () => toHTML(currentItem?.question.stem ?? "")
+                    )
+                  }}
+                />
+              </div>
 
-          <div className="mt-4 space-y-2">
-            {currentItem?.question.choices.map((ch, idx) => {
+              {/* Question Image */}
+              {currentItem?.question.questionImageUrl && (
+                <div className="mt-4">
+                  <Image
+                    src={currentItem.question.questionImageUrl}
+                    alt="Question image"
+                    width={1024}
+                    height={768}
+                    className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
+                    unoptimized
+                  />
+                </div>
+              )}
+
+              <div className="mt-4 space-y-2">
+                {currentItem?.question.choices.map((ch, idx) => {
               const questionId = currentItem?.question.id;
               if (!questionId) return null;
               const questionStats = statsByQuestion[questionId];
@@ -1438,43 +1523,45 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             })}
           </div>
 
-          {!isAnswered && status === "Active" && (
-            <div className="mt-3 flex justify-end">
-              <button
-                onClick={submitAnswer}
-                disabled={!selectedChoiceId}
-                className="rounded-2xl px-6 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
-                style={{
-                  backgroundColor: isDarkMode() ? '#56A2CD' : 'var(--color-primary)',
-                  transition: 'all 0.2s ease-out',
-                }}
-                onMouseEnter={(e) => {
-                  if (!e.currentTarget.disabled) {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    const isDark = isDarkMode();
-                    // Update background color on hover
-                    if (!isDark) {
-                      e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
-                    } else {
-                      e.currentTarget.style.backgroundColor = '#2F6F8F';
-                    }
-                    // Use gray glow in dark mode, theme glow in light mode
-                    e.currentTarget.style.boxShadow = isDark 
-                      ? '0 10px 25px rgba(75, 85, 99, 0.25)' // Gray glow for dark mode
-                      : '0 10px 25px rgba(0, 0, 0, 0.15)'; // Theme glow for light mode
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  const isDark = isDarkMode();
-                  e.currentTarget.style.backgroundColor = isDark ? '#56A2CD' : 'var(--color-primary)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
-                }}
-              >
-                Submit Answer
-              </button>
-            </div>
-          )}
+                {!isAnswered && status === "Active" && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={submitAnswer}
+                      disabled={!selectedChoiceId}
+                      className="rounded-2xl px-6 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                      style={{
+                        backgroundColor: isDarkMode() ? '#56A2CD' : 'var(--color-primary)',
+                        transition: 'all 0.2s ease-out',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          const isDark = isDarkMode();
+                          // Update background color on hover
+                          if (!isDark) {
+                            e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
+                          } else {
+                            e.currentTarget.style.backgroundColor = '#2F6F8F';
+                          }
+                          // Use gray glow in dark mode, theme glow in light mode
+                          e.currentTarget.style.boxShadow = isDark 
+                            ? '0 10px 25px rgba(75, 85, 99, 0.25)' // Gray glow for dark mode
+                            : '0 10px 25px rgba(0, 0, 0, 0.15)'; // Theme glow for light mode
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const isDark = isDarkMode();
+                        e.currentTarget.style.backgroundColor = isDark ? '#56A2CD' : 'var(--color-primary)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
+                      }}
+                    >
+                      Submit Answer
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
 
           {currentItem && isAnswered && (
             <ClientSideQuestionDetails

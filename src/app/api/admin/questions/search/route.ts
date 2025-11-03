@@ -204,9 +204,24 @@ export async function POST(request: NextRequest) {
 
     const questions = await prisma.question.findMany({
       where,
-      include: {
-        Choice: { orderBy: { id: "asc" }, select: { text: true, isCorrect: true } },
-        QuestionTag: { include: { Tag: true } },
+      select: {
+        id: true,
+        customId: true,
+        text: true,
+        questionType: true,
+        emqOptions: true,
+        updatedAt: true,
+        createdAt: true,
+        isAnswerConfirmed: true,
+        Choice: { 
+          orderBy: { id: "asc" }, 
+          select: { text: true, isCorrect: true, correctOptionIds: true } 
+        },
+        QuestionTag: { 
+          select: { 
+            Tag: { select: { type: true, value: true } } 
+          } 
+        },
       },
       orderBy: { updatedAt: "desc" },
       take,
@@ -214,11 +229,22 @@ export async function POST(request: NextRequest) {
 
     const formatted = questions.map((question) => {
       const answerLabels = ["A", "B", "C", "D", "E"];
-      const correctIndex = question.Choice.findIndex((answer) => answer.isCorrect);
-      const correctAnswer = correctIndex >= 0 ? answerLabels[correctIndex] : "";
+      const questionType = question.questionType || 'MCQ';
+      
+      let correctAnswer = "";
+      if (questionType === 'MCQ') {
+        const correctIndex = question.Choice.findIndex((answer) => answer.isCorrect);
+        correctAnswer = correctIndex >= 0 ? answerLabels[correctIndex] : "";
+      } else {
+        // For EMQ, show stem count
+        const stemCount = question.Choice.length;
+        const emqOptions = Array.isArray(question.emqOptions) ? question.emqOptions : [];
+        correctAnswer = `EMQ (${stemCount} stems, ${emqOptions.length} options)`;
+      }
 
       const tagsSet = new Set<string>();
-      for (const { Tag: tag } of question.QuestionTag) {
+      for (const qt of question.QuestionTag) {
+        const tag = qt.Tag;
         const typeKey = tag.type as TagType;
         const category = TAG_TYPE_TO_CATEGORY[typeKey];
         if (!category || category === "topic" || category === "mode") continue;
@@ -229,7 +255,8 @@ export async function POST(request: NextRequest) {
       const tags = Array.from(tagsSet);
 
       const categoryMap = new Map<string, string>();
-      for (const { Tag: tag } of question.QuestionTag) {
+      for (const qt of question.QuestionTag) {
+        const tag = qt.Tag;
         const category = TAG_TYPE_TO_CATEGORY[tag.type];
         if (!category || category === "topic" || category === "mode") continue;
         if (!categoryMap.has(category)) {
@@ -241,6 +268,7 @@ export async function POST(request: NextRequest) {
         id: question.id,
         customId: question.customId ?? null,
         questionText: question.text ?? "",
+        questionType,
         correctAnswer,
         rotation: categoryMap.get("rotation") ?? null,
         resource: categoryMap.get("resource") ?? null,

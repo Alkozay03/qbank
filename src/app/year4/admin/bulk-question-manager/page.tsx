@@ -140,8 +140,22 @@ function tagLabelFromPair(raw: string): string | null {
   return getTagLabel(normalized, value) ?? value;
 }
 
+type EMQOption = {
+  id: string;
+  text: string;
+};
+
+type EMQStem = {
+  id: string;
+  text: string;
+  correctOptionIds: string[];
+  stemImageUrl?: string;
+};
+
 interface ExtractedQuestion {
   id: string;
+  questionType?: 'MCQ' | 'EMQ';
+  // MCQ fields
   questionText: string;
   optionA: string;
   optionB: string;
@@ -149,6 +163,11 @@ interface ExtractedQuestion {
   optionD: string;
   optionE?: string;
   correctAnswer: string;
+  // EMQ fields
+  emqTheme?: string;
+  emqOptions?: EMQOption[];
+  emqStems?: EMQStem[];
+  // Common fields
   explanation: string;
   educationalObjective: string;
   references: string;
@@ -327,6 +346,7 @@ function BulkQuestionManagerContent() {
 
   const createEmptyQuestion = useCallback((): ExtractedQuestion => ({
     id: 'manual-' + Date.now().toString(),
+    questionType: 'MCQ',
     questionText: '',
     optionA: '',
     optionB: '',
@@ -334,6 +354,9 @@ function BulkQuestionManagerContent() {
     optionD: '',
     optionE: '',
     correctAnswer: '',
+    emqTheme: '',
+    emqOptions: [],
+    emqStems: [],
     explanation: '',
     educationalObjective: '',
     references: '',
@@ -470,6 +493,7 @@ function BulkQuestionManagerContent() {
         id: String(data?.id ?? trimmed),
         dbId: String(data?.id ?? trimmed),
         customId: data?.customId,
+        questionType: data?.questionType ?? 'MCQ',
         questionText: data?.questionText ?? data?.text ?? '',
         optionA: data?.optionA ?? '',
         optionB: data?.optionB ?? '',
@@ -477,6 +501,9 @@ function BulkQuestionManagerContent() {
         optionD: data?.optionD ?? '',
         optionE: data?.optionE ?? '',
         correctAnswer: (data?.correctAnswer ?? '').toString().trim().toUpperCase(),
+        emqTheme: data?.emqTheme ?? '',
+        emqOptions: data?.emqOptions ?? [],
+        emqStems: data?.emqStems ?? [],
         explanation: data?.explanation ?? '',
         educationalObjective: data?.educationalObjective ?? '',
         references: data?.references ?? '',
@@ -666,6 +693,7 @@ function BulkQuestionManagerContent() {
       };
 
       const payload = {
+        questionType: updatedQuestion.questionType || 'MCQ',
         questionText: updatedQuestion.questionText,
         optionA: updatedQuestion.optionA,
         optionB: updatedQuestion.optionB,
@@ -673,6 +701,9 @@ function BulkQuestionManagerContent() {
         optionD: updatedQuestion.optionD,
         optionE: updatedQuestion.optionE ?? '',
         correctAnswer: normalizedCorrect,
+        emqTheme: updatedQuestion.emqTheme,
+        emqOptions: updatedQuestion.emqOptions,
+        emqStems: updatedQuestion.emqStems,
         explanation: updatedQuestion.explanation,
         educationalObjective: updatedQuestion.educationalObjective,
         references: updatedQuestion.references,
@@ -1682,23 +1713,280 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
             </div>
           </div>
 
-          {/* Question Text with Rich Text Editor */}
-          <div>
-            <label className="block text-sm font-medium text-[#0284c7] mb-2">Question Text</label>
-            <div className="border border-sky-200 rounded-lg">
-              <RichTextEditor
-                content={editedQuestion.questionText}
-                onChange={(content) => setEditedQuestion(prev => ({ ...prev, questionText: content }))}
-                placeholder="Enter the question text..."
-                className="min-h-[150px]"
-                allowBold={false} // Don't allow bold in question text
-                preserveLineBreaks={true}
-                hideImageButtons={true} // Images handled in dedicated section below
-              />
+          {/* Question Type Toggle */}
+          <div className="rounded-2xl border-2 border-[#0ea5e9] bg-sky-50 p-4">
+            <label className="block text-sm font-semibold text-[#0284c7] mb-3 uppercase tracking-wide">Question Type</label>
+            <p className="text-xs text-slate-600 mb-3">Select the type of question: Multiple Choice (MCQ) or Extended Matching (EMQ)</p>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditedQuestion((prev) => ({
+                    ...prev,
+                    questionType: 'MCQ',
+                    emqTheme: '',
+                    emqOptions: [],
+                    emqStems: [],
+                  }));
+                }}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 font-semibold transition-all duration-200 ${
+                  editedQuestion.questionType === 'MCQ' || !editedQuestion.questionType
+                    ? 'border-[#0ea5e9] bg-[#0ea5e9] text-white shadow-lg'
+                    : 'border-sky-200 bg-white text-[#0284c7] hover:border-[#0ea5e9] hover:bg-sky-50'
+                }`}
+              >
+                MCQ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditedQuestion((prev) => ({
+                    ...prev,
+                    questionType: 'EMQ',
+                    emqTheme: prev.emqTheme || '',
+                    emqOptions: prev.emqOptions && prev.emqOptions.length > 0 ? prev.emqOptions : [
+                      { id: 'opt-' + Date.now() + '-1', text: '' },
+                      { id: 'opt-' + Date.now() + '-2', text: '' },
+                      { id: 'opt-' + Date.now() + '-3', text: '' },
+                    ],
+                    emqStems: prev.emqStems && prev.emqStems.length > 0 ? prev.emqStems : [
+                      { id: 'stem-' + Date.now() + '-1', text: '', correctOptionIds: [], stemImageUrl: '' },
+                    ],
+                  }));
+                }}
+                className={`flex-1 px-4 py-3 rounded-lg border-2 font-semibold transition-all duration-200 ${
+                  editedQuestion.questionType === 'EMQ'
+                    ? 'border-[#0ea5e9] bg-[#0ea5e9] text-white shadow-lg'
+                    : 'border-sky-200 bg-white text-[#0284c7] hover:border-[#0ea5e9] hover:bg-sky-50'
+                }`}
+              >
+                EMQ
+              </button>
             </div>
           </div>
 
-          {/* Question Image Upload */}
+          {/* Conditional rendering based on question type */}
+          {editedQuestion.questionType === 'EMQ' ? (
+            <>
+              {/* EMQ Theme */}
+              <div>
+                <label className="block text-sm font-medium text-[#0284c7] mb-2">EMQ Theme / Lead-in</label>
+                <textarea
+                  value={editedQuestion.emqTheme || ''}
+                  onChange={(e) => setEditedQuestion(prev => ({ ...prev, emqTheme: e.target.value }))}
+                  placeholder="Enter the theme or lead-in for this EMQ (e.g., 'For each patient scenario, select the most likely diagnosis')"
+                  className="w-full min-h-[80px] px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none resize-vertical"
+                  rows={3}
+                />
+              </div>
+
+              {/* EMQ Options List */}
+              <div className="rounded-2xl border border-sky-200 bg-white p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">Options List</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newOption: EMQOption = {
+                        id: 'opt-' + Date.now(),
+                        text: '',
+                      };
+                      setEditedQuestion(prev => ({
+                        ...prev,
+                        emqOptions: [...(prev.emqOptions || []), newOption],
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-[#0ea5e9] text-white text-sm rounded-lg hover:bg-[#0284c7] transition-all duration-300"
+                  >
+                    + Add Option
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mb-3">
+                  Enter all possible answer options (typically 8-20 options for an EMQ)
+                </p>
+                <div className="space-y-2">
+                  {(editedQuestion.emqOptions || []).map((option, index) => (
+                    <div key={option.id} className="flex gap-2">
+                      <div className="flex-shrink-0 w-8 h-10 flex items-center justify-center bg-sky-50 rounded text-sm font-semibold text-[#0284c7]">
+                        {String.fromCharCode(65 + index)}
+                      </div>
+                      <input
+                        type="text"
+                        value={option.text}
+                        onChange={(e) => {
+                          setEditedQuestion(prev => ({
+                            ...prev,
+                            emqOptions: (prev.emqOptions || []).map(opt =>
+                              opt.id === option.id ? { ...opt, text: e.target.value } : opt
+                            ),
+                          }));
+                        }}
+                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                        className="flex-1 px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditedQuestion(prev => ({
+                            ...prev,
+                            emqOptions: (prev.emqOptions || []).filter(opt => opt.id !== option.id),
+                            emqStems: (prev.emqStems || []).map(stem => ({
+                              ...stem,
+                              correctOptionIds: stem.correctOptionIds.filter(id => id !== option.id),
+                            })),
+                          }));
+                        }}
+                        className="flex-shrink-0 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* EMQ Stems */}
+              <div className="rounded-2xl border border-sky-200 bg-white p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">Question Stems</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newStem: EMQStem = {
+                        id: 'stem-' + Date.now(),
+                        text: '',
+                        correctOptionIds: [],
+                        stemImageUrl: '',
+                      };
+                      setEditedQuestion(prev => ({
+                        ...prev,
+                        emqStems: [...(prev.emqStems || []), newStem],
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-[#0ea5e9] text-white text-sm rounded-lg hover:bg-[#0284c7] transition-all duration-300"
+                  >
+                    + Add Stem
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mb-3">
+                  Enter clinical scenarios/vignettes. Each stem can have one or more correct answers from the options list.
+                </p>
+                <div className="space-y-4">
+                  {(editedQuestion.emqStems || []).map((stem, stemIndex) => (
+                    <div key={stem.id} className="border border-sky-200 rounded-lg p-4 bg-sky-50">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-semibold text-[#0284c7]">Stem {stemIndex + 1}</h4>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditedQuestion(prev => ({
+                              ...prev,
+                              emqStems: (prev.emqStems || []).filter(s => s.id !== stem.id),
+                            }));
+                          }}
+                          className="text-sm text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-all duration-300"
+                        >
+                          Remove Stem
+                        </button>
+                      </div>
+                      <textarea
+                        value={stem.text}
+                        onChange={(e) => {
+                          setEditedQuestion(prev => ({
+                            ...prev,
+                            emqStems: (prev.emqStems || []).map(s =>
+                              s.id === stem.id ? { ...s, text: e.target.value } : s
+                            ),
+                          }));
+                        }}
+                        placeholder="Enter the clinical scenario/vignette..."
+                        className="w-full min-h-[100px] px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none resize-vertical mb-3 bg-white"
+                        rows={4}
+                      />
+                      
+                      {/* Stem Image Upload - Placeholder for now */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-[#0284c7] mb-1">Stem Image (Optional)</label>
+                        <input
+                          type="text"
+                          value={stem.stemImageUrl || ''}
+                          onChange={(e) => {
+                            setEditedQuestion(prev => ({
+                              ...prev,
+                              emqStems: (prev.emqStems || []).map(s =>
+                                s.id === stem.id ? { ...s, stemImageUrl: e.target.value } : s
+                              ),
+                            }));
+                          }}
+                          placeholder="Image URL (upload functionality coming soon)"
+                          className="w-full px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none text-sm bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-[#0284c7] mb-2">Correct Answer(s)</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                          {(editedQuestion.emqOptions || []).map((option, optIndex) => {
+                            const isSelected = stem.correctOptionIds.includes(option.id);
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => {
+                                  setEditedQuestion(prev => ({
+                                    ...prev,
+                                    emqStems: (prev.emqStems || []).map(s =>
+                                      s.id === stem.id
+                                        ? {
+                                            ...s,
+                                            correctOptionIds: isSelected
+                                              ? s.correctOptionIds.filter(id => id !== option.id)
+                                              : [...s.correctOptionIds, option.id],
+                                          }
+                                        : s
+                                    ),
+                                  }));
+                                }}
+                                className={`px-3 py-2 text-sm rounded-lg border-2 font-medium transition-all duration-200 ${
+                                  isSelected
+                                    ? 'border-green-500 bg-green-500 text-white shadow-md'
+                                    : 'border-sky-200 bg-white text-[#0284c7] hover:border-[#0ea5e9] hover:bg-sky-50'
+                                }`}
+                              >
+                                {String.fromCharCode(65 + optIndex)} {isSelected && '✓'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Click to select/deselect correct answer(s)</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* MCQ Question Text with Rich Text Editor */}
+              <div>
+                <label className="block text-sm font-medium text-[#0284c7] mb-2">Question Text</label>
+                <div className="border border-sky-200 rounded-lg">
+                  <RichTextEditor
+                    content={editedQuestion.questionText}
+                    onChange={(content) => setEditedQuestion(prev => ({ ...prev, questionText: content }))}
+                    placeholder="Enter the question text..."
+                    className="min-h-[150px]"
+                    allowBold={false}
+                    preserveLineBreaks={true}
+                    hideImageButtons={true}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Question Image Upload (for MCQ only) */}
+          {editedQuestion.questionType !== 'EMQ' && (
           <div className="rounded-2xl border border-sky-200 bg-white p-4">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-semibold text-[#0ea5e9] uppercase tracking-wide">Question Image</label>
@@ -1769,42 +2057,48 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               </div>
             ) : null}
           </div>
+          )}
 
-          {/* Options with Rich Text Editors */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {['A', 'B', 'C', 'D', 'E'].map((option) => (
-              <div key={option}>
-                <label className="block text-sm font-medium text-[#0284c7] mb-2">Option {option}</label>
-                <textarea
-                  value={editedQuestion[`option${option}` as keyof ExtractedQuestion] as string || ''}
-                  onChange={(e) => setEditedQuestion(prev => ({ 
-                    ...prev, 
-                    [`option${option}`]: e.target.value 
-                  }))}
-                  placeholder={`Enter option ${option}...`}
-                  className="w-full min-h-[80px] px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none resize-vertical"
-                  rows={3}
-                />
+          {/* MCQ-specific fields */}
+          {editedQuestion.questionType !== 'EMQ' && (
+            <>
+              {/* Options with Rich Text Editors */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {['A', 'B', 'C', 'D', 'E'].map((option) => (
+                  <div key={option}>
+                    <label className="block text-sm font-medium text-[#0284c7] mb-2">Option {option}</label>
+                    <textarea
+                      value={editedQuestion[`option${option}` as keyof ExtractedQuestion] as string || ''}
+                      onChange={(e) => setEditedQuestion(prev => ({ 
+                        ...prev, 
+                        [`option${option}`]: e.target.value 
+                      }))}
+                      placeholder={`Enter option ${option}...`}
+                      className="w-full min-h-[80px] px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none resize-vertical"
+                      rows={3}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Correct Answer */}
-          <div>
-            <label className="block text-sm font-medium text-[#0284c7] mb-2">Correct Answer</label>
-            <select
-              value={editedQuestion.correctAnswer}
-              onChange={(e) => setEditedQuestion(prev => ({ ...prev, correctAnswer: e.target.value }))}
-              className="w-full px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
-            >
-              <option value="">Select correct answer</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-              <option value="E">E</option>
-            </select>
-          </div>
+              {/* Correct Answer */}
+              <div>
+                <label className="block text-sm font-medium text-[#0284c7] mb-2">Correct Answer</label>
+                <select
+                  value={editedQuestion.correctAnswer}
+                  onChange={(e) => setEditedQuestion(prev => ({ ...prev, correctAnswer: e.target.value }))}
+                  className="w-full px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
+                >
+                  <option value="">Select correct answer</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="E">E</option>
+                </select>
+              </div>
+            </>
+          )}
 
           {/* Explanation with Rich Text Editor */}
           <div>

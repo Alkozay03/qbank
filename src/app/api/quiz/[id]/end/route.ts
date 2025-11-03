@@ -18,16 +18,16 @@ export async function POST(
   const { id } = await ctx.params;
 
   const quiz = await prisma.quiz.findFirst({
-    where: { id, user: { email } },
+    where: { id, User: { email } },
     select: {
       id: true,
       userId: true,
-      items: {
+      QuizItem: {
         select: {
           id: true,
           questionId: true,
           marked: true,
-          responses: { select: { id: true }, take: 1 },
+          Response: { select: { id: true }, take: 1 },
         },
       },
     },
@@ -38,13 +38,14 @@ export async function POST(
   }
 
   // Handle omitted questions (not answered and not marked)
-  const omissionTargets = quiz.items.filter((item) => !item.marked && item.responses.length === 0);
+  const omissionTargets = quiz.QuizItem.filter((item) => !item.marked && item.Response.length === 0);
 
   if (omissionTargets.length) {
     await prisma.$transaction(
       omissionTargets.map((item) =>
         prisma.response.create({
           data: {
+            id: crypto.randomUUID(),
             quizItemId: item.id,
             userId: quiz.userId,
             choiceId: null,
@@ -58,7 +59,7 @@ export async function POST(
   // Update USER-SPECIFIC question modes in the cached table
   const modeUpdates = [];
   
-  for (const item of quiz.items) {
+  for (const item of quiz.QuizItem) {
     // Get the latest response for this question from the CURRENT quiz
     const currentQuizResponse = await prisma.response.findFirst({
       where: { quizItemId: item.id },

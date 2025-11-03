@@ -71,6 +71,8 @@ model Choice {
   questionId String
   text       String
   isCorrect  Boolean  @default(false)
+  stemImageUrl String?
+  correctOptionIds Json?
   Question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
@@ -426,6 +428,9 @@ model Question {
   references          String?
   isAnswerConfirmed   Boolean              @default(true)
   embedding           Json?
+  questionType        QuestionType         @default(MCQ)
+  emqTheme            String?
+  emqOptions          Json?
   AIExtraction        AIExtraction?
   AnswerVote          AnswerVote[]
   Choice              Choice[]
@@ -436,6 +441,7 @@ model Question {
   UserQuestionMode    UserQuestionMode[]
 
   @@index([id], map: "idx_question_id")
+  @@index([questionType], map: "idx_question_type")
 }
 
 model QuestionComment {
@@ -701,6 +707,11 @@ enum PreClerkshipTagType {
   QUESTION_TYPE
   RESOURCE
   MODE
+}
+
+enum QuestionType {
+  MCQ
+  EMQ
 }
 
 enum QuizMode {

@@ -31,19 +31,22 @@ export default async function QuizPage({
   });
 
   const quiz = await prisma.quiz.findFirst({
-    where: { id, user: { email } },
+    where: { id, User: { email } },
     select: {
       id: true,
-      items: {
+      QuizItem: {
         select: {
           id: true,
           orderInQuiz: true,
           marked: true,
-          question: {
+          Question: {
             select: {
               id: true,
               customId: true,
+              questionType: true,
               text: true,
+              emqTheme: true,
+              emqOptions: true,
               explanation: true,
               objective: true,
               yearCaptured: true,
@@ -53,7 +56,7 @@ export default async function QuizPage({
               explanationImageUrl: true,
               references: true,
               isAnswerConfirmed: true,
-              occurrences: {
+              QuestionOccurrence: {
                 select: {
                   year: true,
                   rotation: true,
@@ -61,11 +64,11 @@ export default async function QuizPage({
                 },
                 orderBy: { orderIndex: "asc" },
               },
-              questionTags: { include: { tag: true } },
-              answers: { select: { id: true, text: true, isCorrect: true } },
+              QuestionTag: { include: { Tag: true } },
+              Choice: { select: { id: true, text: true, isCorrect: true, correctOptionIds: true, stemImageUrl: true } },
             },
           },
-          responses: { select: { choiceId: true, isCorrect: true } },
+          Response: { select: { choiceId: true, isCorrect: true } },
         },
       },
     },
@@ -73,18 +76,18 @@ export default async function QuizPage({
 
   if (!quiz) notFound();
 
-  const items = (quiz.items ?? [])
+  const items = (quiz.QuizItem ?? [])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .sort((a: any, b: any) => (a.orderInQuiz ?? 0) - (b.orderInQuiz ?? 0))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((it: any) => {
-      const rawTagLinks = (it.question.questionTags ?? []) as Array<{ tag: { type: string; value: string } }>;
+      const rawTagLinks = (it.Question.QuestionTag ?? []) as Array<{ Tag: { type: string; value: string } }>;
       const legacy = rawTagLinks.reduce<{
         references: string[];
         tags: { type: DisplayTagType; value: string; label: string }[];
         seen: Set<string>;
       }>(({ references, tags, seen }, entry) => {
-        const tag = entry?.tag;
+        const tag = entry?.Tag;
         if (!tag || typeof tag.type !== "string") return { references, tags, seen };
         const typeKey = tag.type as keyof typeof TagType;
         const type = TagType[typeKey];
@@ -144,18 +147,21 @@ export default async function QuizPage({
         order: it.orderInQuiz,
         marked: it.marked,
         question: {
-          id: it.question.id,
-          customId: it.question.customId ?? null,
-          stem: it.question.text ?? "",
-          explanation: it.question.explanation ?? null,
-          objective: it.question.objective ?? null,
-          questionYear: it.question.yearCaptured ?? null,
-          rotationNumber: it.question.rotationNumber ?? null,
-          iduScreenshotUrl: it.question.iduScreenshotUrl ?? null,
-          questionImageUrl: it.question.questionImageUrl ?? null,
-          explanationImageUrl: it.question.explanationImageUrl ?? null,
-          isAnswerConfirmed: it.question.isAnswerConfirmed ?? true,
-          occurrences: (it.question.occurrences ?? []).map((occ: { year: string | null; rotation: string | null; orderIndex: number | null }) => ({
+          id: it.Question.id,
+          customId: it.Question.customId ?? null,
+          questionType: it.Question.questionType ?? 'MCQ',
+          stem: it.Question.text ?? "",
+          emqTheme: it.Question.emqTheme ?? null,
+          emqOptions: it.Question.emqOptions ?? null,
+          explanation: it.Question.explanation ?? null,
+          objective: it.Question.objective ?? null,
+          questionYear: it.Question.yearCaptured ?? null,
+          rotationNumber: it.Question.rotationNumber ?? null,
+          iduScreenshotUrl: it.Question.iduScreenshotUrl ?? null,
+          questionImageUrl: it.Question.questionImageUrl ?? null,
+          explanationImageUrl: it.Question.explanationImageUrl ?? null,
+          isAnswerConfirmed: it.Question.isAnswerConfirmed ?? true,
+          occurrences: (it.Question.QuestionOccurrence ?? []).map((occ: { year: string | null; rotation: string | null; orderIndex: number | null }) => ({
             year: occ.year ?? null,
             rotation: occ.rotation ?? null,
             orderIndex: typeof occ.orderIndex === "number" ? occ.orderIndex : null,
@@ -163,13 +169,15 @@ export default async function QuizPage({
           references: mergedReferences.join("\n"),
           tags: legacy.tags,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          choices: it.question.answers.map((a: any) => ({
+          choices: it.Question.Choice.map((a: any) => ({
             id: a.id,
             text: a.text,
             isCorrect: a.isCorrect,
+            correctOptionIds: a.correctOptionIds ?? null,
+            stemImageUrl: a.stemImageUrl ?? null,
           })),
         },
-        responses: it.responses?.length
+        responses: it.Response?.length
           ? [
               {
                 choiceId: it.responses[0]?.choiceId ?? null,
@@ -183,6 +191,16 @@ export default async function QuizPage({
   // Narrow status to the union the UI expects
   const status: QuizStatus = "Active"; // DB status type mismatch safe default
 
+  // Map Prisma Role enum to QuizRunner expected role type
+  const mapRole = (role: string | null): "MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | null => {
+    if (!role) return null;
+    if (role === "User") return "MEMBER";
+    if (role === "Admin") return "ADMIN";
+    if (role === "MASTER_ADMIN") return "MASTER_ADMIN";
+    if (role === "WEBSITE_CREATOR") return "WEBSITE_CREATOR";
+    return null;
+  };
+
   const initialQuiz = {
     id: quiz.id,
     status,
@@ -193,7 +211,7 @@ export default async function QuizPage({
         .join(" ")
         .trim() || session?.user?.name || null,
       email,
-      role: viewer?.role ?? null,
+      role: mapRole(viewer?.role ?? null),
     },
   };
 
