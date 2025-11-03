@@ -37,148 +37,6 @@ export async function POST(req: Request) {
     const sysValues = expandTagValues(TagType.SYSTEM, body.systemValues ?? []);
     const selectedModes = body.selectedModes ?? [];
 
-    // First, get all questions that match the static tag filters
-    // Using OR within each category (IN clause handles OR), AND across categories
-    const staticFilterConditions: Prisma.Sql[] = [];
-    
-    if (rotValues.length) {
-      // OR within rotations: questions with ANY of the selected rotations
-      staticFilterConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qr
-          JOIN "Tag" tr ON tr.id = qr."tagId"
-          WHERE qr."questionId" = q.id
-            AND tr.type = ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)}
-            AND tr.value IN (${Prisma.join(rotValues.map((value) => Prisma.sql`${value}`))})
-        )`
-      );
-    }
-
-    if (resValues.length) {
-      // OR within resources: questions with ANY of the selected resources
-      staticFilterConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qr2
-          JOIN "Tag" tr2 ON tr2.id = qr2."tagId"
-          WHERE qr2."questionId" = q.id
-            AND tr2.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
-            AND tr2.value IN (${Prisma.join(resValues.map((value) => Prisma.sql`${value}`))})
-        )`
-      );
-    }
-
-    if (discValues.length) {
-      // OR within disciplines: questions with ANY of the selected disciplines
-      staticFilterConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qs
-          JOIN "Tag" ts ON ts.id = qs."tagId"
-          WHERE qs."questionId" = q.id
-            AND ts.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
-            AND ts.value IN (${Prisma.join(discValues.map((value) => Prisma.sql`${value}`))})
-        )`
-      );
-    }
-
-    if (sysValues.length) {
-      // OR within systems: questions with ANY of the selected systems
-      staticFilterConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qy
-          JOIN "Tag" ty ON ty.id = qy."tagId"
-          WHERE qy."questionId" = q.id
-            AND ty.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
-            AND ty.value IN (${Prisma.join(sysValues.map((value) => Prisma.sql`${value}`))})
-        )`
-      );
-    }
-
-    // Add year filtering to the static conditions
-    if (year) {
-      staticFilterConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionOccurrence" qo
-          WHERE qo."questionId" = q.id
-            AND qo.year = ${year}
-        )`
-      );
-    }
-
-    const staticWhere = staticFilterConditions.length 
-      ? Prisma.sql`WHERE ${Prisma.join(staticFilterConditions, ' AND ')}`
-      : Prisma.empty;
-
-    // Get all questions that match static filters
-    const matchingQuestions = await prisma.$queryRaw<Array<{ id: string }>>(
-      Prisma.sql`
-        SELECT DISTINCT q.id
-        FROM "Question" q
-        ${staticWhere}
-      `
-    );
-
-    const matchingQuestionIds = matchingQuestions.map(q => q.id);
-
-    if (matchingQuestionIds.length === 0) {
-      return NextResponse.json({
-        modeCounts: { unused: 0, incorrect: 0, correct: 0, omitted: 0, marked: 0 },
-        tagCounts: { rotations: {}, resources: {}, disciplines: {}, systems: {} }
-      });
-    }
-
-    // Get USER-SPECIFIC question modes from the cached table (with index optimization)
-    const userQuestionModes = await prisma.userQuestionMode.findMany({
-      where: {
-        userId: userId,
-        questionId: { in: matchingQuestionIds }
-      },
-      select: {
-        questionId: true,
-        mode: true,
-      },
-      // Use cacheStrategy for repeated queries with same filters
-      cacheStrategy: {
-        ttl: 60, // Cache for 60 seconds
-        swr: 30  // Stale-while-revalidate for 30 seconds
-      }
-    });
-
-    // Create a map of questionId -> mode for fast lookup
-    const modeMap = new Map<string, string>();
-    for (const uqm of userQuestionModes) {
-      modeMap.set(uqm.questionId, uqm.mode);
-    }
-
-    // Count by USER-SPECIFIC mode from cached table
-    const modeCounts = {
-      unused: 0,
-      incorrect: 0,
-      correct: 0,
-      omitted: 0,
-      marked: 0,
-    };
-
-    // Count all matching questions by their cached USER-SPECIFIC mode
-    matchingQuestionIds.forEach(questionId => {
-      const mode = modeMap.get(questionId);
-      
-      // No cached mode = unused (question never used by this user)
-      if (!mode || mode === "unused") {
-        modeCounts.unused += 1;
-      } else if (mode === "correct") {
-        modeCounts.correct += 1;
-      } else if (mode === "incorrect") {
-        modeCounts.incorrect += 1;
-      } else if (mode === "omitted") {
-        modeCounts.omitted += 1;
-      } else if (mode === "marked") {
-        modeCounts.marked += 1;
-      } else {
-        // Unknown mode, treat as unused
-        modeCounts.unused += 1;
-      }
-    });
-
     // OPTIMIZED V2: Fetch ALL question data with tags in ONE query, then filter in memory
     // This eliminates 8 database queries → replaces with 1 query + fast in-memory operations
     
@@ -216,6 +74,66 @@ export async function POST(req: Request) {
       id: q.id,
       tags: Array.isArray(q.tags) ? q.tags as Array<{ type: string; value: string }> : []
     }));
+
+    if (allQuestions.length === 0) {
+      return NextResponse.json({
+        modeCounts: { unused: 0, incorrect: 0, correct: 0, omitted: 0, marked: 0 },
+        tagCounts: { rotations: {}, resources: {}, disciplines: {}, systems: {} }
+      });
+    }
+
+    // Get USER-SPECIFIC question modes from the cached table (with index optimization)
+    const userQuestionModes = await prisma.userQuestionMode.findMany({
+      where: {
+        userId: userId,
+        questionId: { in: allQuestions.map(q => q.id) }
+      },
+      select: {
+        questionId: true,
+        mode: true,
+      },
+      // Use cacheStrategy for repeated queries with same filters
+      cacheStrategy: {
+        ttl: 60, // Cache for 60 seconds
+        swr: 30  // Stale-while-revalidate for 30 seconds
+      }
+    });
+
+    // Create a map of questionId -> mode for fast lookup
+    const modeMap = new Map<string, string>();
+    for (const uqm of userQuestionModes) {
+      modeMap.set(uqm.questionId, uqm.mode);
+    }
+
+    // Count by USER-SPECIFIC mode from cached table (all questions, not filtered)
+    const modeCounts = {
+      unused: 0,
+      incorrect: 0,
+      correct: 0,
+      omitted: 0,
+      marked: 0,
+    };
+
+    // Count all questions by their cached USER-SPECIFIC mode
+    allQuestions.forEach(q => {
+      const mode = modeMap.get(q.id);
+      
+      // No cached mode = unused (question never used by this user)
+      if (!mode || mode === "unused") {
+        modeCounts.unused += 1;
+      } else if (mode === "correct") {
+        modeCounts.correct += 1;
+      } else if (mode === "incorrect") {
+        modeCounts.incorrect += 1;
+      } else if (mode === "omitted") {
+        modeCounts.omitted += 1;
+      } else if (mode === "marked") {
+        modeCounts.marked += 1;
+      } else {
+        // Unknown mode, treat as unused
+        modeCounts.unused += 1;
+      }
+    });
 
     // Create tag lookup maps for fast filtering
     const questionTagMap = new Map<string, Map<string, Set<string>>>();
