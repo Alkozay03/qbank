@@ -79,15 +79,12 @@ export default function Profile() {
         const updatedData = await r.json();
         setMe(updatedData);
         
-        // Small delay to ensure state updates
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
         // Navigate back to previous page after saving
         const to = sessionStorage.getItem("profileBackTo") || backTo.current || "/year4";
         sessionStorage.removeItem("profileBackTo");
         
-        // Use router.replace for cleaner navigation
-        router.replace(to);
+        // Use router.push to navigate back
+        router.push(to);
       }
     } catch (error) {
       console.error("Error saving profile:", error);
