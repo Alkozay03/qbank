@@ -92,13 +92,11 @@ interface ClientSideQuestionDetailsProps {
 
 export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails({
   currentItem,
-  statsByQuestion,
   questionSeconds,
   fontScale,
   sectionHTMLByItem
 }: ClientSideQuestionDetailsProps) {
   const isDark = isDarkMode();
-  const wasCorrect = currentItem.responses?.[0]?.isCorrect ?? null;
 
   // CSS injection for dark mode styling of HTML content
   useEffect(() => {
@@ -172,72 +170,30 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
       };
     });
 
-  const questionStats = statsByQuestion[currentItem.question.id];
-  
-  // Find the correct answer choice to get its percentage
-  const correctChoice = currentItem.question.choices.find(ch => ch.isCorrect === true);
-  const correctChoiceStats = correctChoice ? questionStats?.choiceFirstAttempts?.[correctChoice.id] : null;
-  
-  // Use the percentage of students who chose the correct answer (not questionStats.percent which uses isCorrect flag)
-  const percentLabel =
-    correctChoiceStats && typeof correctChoiceStats.percent === 'number'
-      ? `${correctChoiceStats.percent}%`
-      : (questionStats && questionStats.percent !== null ? `${questionStats.percent}%` : "—%");
-
   return (
     <div className={`mt-5 rounded-2xl border p-4 ${!isDark ? 'bg-white' : ''}`} 
          style={{ 
            borderColor: 'var(--color-primary)',
            backgroundColor: isDark ? '#000000' : ''
          }}>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex items-center justify-center rounded-xl p-3"
-             style={{ 
-               backgroundColor: isDark ? '#000000' : (wasCorrect ? '#f0f9ff' : '#fef2f2')
-             }}>
-          <span className="text-lg font-extrabold" style={{ color: isDark ? "#ffffff" : (wasCorrect ? "#16a34a" : "#e11d48") }}>
-            {wasCorrect ? "Correct" : "Incorrect"}
-          </span>
-        </div>
-        <div className="flex items-center justify-center">
-          <div className="text-center">
-            <div 
-              className="text-3xl font-extrabold"
-              style={{
-                ...(isDark ? {
-                  color: '#ffffff'
-                } : {
-                  background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                })
-              }}
-            >
-              {percentLabel}
-            </div>
-            <div className="text-xs leading-tight" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)', opacity: isDark ? 1 : 0.6 }}>Answered Correctly</div>
+      <div className="flex items-center justify-center">
+        <div className="text-center">
+          <div 
+            className="text-lg font-extrabold"
+            style={{
+              ...(isDark ? {
+                color: '#ffffff'
+              } : {
+                background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              })
+            }}
+          >
+            {Math.floor(questionSeconds / 60)} Mins, {questionSeconds % 60} Secs
           </div>
-        </div>
-        <div className="flex items-center justify-center">
-          <div className="text-center">
-            <div 
-              className="text-lg font-extrabold"
-              style={{
-                ...(isDark ? {
-                  color: '#ffffff'
-                } : {
-                  background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                })
-              }}
-            >
-              {Math.floor(questionSeconds / 60)} Mins, {questionSeconds % 60} Secs
-            </div>
-            <div className="text-xs" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)', opacity: isDark ? 1 : 0.6 }}>Time Spent on Question</div>
-          </div>
+          <div className="text-xs" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)', opacity: isDark ? 1 : 0.6 }}>Time Spent on Question</div>
         </div>
       </div>
 

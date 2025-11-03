@@ -88,7 +88,8 @@ const EMQQuestion = ({
           className="text-[15px] leading-relaxed prose prose-sm max-w-none"
           style={{ 
             fontSize: `${fontScale}rem`,
-            color: isDark ? 'var(--color-text-primary)' : '#171717'
+            color: isDark ? 'var(--color-text-primary)' : 'var(--color-primary-light)',
+            opacity: isDark ? 1 : 0.85
           }}
           dangerouslySetInnerHTML={{ __html: theme }}
         />
@@ -104,10 +105,10 @@ const EMQQuestion = ({
         }}
       >
         <h3 
-          className="mb-3 font-semibold text-sm" 
+          className="mb-3 font-bold text-sm" 
           style={{ 
             fontSize: `${fontScale}rem`,
-            color: isDark ? 'var(--color-text-primary)' : '#171717'
+            color: 'var(--color-primary)'
           }}
         >
           Options:
@@ -142,10 +143,10 @@ const EMQQuestion = ({
       {/* Stems - Each stem is like an MCQ question */}
       <div className="space-y-4">
         <h3 
-          className="font-semibold text-sm" 
+          className="font-bold text-sm" 
           style={{ 
             fontSize: `${fontScale}rem`,
-            color: isDark ? 'var(--color-text-primary)' : '#171717'
+            color: 'var(--color-primary)'
           }}
         >
           Match each scenario to the most appropriate option:
@@ -209,10 +210,10 @@ const EMQQuestion = ({
               <div className="flex items-center gap-3 flex-wrap">
                 <label 
                   htmlFor={`stem-${stem.id}`}
-                  className="text-sm font-medium"
+                  className="text-sm font-bold"
                   style={{ 
                     fontSize: `${fontScale * 0.9}rem`,
-                    color: isDark ? 'var(--color-text-primary)' : '#374151'
+                    color: 'var(--color-primary)'
                   }}
                 >
                   Your answer:
@@ -222,12 +223,12 @@ const EMQQuestion = ({
                   value={selectedAnswers[stem.id] || ""}
                   onChange={(e) => handleStemAnswerChange(stem.id, e.target.value)}
                   disabled={submitted}
-                  className="rounded-lg border px-3 py-1.5 font-medium transition-colors disabled:cursor-not-allowed"
+                  className="rounded-lg border px-3 py-1.5 transition-colors disabled:cursor-not-allowed"
                   style={{ 
                     fontSize: `${fontScale}rem`,
                     backgroundColor: isDark ? '#000000' : '#ffffff',
                     borderColor: isDark ? '#4b5563' : '#d1d5db',
-                    color: isDark ? 'var(--color-text-primary)' : '#171717'
+                    color: 'var(--color-primary)'
                   }}
                 >
                   <option value="">Select...</option>
