@@ -1252,6 +1252,11 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const explanationImageInputRef = useRef<HTMLInputElement | null>(null);
   const [explanationImageUploading, setExplanationImageUploading] = useState(false);
   const [explanationImageError, setExplanationImageError] = useState<string | null>(null);
+
+  // EMQ Stem Image Upload
+  const stemImageInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [stemImageUploading, setStemImageUploading] = useState<Record<string, boolean>>({});
+  const [stemImageError, setStemImageError] = useState<Record<string, string | null>>({});
   const occurrences = Array.isArray(editedQuestion.occurrences) ? editedQuestion.occurrences : [];
   // Filter out Y4/Y5 internal categorization from display - year buttons already show this
   const displayOccurrences = occurrences.filter(occ => !occ?.year?.match(/^Y[45]$/i));
@@ -1643,6 +1648,71 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
     [handleExplanationImageUpload]
   );
 
+  // EMQ Stem Image Upload Handlers
+  const handleStemImageUpload = useCallback(async (file: File, stemId: string) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setStemImageError(prev => ({ ...prev, [stemId]: 'Please upload an image file.' }));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setStemImageError(prev => ({ ...prev, [stemId]: 'Image is too large (5 MB max).' }));
+      return;
+    }
+
+    setStemImageUploading(prev => ({ ...prev, [stemId]: true }));
+    setStemImageError(prev => ({ ...prev, [stemId]: null }));
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('kind', 'stem');
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload?.error ?? 'Failed to upload stem image');
+      }
+      const payload = (await res.json().catch(() => ({}))) as { url?: string };
+      if (!payload?.url) throw new Error('Upload did not return a URL');
+      
+      setEditedQuestion(prev => ({
+        ...prev,
+        emqStems: (prev.emqStems || []).map(s =>
+          s.id === stemId ? { ...s, stemImageUrl: payload.url } : s
+        ),
+      }));
+    } catch (error) {
+      setStemImageError(prev => ({
+        ...prev,
+        [stemId]: error instanceof Error ? error.message : 'Failed to upload stem image'
+      }));
+    } finally {
+      setStemImageUploading(prev => ({ ...prev, [stemId]: false }));
+    }
+  }, []);
+
+  const handleStemImageInputChange = useCallback(
+    (stemId: string) => async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      await handleStemImageUpload(file, stemId);
+    },
+    [handleStemImageUpload]
+  );
+
+  const handleStemImageDrop = useCallback(
+    (stemId: string) => async (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const file = event.dataTransfer.files?.[0];
+      if (!file) return;
+      await handleStemImageUpload(file, stemId);
+    },
+    [handleStemImageUpload]
+  );
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -1904,23 +1974,85 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                         rows={4}
                       />
                       
-                      {/* Stem Image Upload - Placeholder for now */}
+                      {/* Stem Image Upload */}
                       <div className="mb-3">
-                        <label className="block text-xs font-medium text-[#0284c7] mb-1">Stem Image (Optional)</label>
+                        <label className="block text-xs font-medium text-[#0284c7] mb-2">Stem Image (Optional)</label>
+                        <p className="text-xs text-slate-500 mb-2">
+                          Upload an image for this stem. Accepted formats: PNG, JPG, GIF (max 5&nbsp;MB).
+                        </p>
                         <input
-                          type="text"
-                          value={stem.stemImageUrl || ''}
-                          onChange={(e) => {
-                            setEditedQuestion(prev => ({
-                              ...prev,
-                              emqStems: (prev.emqStems || []).map(s =>
-                                s.id === stem.id ? { ...s, stemImageUrl: e.target.value } : s
-                              ),
-                            }));
+                          ref={(el) => {
+                            if (stemImageInputRefs.current) {
+                              stemImageInputRefs.current[stemIndex] = el;
+                            }
                           }}
-                          placeholder="Image URL (upload functionality coming soon)"
-                          className="w-full px-3 py-2 border border-sky-200 rounded-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none text-sm bg-white"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleStemImageInputChange(stem.id)}
+                          className="hidden"
                         />
+                        <div
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = 'copy';
+                          }}
+                          onDrop={handleStemImageDrop(stem.id)}
+                          className="flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-sky-200 bg-white px-4 py-4 text-center transition hover:border-[#0ea5e9] hover:bg-sky-50"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => stemImageInputRefs.current[stemIndex]?.click()}
+                            className="rounded-lg border border-[#0ea5e9] px-3 py-1 text-xs font-semibold text-[#0ea5e9] transition hover:bg-sky-50"
+                          >
+                            {stemImageUploading[stem.id] ? 'Uploading…' : 'Select image'}
+                          </button>
+                          <span className="text-xs text-slate-500">or drag &amp; drop</span>
+                          {stemImageError[stem.id] ? (
+                            <span className="text-xs text-red-600">{stemImageError[stem.id]}</span>
+                          ) : null}
+                        </div>
+
+                        {stem.stemImageUrl ? (
+                          <div className="mt-3 rounded-lg border border-sky-200 bg-white p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-semibold text-[#0ea5e9]">Current stem image</p>
+                                <a
+                                  href={stem.stemImageUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-[#2F6F8F] underline"
+                                >
+                                  Open in new tab
+                                </a>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditedQuestion(prev => ({
+                                    ...prev,
+                                    emqStems: (prev.emqStems || []).map(s =>
+                                      s.id === stem.id ? { ...s, stemImageUrl: '' } : s
+                                    ),
+                                  }));
+                                }}
+                                className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
+                              >
+                                Remove image
+                              </button>
+                            </div>
+                            <div className="mt-2 overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF]">
+                              <Image
+                                src={stem.stemImageUrl}
+                                alt={`Stem ${stemIndex + 1} image preview`}
+                                width={800}
+                                height={600}
+                                className="max-h-48 w-full object-contain"
+                                unoptimized
+                              />
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
 
                       <div>
