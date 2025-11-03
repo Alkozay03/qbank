@@ -68,19 +68,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       ? { quizItemId, userId }
       : { quizItemId, userId: null };
 
-    const existing = await prisma.preClerkshipResponse.findFirst({ where: responseWhere });
-    if (existing) {
-      await prisma.preClerkshipResponse.update({
-        where: { id: existing.id },
-        data: {
-          choiceId: pickedChoice.id,
-          isCorrect,
-          timeSeconds: numericTime ?? undefined,
-          changeCount: numericChangeCount ?? undefined,
-        },
-      });
-    } else {
-      await prisma.preClerkshipResponse.create({
+    // OPTIMIZED: Delete old + create new in transaction (atomic, faster than findFirst + update)
+    await prisma.$transaction([
+      prisma.preClerkshipResponse.deleteMany({ where: responseWhere }),
+      prisma.preClerkshipResponse.create({
         data: {
           id: `resp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           quizItemId,
@@ -90,8 +81,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
           timeSeconds: numericTime ?? undefined,
           changeCount: numericChangeCount ?? undefined,
         },
-      });
-    }
+      }),
+    ]);
 
     return NextResponse.json({
       ok: true,

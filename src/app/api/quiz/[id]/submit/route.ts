@@ -61,7 +61,34 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       let correctCount = 0;
       let totalCount = 0;
 
-      // Process each stem answer
+      // OPTIMIZED: Batch fetch existing responses for all stems in ONE query
+      const existingResponses = await prisma.response.findMany({
+        where: {
+          quizItemId,
+          userId: userId ?? null,
+          choiceId: { in: Object.keys(emqAnswers) }
+        },
+        select: { id: true, choiceId: true }
+      });
+      
+      const existingMap = new Map(existingResponses.map(r => [r.choiceId, r.id]));
+      const responsesToCreate: Array<{
+        id: string;
+        quizItemId: string;
+        userId: string | null;
+        choiceId: string;
+        isCorrect: boolean;
+        timeSeconds: number | null;
+        changeCount: number | null;
+      }> = [];
+      const responsesToUpdate: Array<{
+        id: string;
+        isCorrect: boolean;
+        timeSeconds: number | null;
+        changeCount: number | null;
+      }> = [];
+
+      // Process each stem answer (prepare batch operations)
       for (const [stemId, selectedOptionId] of Object.entries(emqAnswers)) {
         const stem = stems.find((s) => s.id === stemId);
         if (!stem) continue;
@@ -78,36 +105,46 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         
         results.push({ stemId, isCorrect });
 
-        // Create/update Response for this stem
-        const responseWhere = userId
-          ? { quizItemId, userId, choiceId: stemId }
-          : { quizItemId, userId: null, choiceId: stemId };
-
-        const existing = await prisma.response.findFirst({ where: responseWhere });
-        
-        if (existing) {
-          await prisma.response.update({
-            where: { id: existing.id },
-            data: {
-              isCorrect,
-              timeSeconds: numericTime ?? undefined,
-              changeCount: numericChangeCount ?? undefined,
-            },
+        // Prepare create or update data
+        const existingId = existingMap.get(stemId);
+        if (existingId) {
+          responsesToUpdate.push({
+            id: existingId,
+            isCorrect,
+            timeSeconds: numericTime,
+            changeCount: numericChangeCount,
           });
         } else {
-          await prisma.response.create({
-            data: {
-              id: crypto.randomUUID(),
-              quizItemId,
-              userId: userId ?? null,
-              choiceId: stemId, // The stem's Choice ID
-              isCorrect,
-              timeSeconds: numericTime ?? undefined,
-              changeCount: numericChangeCount ?? undefined,
-            },
+          responsesToCreate.push({
+            id: crypto.randomUUID(),
+            quizItemId,
+            userId: userId ?? null,
+            choiceId: stemId,
+            isCorrect,
+            timeSeconds: numericTime,
+            changeCount: numericChangeCount,
           });
         }
       }
+
+      // OPTIMIZED: Execute batch updates and creates in parallel
+      await Promise.all([
+        // Batch create all new responses
+        responsesToCreate.length > 0 
+          ? prisma.response.createMany({ data: responsesToCreate })
+          : Promise.resolve(),
+        // Batch update all existing responses
+        ...responsesToUpdate.map(r =>
+          prisma.response.update({
+            where: { id: r.id },
+            data: {
+              isCorrect: r.isCorrect,
+              timeSeconds: r.timeSeconds ?? undefined,
+              changeCount: r.changeCount ?? undefined,
+            },
+          })
+        )
+      ]);
 
       return NextResponse.json({
         ok: true,
@@ -137,28 +174,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const isCorrect = pickedChoice.id === correctChoice.id;
 
     // Upsert one response per quiz item (schema has quizItemId, userId optional)
-  const parsedTime = Number(timeSeconds);
-  const numericTime = Number.isFinite(parsedTime) && parsedTime >= 0 ? parsedTime : null;
-  const parsedChange = Number(changeCount);
-  const numericChangeCount = Number.isFinite(parsedChange) && parsedChange >= 0 ? Math.trunc(parsedChange) : null;
+    const parsedTime = Number(timeSeconds);
+    const numericTime = Number.isFinite(parsedTime) && parsedTime >= 0 ? parsedTime : null;
+    const parsedChange = Number(changeCount);
+    const numericChangeCount = Number.isFinite(parsedChange) && parsedChange >= 0 ? Math.trunc(parsedChange) : null;
 
     const responseWhere = userId
       ? { quizItemId, userId }
       : { quizItemId, userId: null };
 
-    const existing = await prisma.response.findFirst({ where: responseWhere });
-    if (existing) {
-      await prisma.response.update({
-        where: { id: existing.id },
-        data: {
-          choiceId: pickedChoice.id,
-          isCorrect,
-          timeSeconds: numericTime ?? undefined,
-          changeCount: numericChangeCount ?? undefined,
-        },
-      });
-    } else {
-      await prisma.response.create({
+    // OPTIMIZED: Delete old + create new in transaction (atomic, 2 queries in parallel)
+    await prisma.$transaction([
+      prisma.response.deleteMany({ where: responseWhere }),
+      prisma.response.create({
         data: {
           id: crypto.randomUUID(),
           quizItemId,
@@ -168,8 +196,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
           timeSeconds: numericTime ?? undefined,
           changeCount: numericChangeCount ?? undefined,
         },
-      });
-    }
+      }),
+    ]);
 
     // Note: Question modes are updated when the quiz ends, not on individual submissions
     // Marked questions remain marked until manually unmarked or quiz ends
