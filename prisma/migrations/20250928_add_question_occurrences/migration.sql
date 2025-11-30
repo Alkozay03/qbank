@@ -1,5 +1,5 @@
--- Create table to store multiple year/rotation occurrences per question
-CREATE TABLE "QuestionOccurrence" (
+-- Create table to store multiple year/rotation occurrences per question (idempotent)
+CREATE TABLE IF NOT EXISTS "QuestionOccurrence" (
   "id" TEXT NOT NULL,
   "questionId" TEXT NOT NULL,
   "year" TEXT,
@@ -11,14 +11,23 @@ CREATE TABLE "QuestionOccurrence" (
 );
 
 -- Maintain referential integrity with questions and cascade deletes
-ALTER TABLE "QuestionOccurrence"
-  ADD CONSTRAINT "QuestionOccurrence_questionId_fkey"
-  FOREIGN KEY ("questionId") REFERENCES "Question"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'QuestionOccurrence_questionId_fkey'
+  ) THEN
+    ALTER TABLE "QuestionOccurrence"
+      ADD CONSTRAINT "QuestionOccurrence_questionId_fkey"
+      FOREIGN KEY ("questionId") REFERENCES "Question"("id")
+      ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END
+$$;
 
 -- Prevent duplicate year/rotation combinations for the same question
-CREATE UNIQUE INDEX "uniq_questionoccurrence_questionid_year_rotation"
+CREATE UNIQUE INDEX IF NOT EXISTS "uniq_questionoccurrence_questionid_year_rotation"
   ON "QuestionOccurrence"("questionId", "year", "rotation");
 
 -- Speed up lookups by question id
-CREATE INDEX "idx_questionoccurrence_questionid"
+CREATE INDEX IF NOT EXISTS "idx_questionoccurrence_questionid"
   ON "QuestionOccurrence"("questionId");

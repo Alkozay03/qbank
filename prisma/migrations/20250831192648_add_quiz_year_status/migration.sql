@@ -114,7 +114,7 @@ BEGIN
     WHERE schemaname = current_schema
       AND indexname = 'QuizItem_quizId_order_idx'
   ) THEN
-    EXECUTE 'CREATE INDEX "QuizItem_quizId_order_idx" ON "QuizItem"("quizId","order")';
+    EXECUTE 'CREATE INDEX "QuizItem_quizId_order_idx" ON "QuizItem"("quizId","orderInQuiz")';
   END IF;
 END
 $$;

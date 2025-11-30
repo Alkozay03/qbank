@@ -29,10 +29,43 @@ CREATE UNIQUE INDEX IF NOT EXISTS "Notification_shortId_key" ON "public"."Notifi
 CREATE UNIQUE INDEX IF NOT EXISTS "NotificationRead_notificationId_userId_key" ON "public"."NotificationRead"("notificationId", "userId");
 
 -- AddForeignKey
-ALTER TABLE "public"."Notification" ADD CONSTRAINT "Notification_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "public"."User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'Notification_createdById_fkey'
+  ) THEN
+    ALTER TABLE "public"."Notification"
+    ADD CONSTRAINT "Notification_createdById_fkey"
+    FOREIGN KEY ("createdById") REFERENCES "public"."User"("id")
+    ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END
+$$;
 
 -- AddForeignKey
-ALTER TABLE "public"."NotificationRead" ADD CONSTRAINT "NotificationRead_notificationId_fkey" FOREIGN KEY ("notificationId") REFERENCES "public"."Notification"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'NotificationRead_notificationId_fkey'
+  ) THEN
+    ALTER TABLE "public"."NotificationRead"
+    ADD CONSTRAINT "NotificationRead_notificationId_fkey"
+    FOREIGN KEY ("notificationId") REFERENCES "public"."Notification"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END
+$$;
 
 -- AddForeignKey
-ALTER TABLE "public"."NotificationRead" ADD CONSTRAINT "NotificationRead_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'NotificationRead_userId_fkey'
+  ) THEN
+    ALTER TABLE "public"."NotificationRead"
+    ADD CONSTRAINT "NotificationRead_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END
+$$;
