@@ -29,7 +29,7 @@ export default async function LiveUsersPage() {
       },
     },
     include: {
-      user: {
+      User: {
         select: {
           id: true,
           email: true,
@@ -45,7 +45,7 @@ export default async function LiveUsersPage() {
     },
   });
 
-  const uniqueUsers = activeUsers.map(activity => activity.user);
+  const uniqueUsers = activeUsers.map(activity => activity.User);
 
   return <LiveUsersClient users={uniqueUsers} />;
 }
