@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 // Creates user with PENDING status WITHOUT sending magic link
 import { prisma } from "@/server/db";
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
 // Allow only university emails
 function isAllowedEmail(email?: string | null) {
@@ -73,6 +74,7 @@ export async function POST(req: Request) {
     // Create new user with PENDING status (NO magic link sent)
     const newUser = await prisma.user.create({
       data: {
+        id: randomUUID(),
         email: email.toLowerCase().trim(),
         firstName: firstName?.trim() || null,
         lastName: lastName?.trim() || null,
