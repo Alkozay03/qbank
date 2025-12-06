@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import { Role } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { databaseUnavailableResponse, isDatabaseUnavailableError } from "@/server/db/errors";
 import { revalidatePath } from "next/cache";
 
@@ -34,8 +35,9 @@ export async function GET() {
         where: { email: session.user.email },
         update: {},
         create: {
+          id: randomUUID(),
           email: session.user.email,
-          role: Role.MEMBER, // ✅ valid enum
+          role: Role.User,
         },
         select: {
           firstName: true,
@@ -85,8 +87,9 @@ export async function POST(req: NextRequest) {
       where: { email: session.user.email },
       update: { firstName, lastName, gradYear, timezone, rotation, rotationNumber, theme },
       create: {
+        id: randomUUID(),
         email: session.user.email,
-        role: Role.MEMBER, // ✅ use enum, not string
+        role: Role.User,
         firstName,
         lastName,
         gradYear,
