@@ -189,14 +189,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Add year filter if specified
+    // Add year filter if specified: match either occurrences or the stored yearCaptured
     if (yearFilter) {
       whereFilters.push({
-        QuestionOccurrence: {
-          some: {
-            year: yearFilter,
+        OR: [
+          {
+            QuestionOccurrence: {
+              some: {
+                year: yearFilter,
+              },
+            },
           },
-        },
+          { yearCaptured: yearFilter },
+        ],
       });
     }
 
