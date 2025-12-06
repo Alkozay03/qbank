@@ -76,7 +76,7 @@ export async function POST(req: Request) {
         firstName: firstName?.trim() || null,
         lastName: lastName?.trim() || null,
         approvalStatus: "PENDING",
-        role: "MEMBER",
+        role: "User",
       },
       select: {
         id: true,
