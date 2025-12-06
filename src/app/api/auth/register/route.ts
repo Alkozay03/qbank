@@ -1,4 +1,5 @@
 // API route for approval-first registration
+export const runtime = "nodejs";
 // Creates user with PENDING status WITHOUT sending magic link
 import { prisma } from "@/server/db";
 import { NextResponse } from "next/server";
@@ -75,8 +76,7 @@ export async function POST(req: Request) {
         email: email.toLowerCase().trim(),
         firstName: firstName?.trim() || null,
         lastName: lastName?.trim() || null,
-        approvalStatus: "PENDING",
-        role: "User",
+        approvalStatus: "PENDING", // role defaults to Role.User via schema default
       },
       select: {
         id: true,
