@@ -1,7 +1,7 @@
 // src/lib/rbac.ts
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
-import type { Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 
 /**
  * Error with HTTP status that route handlers may choose to catch.
@@ -15,13 +15,22 @@ export class HttpError extends Error {
 }
 
 /**
- * Normalize inputs like "ADMIN" | Role.ADMIN | "MEMBER" -> "ADMIN" | "MEMBER" | "MASTER_ADMIN" | "WEBSITE_CREATOR"
+ * Normalize any role-like input to the Prisma Role enum value.
+ * Accepts variations like "ADMIN", "Admin", "member", Role.User, etc.
  */
-function normalizeRole(r: Role | keyof typeof Role | string): Role {
-  const s = typeof r === "string" ? r.toUpperCase() : r;
-  // Prisma Role enum values are "MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR"
-  if (s === "ADMIN" || s === "MEMBER" || s === "MASTER_ADMIN" || s === "WEBSITE_CREATOR") return s as Role;
-  throw new Error(`Unknown role: ${String(r)}`);
+export function normalizeRole(r: Role | keyof typeof Role | string): Role {
+  const key = String(r).toUpperCase();
+  const map: Record<string, Role> = {
+    ADMIN: Role.Admin,
+    USER: Role.User,
+    MEMBER: Role.User,
+    MASTER_ADMIN: Role.MASTER_ADMIN,
+    WEBSITE_CREATOR: Role.WEBSITE_CREATOR,
+  };
+
+  const normalized = map[key];
+  if (!normalized) throw new Error(`Unknown role: ${String(r)}`);
+  return normalized;
 }
 
 /**
@@ -45,14 +54,15 @@ export async function requireRole(
   if (!user) throw new HttpError(401, "Unauthorized");
 
   const allow = new Set(allowed.map(normalizeRole));
-  console.error("🔍 [RBAC] User role:", user.role);
+  const userRole = normalizeRole(user.role);
+  console.error("🔍 [RBAC] User role:", userRole);
   console.error("🔍 [RBAC] Allowed roles:", Array.from(allow));
-  console.error("🔍 [RBAC] Role check:", allow.has(user.role));
+  console.error("🔍 [RBAC] Role check:", allow.has(userRole));
   
-  if (!allow.has(user.role)) {
+  if (!allow.has(userRole)) {
     console.error("🔴 [RBAC] FORBIDDEN! User role not in allowed set");
     throw new HttpError(403, "Forbidden");
   }
 
-  return { email, role: user.role };
+  return { email, role: userRole };
 }

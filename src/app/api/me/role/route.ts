@@ -5,6 +5,13 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 
+const roleToClient = (role: string | null) => {
+  if (!role) return "";
+  if (role === "User") return "MEMBER";
+  if (role === "Admin") return "ADMIN";
+  return role;
+};
+
 /**
  * Returns the current user's role (from Prisma) and email.
  * 200 -> { email, role }
@@ -33,9 +40,12 @@ export async function GET() {
       .join(" ")
       .trim();
 
+    const clientRole = roleToClient(user.role);
+
     return NextResponse.json({
       email: user.email,
-      role: user.role,
+      role: clientRole,
+      rawRole: user.role,
       firstName: user.firstName,
       lastName: user.lastName,
       name: name || null,

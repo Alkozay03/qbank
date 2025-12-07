@@ -1,7 +1,7 @@
 // src/app/api/master-admin/update-role/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/db";
-import { requireRole } from "@/lib/rbac";
+import { normalizeRole, requireRole } from "@/lib/rbac";
 import { Role } from "@prisma/client";
 
 export async function POST(req: Request) {
@@ -23,9 +23,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email and role are required" }, { status: 400 });
     }
 
-    // Validate role
-    if (!["MEMBER", "ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"].includes(role)) {
-      console.error("🔴 [UPDATE ROLE] Invalid role:", role);
+    let normalizedRole: Role;
+    try {
+      normalizedRole = normalizeRole(role);
+    } catch (err) {
+      console.error("🔴 [UPDATE ROLE] Invalid role:", role, err);
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
@@ -45,18 +47,18 @@ export async function POST(req: Request) {
     console.warn("🔵 [UPDATE ROLE] Updating user role:", {
       email,
       currentRole: user.role,
-      newRole: role
+      newRole: normalizedRole
     });
 
     // Update the user's role
     await prisma.user.update({
       where: { id: user.id },
-      data: { role: role as Role },
+      data: { role: normalizedRole },
     });
 
     console.warn("🟢 [UPDATE ROLE] Role updated successfully:", {
       email,
-      newRole: role
+      newRole: normalizedRole
     });
 
     return NextResponse.json({ success: true });

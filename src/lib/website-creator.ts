@@ -22,7 +22,8 @@ export function isWebsiteCreator(email: string | null | undefined): boolean {
  */
 export function hasElevatedAdminPrivileges(role: string | null | undefined): boolean {
   if (!role) return false;
-  return role === "WEBSITE_CREATOR" || role === "MASTER_ADMIN";
+  const normalized = role.toUpperCase();
+  return normalized === "WEBSITE_CREATOR" || normalized === "MASTER_ADMIN";
 }
 
 /**
@@ -30,5 +31,6 @@ export function hasElevatedAdminPrivileges(role: string | null | undefined): boo
  */
 export function isAnyAdmin(role: string | null | undefined): boolean {
   if (!role) return false;
-  return role === "WEBSITE_CREATOR" || role === "MASTER_ADMIN" || role === "ADMIN";
+  const normalized = role.toUpperCase();
+  return normalized === "WEBSITE_CREATOR" || normalized === "MASTER_ADMIN" || normalized === "ADMIN";
 }
