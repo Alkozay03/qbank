@@ -181,7 +181,7 @@ export default async function PreviousTests() {
       shortId,
       status: quiz.status,
       createdAt: quiz.createdAt,
-      questionCount: quiz._count.items, // Use _count instead of items.length
+      questionCount: quiz._count.QuizItem, // Use _count instead of items.length
       rotationLabel,
       scorePercent,
       scoreBackground: `linear-gradient(135deg, ${baseColor}, ${accentColor})`,
@@ -258,24 +258,6 @@ export default async function PreviousTests() {
                         >
                           View
                         </Link>
-                      )}
-                      {row.status === "Ended" && (
-                        <>
-                          <Link
-                            href={`/year5/quiz/${row.id}/results`}
-                            className="px-3 py-1 rounded-full theme-gradient text-white text-sm font-medium hover:opacity-90 transition-all duration-200"
-                            title="Results"
-                          >
-                            Results
-                          </Link>
-                          <Link
-                            href={`/year5/quiz/${row.id}/analysis`}
-                            className="px-3 py-1 rounded-full theme-gradient text-white text-sm font-medium hover:opacity-90 transition-all duration-200"
-                            title="Analysis"
-                          >
-                            Analysis
-                          </Link>
-                        </>
                       )}
                     </div>
                   </td>

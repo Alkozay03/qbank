@@ -67,7 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       } else {
         // Unmarking - derive mode from latest response
         const latestResponse = await prisma.response.findFirst({
-          where: { userId, quizItem: { questionId: updatedItem.questionId } },
+          where: { userId, QuizItem: { questionId: updatedItem.questionId } },
           orderBy: { createdAt: 'desc' },
           select: { choiceId: true, isCorrect: true }
         });

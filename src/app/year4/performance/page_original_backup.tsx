@@ -32,7 +32,7 @@ export default async function Performance() {
         isCorrect: true,
         createdAt: true,
         timeSeconds: true,
-        quizItem: { select: { questionId: true } },
+        QuizItem: { select: { questionId: true } },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -48,7 +48,7 @@ export default async function Performance() {
 
     const byQuestion = new Map<string, typeof responses>();
     for (const r of responses) {
-      const qid = r.quizItem.questionId;
+      const qid = r.QuizItem.questionId;
       if (!qid) continue;
       if (!byQuestion.has(qid)) byQuestion.set(qid, []);
       byQuestion.get(qid)!.push(r);

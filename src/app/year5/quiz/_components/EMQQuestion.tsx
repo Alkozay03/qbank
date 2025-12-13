@@ -85,7 +85,7 @@ const EMQQuestion = ({
         }}
       >
         <div 
-          className="text-[15px] leading-relaxed prose prose-sm max-w-none"
+          className="text-[15px] leading-relaxed prose prose-sm max-w-none rich-content"
           style={{ 
             fontSize: `${fontScale}rem`,
             color: isDark ? '#ffffff' : '#000000'
@@ -130,7 +130,7 @@ const EMQQuestion = ({
                 {getOptionLabel(idx)}
               </span>
               <div 
-                className="flex-1 prose prose-sm max-w-none"
+                className="flex-1 prose prose-sm max-w-none rich-content"
                 style={{ color: isDark ? 'var(--color-text-primary)' : '#171717' }}
                 dangerouslySetInnerHTML={{ __html: option.text }}
               />
@@ -179,13 +179,13 @@ const EMQQuestion = ({
                   >
                     {stemIdx + 1}
                   </span>
-                  <div 
-                    className="prose prose-sm max-w-none flex-1 text-[15px] leading-relaxed"
-                    style={{ 
-                      fontSize: `${fontScale}rem`,
-                      color: isDark ? 'var(--color-text-primary)' : '#171717'
-                    }}
-                    dangerouslySetInnerHTML={{ __html: stem.text }}
+                <div 
+                  className="prose prose-sm max-w-none flex-1 text-[15px] leading-relaxed rich-content"
+                  style={{ 
+                    fontSize: `${fontScale}rem`,
+                    color: isDark ? 'var(--color-text-primary)' : '#171717'
+                  }}
+                  dangerouslySetInnerHTML={{ __html: stem.text }}
                   />
                 </div>
               </div>

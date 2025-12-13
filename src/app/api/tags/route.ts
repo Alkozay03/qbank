@@ -31,6 +31,10 @@ export async function GET() {
         { type: "asc" },
         { value: "asc" },
       ],
+      cacheStrategy: {
+        ttl: 86400, // 24h cache
+        swr: 3600,  // serve stale for 1h while revalidating
+      },
     });
 
     return NextResponse.json({ tags });

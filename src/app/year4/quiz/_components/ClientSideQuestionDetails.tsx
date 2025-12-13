@@ -290,7 +290,7 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
         
         <div
           data-section="explanation"
-          className="prose mt-2 max-w-none"
+          className="prose mt-2 max-w-none rich-content"
           style={{ 
             fontSize: `${fontScale}rem`,
             color: isDark ? '#ffffff' : '#0f172a'
@@ -309,7 +309,7 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
         <div className="text-lg font-bold" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)' }}>Educational Objective:</div>
         <div
           data-section="objective"
-          className="mt-2"
+          className="mt-2 rich-content"
           style={{ color: isDark ? '#ffffff' : '#0f172a' }}
           dangerouslySetInnerHTML={{
             __html: (currentItem?.id && sectionHTMLByItem[currentItem.id]?.objective) || toHTML(DEFAULT_OBJECTIVE)

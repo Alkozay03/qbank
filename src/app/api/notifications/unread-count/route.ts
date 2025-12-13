@@ -32,12 +32,12 @@ export async function GET() {
       isDeleted: boolean;
       OR?: Array<{ targetRotation: string | null }>;
       targetRotation?: null;
-      readReceipts: { none: { userId: string } };
+      NotificationRead: { none: { userId: string } };
     } = {
       isDeleted: false,
-      readReceipts: {
+      NotificationRead: {
         none: {
-          userId: userId
+          userId
         }
       }
     };
@@ -61,25 +61,7 @@ export async function GET() {
   } catch (error) {
     console.error("Error counting unread notifications:", error);
     
-    // If table doesn't exist or database connection fails, return 0 instead of error
-    if (error instanceof Error && (
-      error.message.includes('does not exist') || 
-      error.message.includes('relation') ||
-      error.message.includes('table') ||
-      error.message.includes("Can't reach database") ||
-      error.message.includes('connection') ||
-      (error as { code?: string }).code === 'P1001'
-    )) {
-      console.warn("Database connection issue or notification tables don't exist, returning 0");
-      return NextResponse.json({ count: 0 });
-    }
-    
-    return NextResponse.json(
-      { 
-        error: error instanceof Error ? error.message : "Failed to count notifications",
-        details: error instanceof Error ? error.stack : "Unknown error"
-      },
-      { status: 500 }
-    );
+    // Return a safe default to avoid bubbling 500s to the client
+    return NextResponse.json({ count: 0 });
   }
 }

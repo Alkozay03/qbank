@@ -6,14 +6,14 @@ import db from "@/lib/db";
 import { getGradientTextClasses } from "@/utils/gradients";
 
 // Helper function to calculate statistics efficiently
-function calculateStats(responses: Array<{isCorrect: boolean | null; timeSeconds: number | null; quizItem: {questionId: string}; createdAt: Date}>) {
+function calculateStats(responses: Array<{isCorrect: boolean | null; timeSeconds: number | null; QuizItem: {questionId: string}; createdAt: Date}>) {
   // For accuracy calculations, use total responses
   const totalResponses = responses.length;
   const totalCorrect = responses.filter((r) => r.isCorrect).length;
   const totalIncorrect = totalResponses - totalCorrect;
   
   // For "questions answered" count, use unique questions
-  const uniqueQuestionIds = new Set(responses.map(r => r.quizItem.questionId).filter(Boolean));
+  const uniqueQuestionIds = new Set(responses.map(r => r.QuizItem.questionId).filter(Boolean));
   const answered = uniqueQuestionIds.size;
   
   const avgPercent = totalResponses ? Math.round((totalCorrect / totalResponses) * 100) : 0;
@@ -21,7 +21,7 @@ function calculateStats(responses: Array<{isCorrect: boolean | null; timeSeconds
   // Calculate answer changes efficiently
   const byQuestion = new Map<string, typeof responses>();
   for (const r of responses) {
-    const qid = r.quizItem.questionId;
+    const qid = r.QuizItem.questionId;
     if (!qid) continue;
     if (!byQuestion.has(qid)) byQuestion.set(qid, []);
     byQuestion.get(qid)!.push(r);
@@ -96,7 +96,7 @@ export default async function Performance() {
           isCorrect: true,
           createdAt: true,
           timeSeconds: true,
-          quizItem: { 
+          QuizItem: { 
             select: { questionId: true } 
           },
         },

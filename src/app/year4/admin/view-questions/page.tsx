@@ -169,6 +169,7 @@ type QuestionRow = {
 
   tags: string[];
 
+  createdAt?: string;
   updatedAt: string;
 
   isAnswerConfirmed: boolean;
@@ -310,7 +311,16 @@ export default function ViewQuestionsPage() {
 
       const payload = await response.json();
 
-      setQuestions(Array.isArray(payload?.questions) ? payload.questions : []);
+      const normalized = Array.isArray(payload?.questions)
+        ? payload.questions.map((q: QuestionRow) => {
+            const fallback = new Date().toISOString();
+            const created = q.createdAt ?? q.updatedAt ?? fallback;
+            const updated = q.updatedAt ?? q.createdAt ?? fallback;
+            return { ...q, createdAt: created, updatedAt: updated };
+          })
+        : [];
+
+      setQuestions(normalized);
 
     } catch (err) {
 
@@ -785,9 +795,7 @@ export default function ViewQuestionsPage() {
                       </td>
 
                       <td className="px-4 py-3 text-xs text-slate-500">
-
-                        {new Date(question.updatedAt).toLocaleDateString()}
-
+                        {new Date(question.createdAt ?? question.updatedAt).toLocaleDateString()}
                       </td>
 
                       <td className="px-4 py-3">

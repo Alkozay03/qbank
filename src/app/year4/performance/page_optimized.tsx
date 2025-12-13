@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import db from "@/lib/db";
 
 // Helper function to calculate statistics efficiently
-function calculateStats(responses: Array<{isCorrect: boolean | null; timeSeconds: number | null; quizItem: {questionId: string}; createdAt: Date}>) {
+function calculateStats(responses: Array<{isCorrect: boolean | null; timeSeconds: number | null; QuizItem: {questionId: string}; createdAt: Date}>) {
   const answered = responses.length;
   const totalCorrect = responses.filter((r) => r.isCorrect).length;
   const totalIncorrect = answered - totalCorrect;
@@ -15,7 +15,7 @@ function calculateStats(responses: Array<{isCorrect: boolean | null; timeSeconds
   // Calculate answer changes efficiently
   const byQuestion = new Map<string, typeof responses>();
   for (const r of responses) {
-    const qid = r.quizItem.questionId;
+    const qid = r.QuizItem.questionId;
     if (!qid) continue;
     if (!byQuestion.has(qid)) byQuestion.set(qid, []);
     byQuestion.get(qid)!.push(r);
@@ -93,7 +93,7 @@ export default async function Performance() {
           isCorrect: true,
           createdAt: true,
           timeSeconds: true,
-          quizItem: { 
+          QuizItem: { 
             select: { questionId: true } 
           },
         },

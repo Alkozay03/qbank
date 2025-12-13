@@ -1454,7 +1454,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               >
                 <div
                   data-section="stem"
-                  className="text-[15px] leading-relaxed"
+                  className="text-[15px] leading-relaxed rich-content"
                   style={{ 
                     fontSize: `${fontScale}rem`,
                     color: isDark ? 'var(--color-text-primary)' : '#171717'
