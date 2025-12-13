@@ -93,6 +93,8 @@ export default function NotificationsBell() {
         }
         // Only show "Profile Settings" notification if profile incomplete
         const filtered = rows.filter((n) => (n.title === "Profile Settings" ? showProfileNotif : true));
+        const unreadCount = filtered.filter((n) => !n.isRead).length;
+        setCount(unreadCount);
         setItems(filtered);
       } catch {
         // ignore

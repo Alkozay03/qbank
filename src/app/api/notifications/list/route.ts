@@ -43,7 +43,7 @@ export async function GET(req: Request) {
         ],
         ...(showOnlyUnread
           ? {
-              readReceipts: {
+              NotificationRead: {
                 none: {
                   userId,
                 },
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
         title: true,
         body: true,
         createdAt: true,
-        readReceipts: {
+        NotificationRead: {
           where: {
             userId,
           },
@@ -71,10 +71,10 @@ export async function GET(req: Request) {
     });
 
     // Transform to include isRead flag
-    const notifications = rows.map(({ readReceipts, ...notification }) => ({
+    const notifications = rows.map(({ NotificationRead, ...notification }) => ({
       ...notification,
-      isRead: readReceipts.length > 0,
-      readAt: readReceipts[0]?.readAt || null,
+      isRead: NotificationRead.length > 0,
+      readAt: NotificationRead[0]?.readAt || null,
     }));
 
     // Return array directly to match client expectations

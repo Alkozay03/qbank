@@ -342,13 +342,10 @@ export default function RichTextEditor({
       },
     },
     onUpdate: ({ editor }: { editor: Editor }) => {
-      let value = editor.getHTML();
-      if (preserveLineBreaksRef.current) {
-        value = fromHtml(value);
-      }
-      if (!allowBoldRef.current) {
-        value = value.replace(/<\/?strong>/gi, "").replace(/<\/?b>/gi, "");
-      }
+      const html = editor.getHTML();
+      const value = allowBoldRef.current
+        ? html
+        : html.replace(/<\/?strong>/gi, "").replace(/<\/?b>/gi, "");
       onChangeRef.current(value);
       
       // Update table active state
@@ -365,10 +362,10 @@ export default function RichTextEditor({
     if (!editor || editor.isDestroyed) return;
     
     if (!editor.isFocused) {
-      const currentContent = preserveLineBreaks ? fromHtml(editor.getHTML()) : editor.getHTML();
+      const currentContent = editor.getHTML();
       const newContent = preserveLineBreaks ? toHtml(content) : content;
       
-      if (currentContent !== content) {
+      if (currentContent !== newContent) {
         editor.commands.setContent(newContent, { emitUpdate: false });
       }
     }
