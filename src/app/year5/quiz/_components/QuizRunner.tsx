@@ -722,6 +722,29 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       ? null // EMQ has multiple correct answers
       : currentItem.question.choices.find((c) => c.id === selectedChoiceId)?.isCorrect ?? null;
       
+    const optimisticResponses = isEMQ
+      ? currentItem.question.choices.map((stem) => ({
+          choiceId: stem.id,
+          isCorrect: emqAnswers[stem.id] ? stem.correctOptionIds?.includes(emqAnswers[stem.id]) ?? false : null,
+        }))
+      : [
+          {
+            choiceId: selectedChoiceId,
+            isCorrect: localCorrect,
+          },
+        ];
+
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === currentItem.id
+          ? {
+              ...it,
+              responses: optimisticResponses,
+            }
+          : it
+      )
+    );
+
     try {
       const body = isEMQ
         ? {
@@ -772,7 +795,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
           it.id === currentItem.id
             ? {
                 ...it,
-                // Keep marked state unchanged - user controls it manually
                 responses: isEMQ && data?.results
                   ? data.results.map(r => ({
                       choiceId: r.stemId,
