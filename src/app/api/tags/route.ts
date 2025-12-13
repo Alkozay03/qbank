@@ -93,3 +93,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create tag" }, { status: 500 });
   }
 }
+// Cache at CDN for 1 hour (tags change rarely and are global)
+export const revalidate = 3600;
