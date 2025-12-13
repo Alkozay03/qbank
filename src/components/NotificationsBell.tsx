@@ -162,9 +162,12 @@ export default function NotificationsBell() {
       });
       
       // Update local state
-      setItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, isRead: true } : item))
-      );
+      setItems((prev) => {
+        const next = prev.map((item) => (item.id === id ? { ...item, isRead: true } : item));
+        const unread = next.filter((n) => !n.isRead);
+        setCount(unread.length);
+        return next;
+      });
       await refreshCount();
     } catch (error) {
       console.error("Error marking as read:", error);
