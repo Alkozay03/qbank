@@ -23,9 +23,37 @@ export default function NotificationsBell() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [portalReady, setPortalReady] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const lastLoadedRef = useRef<number>(0);
 
   useEffect(() => {
     setPortalReady(true);
+  }, []);
+
+  const fetchList = useCallback(async () => {
+    try {
+      const [listRes, profileRes] = await Promise.all([
+        fetch("/api/notifications/list", { cache: "no-store" }),
+        fetch("/api/profile", { cache: "no-store" }),
+      ]);
+
+      let rows: Notif[] = [];
+      if (listRes.ok) rows = (await listRes.json().catch(() => [])) as Notif[];
+
+      let showProfileNotif = false;
+      if (profileRes.ok) {
+        const p = (await profileRes.json().catch(() => ({}))) as { firstName?: string | null };
+        showProfileNotif = !p?.firstName;
+      }
+
+      const filtered = rows.filter((n) => (n.title === "Profile Settings" ? showProfileNotif : true));
+      const unreadCount = filtered.filter((n) => !n.isRead).length;
+      setItems(filtered);
+      setCount(unreadCount);
+      lastLoadedRef.current = Date.now();
+    } catch {
+      setItems([]);
+      setCount(0);
+    }
   }, []);
 
   async function refreshCount() {
@@ -38,6 +66,9 @@ export default function NotificationsBell() {
       const data = await res.json().catch(() => ({ count: 0 }));
       const raw = typeof data?.count === "number" && Number.isFinite(data.count) ? data.count : 0;
       setCount(raw);
+      if (raw > 0 && items.length === 0) {
+        void fetchList();
+      }
     } catch {
       setCount(0);
     }
@@ -79,25 +110,9 @@ export default function NotificationsBell() {
     }
     setOpen(next);
     if (next) {
-      try {
-        const [listRes, profileRes] = await Promise.all([
-          fetch("/api/notifications/list", { cache: "no-store" }),
-          fetch("/api/profile", { cache: "no-store" }),
-        ]);
-        let rows: Notif[] = [];
-        if (listRes.ok) rows = (await listRes.json()) as Notif[];
-        let showProfileNotif = false;
-        if (profileRes.ok) {
-          const p = (await profileRes.json()) as { firstName?: string | null; lastName?: string | null; gradYear?: number | null };
-          showProfileNotif = !p?.firstName; // require first name; extend if needed
-        }
-        // Only show "Profile Settings" notification if profile incomplete
-        const filtered = rows.filter((n) => (n.title === "Profile Settings" ? showProfileNotif : true));
-        const unreadCount = filtered.filter((n) => !n.isRead).length;
-        setCount(unreadCount);
-        setItems(filtered);
-      } catch {
-        // ignore
+      const stale = Date.now() - lastLoadedRef.current > 30_000;
+      if (stale || items.length === 0) {
+        void fetchList();
       }
     }
   }

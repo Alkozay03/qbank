@@ -24,7 +24,9 @@ export async function GET() {
       select: { role: true },
     });
 
-    if (user?.role !== "MASTER_ADMIN" && user?.role !== "ADMIN") {
+    const role = user?.role ?? "";
+    const allowed = new Set(["MASTER_ADMIN", "ADMIN", "Admin", "WEBSITE_CREATOR"]);
+    if (!allowed.has(role)) {
       return NextResponse.json(
         { error: "Unauthorized - Admin access required" },
         { status: 403 }
