@@ -31,9 +31,15 @@ export default function NotificationsBell() {
   async function refreshCount() {
     try {
       const res = await fetch("/api/notifications/unread-count", { cache: "no-store" });
-      if (res.ok) setCount((await res.json()).count ?? 0);
+      if (!res.ok) {
+        setCount(0);
+        return;
+      }
+      const data = await res.json().catch(() => ({ count: 0 }));
+      const raw = typeof data?.count === "number" && Number.isFinite(data.count) ? data.count : 0;
+      setCount(raw);
     } catch {
-      // ignore
+      setCount(0);
     }
   }
 
@@ -164,7 +170,7 @@ export default function NotificationsBell() {
           </svg>
           {count > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-lg border-2 border-white z-10">
-              {count}
+              {count > 9 ? "9+" : count}
             </span>
           )}
         </button>
