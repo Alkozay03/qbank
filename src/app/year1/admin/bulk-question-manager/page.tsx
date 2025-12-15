@@ -1710,7 +1710,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               >
                 {questionImageUploading ? 'Uploading…' : 'Select image'}
               </button>
-              <span className="text-xs text-slate-500">or drag &amp; drop / paste (Ctrl+V)</span>
+              <span className="text-xs text-slate-500">or Drag &amp; Drop / Click anywhere in the box and paste the image directly</span>
               {questionImageError ? (
                 <span className="text-xs text-red-600">{questionImageError}</span>
               ) : null}
@@ -1838,7 +1838,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               >
                 {explanationImageUploading ? 'Uploading…' : 'Select image'}
               </button>
-              <span className="text-xs text-slate-500">or drag &amp; drop / paste (Ctrl+V)</span>
+              <span className="text-xs text-slate-500">or Drag &amp; Drop / Click anywhere in the box and paste the image directly</span>
               {explanationImageError ? (
                 <span className="text-xs text-red-600">{explanationImageError}</span>
               ) : null}
