@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, KeyboardEvent, ChangeEvent, DragEvent, Suspense } from "react";
+import { useState, useRef, useCallback, useEffect, KeyboardEvent, ChangeEvent, DragEvent, ClipboardEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import RichTextEditor from "@/components/RichTextEditor";
 import TagSelector from "@/components/TagSelector";
@@ -1200,6 +1200,25 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   // Filter out Y4/Y5 internal categorization from display - year buttons already show this
   const displayOccurrences = occurrences.filter(occ => !occ?.year?.match(/^Y[45]$/i));
 
+  const getImageFileFromDataTransfer = useCallback((data: DataTransfer | null) => {
+    if (!data) return null;
+
+    for (const item of Array.from(data.items)) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) return file;
+      }
+    }
+
+    for (const file of Array.from(data.files)) {
+      if (file.type.startsWith('image/')) {
+        return file;
+      }
+    }
+
+    return null;
+  }, []);
+
   useEffect(() => {
     setEditedQuestion({
       ...question,
@@ -1515,11 +1534,21 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const handleQuestionImageDrop = useCallback(
     async (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      const file = event.dataTransfer.files?.[0];
+      const file = getImageFileFromDataTransfer(event.dataTransfer);
       if (!file) return;
       await handleQuestionImageUpload(file);
     },
-    [handleQuestionImageUpload]
+    [getImageFileFromDataTransfer, handleQuestionImageUpload]
+  );
+
+  const handleQuestionImagePaste = useCallback(
+    async (event: ClipboardEvent<HTMLDivElement>) => {
+      const file = getImageFileFromDataTransfer(event.clipboardData);
+      if (!file) return;
+      event.preventDefault();
+      await handleQuestionImageUpload(file);
+    },
+    [getImageFileFromDataTransfer, handleQuestionImageUpload]
   );
 
   // Explanation Image Upload Handlers
@@ -1571,11 +1600,21 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const handleExplanationImageDrop = useCallback(
     async (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      const file = event.dataTransfer.files?.[0];
+      const file = getImageFileFromDataTransfer(event.dataTransfer);
       if (!file) return;
       await handleExplanationImageUpload(file);
     },
-    [handleExplanationImageUpload]
+    [getImageFileFromDataTransfer, handleExplanationImageUpload]
+  );
+
+  const handleExplanationImagePaste = useCallback(
+    async (event: ClipboardEvent<HTMLDivElement>) => {
+      const file = getImageFileFromDataTransfer(event.clipboardData);
+      if (!file) return;
+      event.preventDefault();
+      await handleExplanationImageUpload(file);
+    },
+    [getImageFileFromDataTransfer, handleExplanationImageUpload]
   );
 
   return (
@@ -1685,6 +1724,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 event.dataTransfer.dropEffect = 'copy';
               }}
               onDrop={handleQuestionImageDrop}
+              onPaste={handleQuestionImagePaste}
+              tabIndex={0}
               className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-sky-200 bg-white px-4 py-6 text-center transition hover:border-[#0ea5e9] hover:bg-sky-50"
             >
               <button
@@ -1694,7 +1735,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               >
                 {questionImageUploading ? 'Uploading…' : 'Select image'}
               </button>
-              <span className="text-xs text-slate-500">or drag &amp; drop</span>
+              <span className="text-xs text-slate-500">or drag &amp; drop / paste (Ctrl+V)</span>
               {questionImageError ? (
                 <span className="text-xs text-red-600">{questionImageError}</span>
               ) : null}
@@ -1811,6 +1852,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 event.dataTransfer.dropEffect = 'copy';
               }}
               onDrop={handleExplanationImageDrop}
+              onPaste={handleExplanationImagePaste}
+              tabIndex={0}
               className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-sky-200 bg-white px-4 py-6 text-center transition hover:border-[#0ea5e9] hover:bg-sky-50"
             >
               <button
@@ -1820,7 +1863,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               >
                 {explanationImageUploading ? 'Uploading…' : 'Select image'}
               </button>
-              <span className="text-xs text-slate-500">or drag &amp; drop</span>
+              <span className="text-xs text-slate-500">or drag &amp; drop / paste (Ctrl+V)</span>
               {explanationImageError ? (
                 <span className="text-xs text-red-600">{explanationImageError}</span>
               ) : null}
@@ -2200,5 +2243,3 @@ export default function BulkQuestionManager() {
     </Suspense>
   );
 }
-
-
