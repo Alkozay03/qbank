@@ -1478,11 +1478,21 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const handleScreenshotDrop = useCallback(
     async (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      const file = event.dataTransfer.files?.[0];
+      const file = getImageFileFromDataTransfer(event.dataTransfer);
       if (!file) return;
       await handleScreenshotUpload(file);
     },
-    [handleScreenshotUpload]
+    [getImageFileFromDataTransfer, handleScreenshotUpload]
+  );
+
+  const handleScreenshotPaste = useCallback(
+    async (event: ClipboardEvent<HTMLDivElement>) => {
+      const file = getImageFileFromDataTransfer(event.clipboardData);
+      if (!file) return;
+      event.preventDefault();
+      await handleScreenshotUpload(file);
+    },
+    [getImageFileFromDataTransfer, handleScreenshotUpload]
   );
 
   // Question Image Upload Handlers
@@ -2019,6 +2029,8 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                 event.dataTransfer.dropEffect = 'copy';
               }}
               onDrop={handleScreenshotDrop}
+              onPaste={handleScreenshotPaste}
+              tabIndex={0}
               className="mt-3 flex min-h-[120px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#C7D9E6] bg-white px-4 py-6 text-center transition hover:border-[#56A2CD] hover:bg-[#F8FCFF]"
             >
               <button
@@ -2028,7 +2040,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               >
                 {screenshotUploading ? 'Uploading…' : 'Select image'}
               </button>
-              <span className="text-xs text-slate-500">or drag &amp; drop</span>
+              <span className="text-xs text-slate-500">or Drag &amp; Drop / Click anywhere in the box and paste the image directly</span>
               {screenshotError ? (
                 <span className="text-xs text-red-600">{screenshotError}</span>
               ) : null}
