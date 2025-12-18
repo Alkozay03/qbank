@@ -42,7 +42,13 @@ export async function POST(req: Request) {
       ? body.types.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
 
-    const take = Math.max(1, Math.min(40, Number(body.count) || 10));
+    const rawCount = Number(body.count);
+    const requestedCount = Number.isFinite(rawCount) ? rawCount : 10;
+    if (requestedCount > 100) {
+      return NextResponse.json({ error: "Maximum question count is 100" }, { status: 400 });
+    }
+
+    const take = Math.max(1, Math.min(100, requestedCount));
     if (!rotationKeys.length) {
       return NextResponse.json({ error: "Select at least one rotation" }, { status: 400 });
     }

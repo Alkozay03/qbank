@@ -23,27 +23,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Use session.user.id directly instead of looking up by email
     const userId = session.user.id;
-
     const body = (await req.json().catch(() => ({}))) as Payload;
 
-    const year = body.year ?? "Y4"; // Default to Y4 for backwards compatibility
+    const year = typeof body.year === "string" ? body.year : "Y4"; // Default to Y4 for backwards compatibility
 
     // Expand tag values
     const rotValues = expandTagValues(TagType.ROTATION, body.rotationKeys ?? []);
     const resValues = expandTagValues(TagType.RESOURCE, body.resourceValues ?? []);
     const discValues = expandTagValues(TagType.SUBJECT, body.disciplineValues ?? []);
     const sysValues = expandTagValues(TagType.SYSTEM, body.systemValues ?? []);
-    const selectedModes = body.selectedModes ?? [];
+    const selectedModes = Array.isArray(body.selectedModes)
+      ? body.selectedModes.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
 
-    // First, get all questions that match the static tag filters
-    // Using OR within each category (IN clause handles OR), AND across categories
-    const staticFilterConditions: Prisma.Sql[] = [];
-    
+    // Build static filters (tag + year). OR within each category, AND across categories.
+    const baseConditions: Prisma.Sql[] = [];
+
     if (rotValues.length) {
-      // OR within rotations: questions with ANY of the selected rotations
-      staticFilterConditions.push(
+      baseConditions.push(
         Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qr
           JOIN "Tag" tr ON tr.id = qr."tagId"
@@ -55,8 +53,7 @@ export async function POST(req: Request) {
     }
 
     if (resValues.length) {
-      // OR within resources: questions with ANY of the selected resources
-      staticFilterConditions.push(
+      baseConditions.push(
         Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qr2
           JOIN "Tag" tr2 ON tr2.id = qr2."tagId"
@@ -68,8 +65,7 @@ export async function POST(req: Request) {
     }
 
     if (discValues.length) {
-      // OR within disciplines: questions with ANY of the selected disciplines
-      staticFilterConditions.push(
+      baseConditions.push(
         Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qs
           JOIN "Tag" ts ON ts.id = qs."tagId"
@@ -81,8 +77,7 @@ export async function POST(req: Request) {
     }
 
     if (sysValues.length) {
-      // OR within systems: questions with ANY of the selected systems
-      staticFilterConditions.push(
+      baseConditions.push(
         Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qy
           JOIN "Tag" ty ON ty.id = qy."tagId"
@@ -93,58 +88,67 @@ export async function POST(req: Request) {
       );
     }
 
-    // Add year filtering to the static conditions
-    if (year) {
-      staticFilterConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionOccurrence" qo
-          WHERE qo."questionId" = q.id
-            AND qo.year = ${year}
-        )`
-      );
-    }
+    // Always scope to year
+    baseConditions.push(
+      Prisma.sql`EXISTS (
+        SELECT 1 FROM "QuestionOccurrence" qo
+        WHERE qo."questionId" = q.id
+          AND qo.year = ${year}
+      )`
+    );
 
-    const staticWhere = staticFilterConditions.length 
-      ? Prisma.sql`WHERE ${Prisma.join(staticFilterConditions, ' AND ')}`
+    const baseWhere = baseConditions.length
+      ? Prisma.sql`WHERE ${Prisma.join(baseConditions, ' AND ')}`
       : Prisma.empty;
 
-    // Get all questions that match static filters
-    const matchingQuestions = await prisma.$queryRaw<Array<{ id: string }>>(
+    const modeFilter = selectedModes.length
+      ? Prisma.sql`WHERE mode_lookup.mode IN (${Prisma.join(selectedModes.map((value) => Prisma.sql`${value}`))})`
+      : Prisma.empty;
+
+    const rows = await prisma.$queryRaw<Array<{ section: string; key: string; c: number }>>(
       Prisma.sql`
-        SELECT DISTINCT q.id
-        FROM "Question" q
-        ${staticWhere}
+        WITH base AS (
+          SELECT q.id
+          FROM "Question" q
+          ${baseWhere}
+        ),
+        mode_lookup AS (
+          SELECT b.id,
+                 COALESCE(uqm.mode, 'unused') AS mode
+          FROM base b
+          LEFT JOIN "UserQuestionMode" uqm
+            ON uqm."questionId" = b.id
+           AND uqm."userId" = ${userId}
+        ),
+        mode_counts AS (
+          SELECT mode AS key, COUNT(*)::int AS c
+          FROM mode_lookup
+          GROUP BY mode
+        ),
+        filtered AS (
+          SELECT id, mode
+          FROM mode_lookup
+          ${modeFilter}
+        ),
+        tag_counts AS (
+          SELECT t.type::text AS section, t.value AS key, COUNT(DISTINCT f.id)::int AS c
+          FROM filtered f
+          JOIN "QuestionTag" qt ON qt."questionId" = f.id
+          JOIN "Tag" t ON t.id = qt."tagId"
+          WHERE t.type IN (
+            ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)},
+            ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)},
+            ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)},
+            ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
+          )
+          GROUP BY t.type, t.value
+        )
+        SELECT 'mode' AS section, key, c FROM mode_counts
+        UNION ALL
+        SELECT section, key, c FROM tag_counts;
       `
     );
 
-    const matchingQuestionIds = matchingQuestions.map(q => q.id);
-
-    if (matchingQuestionIds.length === 0) {
-      return NextResponse.json({
-        modeCounts: { unused: 0, incorrect: 0, correct: 0, omitted: 0, marked: 0 },
-        tagCounts: { rotations: {}, resources: {}, disciplines: {}, systems: {} }
-      });
-    }
-
-    // Get USER-SPECIFIC question modes from the cached table
-    const userQuestionModes = await prisma.userQuestionMode.findMany({
-      where: {
-        userId: userId,
-        questionId: { in: matchingQuestionIds }
-      },
-      select: {
-        questionId: true,
-        mode: true,
-      },
-    });
-
-    // Create a map of questionId -> mode for fast lookup
-    const modeMap = new Map<string, string>();
-    for (const uqm of userQuestionModes) {
-      modeMap.set(uqm.questionId, uqm.mode);
-    }
-
-    // Count by USER-SPECIFIC mode from cached table
     const modeCounts = {
       unused: 0,
       incorrect: 0,
@@ -153,200 +157,35 @@ export async function POST(req: Request) {
       marked: 0,
     };
 
-    // Count all matching questions by their cached USER-SPECIFIC mode
-    matchingQuestionIds.forEach(questionId => {
-      const mode = modeMap.get(questionId);
-      
-      // No cached mode = unused (question never used by this user)
-      if (!mode || mode === "unused") {
-        modeCounts.unused += 1;
-      } else if (mode === "correct") {
-        modeCounts.correct += 1;
-      } else if (mode === "incorrect") {
-        modeCounts.incorrect += 1;
-      } else if (mode === "omitted") {
-        modeCounts.omitted += 1;
-      } else if (mode === "marked") {
-        modeCounts.marked += 1;
-      } else {
-        // Unknown mode, treat as unused
-        modeCounts.unused += 1;
-      }
-    });
+    const tagCounts = {
+      rotations: {} as Record<string, number>,
+      resources: {} as Record<string, number>,
+      disciplines: {} as Record<string, number>,
+      systems: {} as Record<string, number>,
+    };
 
-    // OPTIMIZED: Count tags with single-pass approach for each cascade level
-    // Instead of querying 6000 questions multiple times, we query once per level
-    
-    // Helper: Get questions matching specific filters (optimized to run once per cascade level)
-    async function getFilteredQuestionIds(includeRotation: boolean, includeResource: boolean, includeDiscipline: boolean, includeSystem: boolean) {
-      const conditions: Prisma.Sql[] = [];
-      
-      // Always include year filter
-      if (year) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionOccurrence" qo
-            WHERE qo."questionId" = q.id AND qo.year = ${year}
-          )`
-        );
-      }
-      
-      // Conditionally add other filters based on cascade level
-      if (includeRotation && rotValues.length) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionTag" qr
-            JOIN "Tag" tr ON tr.id = qr."tagId"
-            WHERE qr."questionId" = q.id
-              AND tr.type = ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)}
-              AND tr.value IN (${Prisma.join(rotValues.map((value) => Prisma.sql`${value}`))})
-          )`
-        );
-      }
-      
-      if (includeResource && resValues.length) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionTag" qr2
-            JOIN "Tag" tr2 ON tr2.id = qr2."tagId"
-            WHERE qr2."questionId" = q.id
-              AND tr2.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
-              AND tr2.value IN (${Prisma.join(resValues.map((value) => Prisma.sql`${value}`))})
-          )`
-        );
-      }
-      
-      if (includeDiscipline && discValues.length) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionTag" qs
-            JOIN "Tag" ts ON ts.id = qs."tagId"
-            WHERE qs."questionId" = q.id
-              AND ts.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
-              AND ts.value IN (${Prisma.join(discValues.map((value) => Prisma.sql`${value}`))})
-          )`
-        );
-      }
-      
-      if (includeSystem && sysValues.length) {
-        conditions.push(
-          Prisma.sql`EXISTS (
-            SELECT 1 FROM "QuestionTag" qy
-            JOIN "Tag" ty ON ty.id = qy."tagId"
-            WHERE qy."questionId" = q.id
-              AND ty.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
-              AND ty.value IN (${Prisma.join(sysValues.map((value) => Prisma.sql`${value}`))})
-          )`
-        );
-      }
-      
-      const where = conditions.length 
-        ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
-        : Prisma.empty;
-        
-      const questions = await prisma.$queryRaw<Array<{ id: string }>>(
-        Prisma.sql`SELECT DISTINCT q.id FROM "Question" q ${where}`
-      );
-      
-      const questionIds = questions.map(q => q.id);
-      
-      // Apply mode filter (user-specific)
-      if (selectedModes.length > 0) {
-        return questionIds.filter(questionId => {
-          const mode = modeMap.get(questionId);
-          if (!mode || mode === "unused") {
-            return selectedModes.includes("unused");
-          }
-          return selectedModes.includes(mode);
-        });
-      }
-      
-      return questionIds;
-    }
-    
-    // OPTIMIZED: Count all tag types in ONE query instead of separate queries
-    async function countAllTagsInQuestions(questionIds: string[]) {
-      if (questionIds.length === 0) {
-        return {
-          rotations: {},
-          resources: {},
-          disciplines: {},
-          systems: {}
-        };
-      }
-      
-      // Single query to get ALL tag counts across ALL types
-      const rows = await prisma.$queryRaw<Array<{ type: string; value: string; c: number }>>(
-        Prisma.sql`
-          SELECT 
-            t.type::text as type,
-            t.value,
-            COUNT(DISTINCT q.id)::int AS c
-          FROM "Question" q
-          JOIN "QuestionTag" qt ON qt."questionId" = q.id
-          JOIN "Tag" t ON t.id = qt."tagId"
-          WHERE q.id IN (${Prisma.join(questionIds.map(id => Prisma.sql`${id}`))})
-            AND t.type IN (
-              ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)},
-              ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)},
-              ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)},
-              ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
-            )
-          GROUP BY t.type, t.value
-        `
-      );
-      
-      // Organize results by tag type
-      const result = {
-        rotations: {} as Record<string, number>,
-        resources: {} as Record<string, number>,
-        disciplines: {} as Record<string, number>,
-        systems: {} as Record<string, number>
-      };
-      
-      for (const row of rows) {
-        if (row.type === TagType.ROTATION) {
-          result.rotations[row.value] = row.c;
-        } else if (row.type === TagType.RESOURCE) {
-          result.resources[row.value] = row.c;
-        } else if (row.type === TagType.SUBJECT) {
-          result.disciplines[row.value] = row.c;
-        } else if (row.type === TagType.SYSTEM) {
-          result.systems[row.value] = row.c;
+    for (const row of rows) {
+      if (row.section === "mode") {
+        if (row.key in modeCounts) {
+          modeCounts[row.key as keyof typeof modeCounts] = row.c;
         }
+        continue;
       }
-      
-      return result;
-    }
 
-    // Calculate counts for each cascade level (rotation → resource → discipline → system)
-    // Each level includes upstream filters but excludes its own category
-    
-    // Rotation counts: based on mode only
-    const rotationQuestions = await getFilteredQuestionIds(false, false, false, false);
-    const rotationCounts = await countAllTagsInQuestions(rotationQuestions);
-    
-    // Resource counts: based on mode + rotations
-    const resourceQuestions = await getFilteredQuestionIds(true, false, false, false);
-    const resourceCounts = await countAllTagsInQuestions(resourceQuestions);
-    
-    // Discipline counts: based on mode + rotations + resources
-    const disciplineQuestions = await getFilteredQuestionIds(true, true, false, false);
-    const disciplineCounts = await countAllTagsInQuestions(disciplineQuestions);
-    
-    // System counts: based on mode + rotations + resources + disciplines
-    const systemQuestions = await getFilteredQuestionIds(true, true, true, false);
-    const systemCounts = await countAllTagsInQuestions(systemQuestions);
-    
-    // Combine results from each cascade level
-    const rotations = rotationCounts.rotations;
-    const resources = resourceCounts.resources;
-    const disciplines = disciplineCounts.disciplines;
-    const systems = systemCounts.systems;
+      if (row.section === TagType.ROTATION) {
+        tagCounts.rotations[row.key] = row.c;
+      } else if (row.section === TagType.RESOURCE) {
+        tagCounts.resources[row.key] = row.c;
+      } else if (row.section === TagType.SUBJECT) {
+        tagCounts.disciplines[row.key] = row.c;
+      } else if (row.section === TagType.SYSTEM) {
+        tagCounts.systems[row.key] = row.c;
+      }
+    }
 
     return NextResponse.json({
       modeCounts,
-      tagCounts: { rotations, resources, disciplines, systems }
+      tagCounts,
     });
   } catch (error) {
     console.error("Error calculating filtered counts:", error);

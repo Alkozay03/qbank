@@ -200,24 +200,18 @@ export async function selectQuestions(opts: {
       orderBy: { createdAt: "desc" },
       cacheStrategy: { ttl: 3600, swr: 600 }  // 1h cache, 10min stale
     });
-  } catch {
-    // Fallback query also cached
+  } catch (error) {
+    console.error("selectQuestions primary query failed; retrying without cacheStrategy", error);
     pool = await prisma.question.findMany({
+      where,
       select: { id: true },
       take: Math.max(take * 3, take),
-      orderBy: { createdAt: "desc" },
-      cacheStrategy: { ttl: 3600, swr: 600 }
+      orderBy: { createdAt: "desc" }
     });
   }
 
   if (pool.length === 0) {
-    // Final fallback also cached
-    pool = await prisma.question.findMany({
-      select: { id: true },
-      take: Math.max(take * 3, take),
-      orderBy: { createdAt: "desc" },
-      cacheStrategy: { ttl: 3600, swr: 600 }
-    });
+    return [];
   }
 
   for (let i = pool.length - 1; i > 0; i -= 1) {
