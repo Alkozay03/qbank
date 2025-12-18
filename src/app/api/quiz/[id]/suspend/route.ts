@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 
 /**
  * POST /api/quiz/[id]/suspend
- * Body: { action: "suspend" | "resume" }
+ * Body (optional): { action: "suspend" | "resume" }
  * Updates the quiz.status for the signed-in user's quiz.
  */
 export async function POST(
@@ -23,10 +23,6 @@ export async function POST(
     action?: "suspend" | "resume";
   };
 
-  if (action !== "suspend" && action !== "resume") {
-    return NextResponse.json({ error: "action must be 'suspend' or 'resume'" }, { status: 400 });
-  }
-
   // Ensure the quiz belongs to the user
   const quiz = await prisma.quiz.findFirst({
     where: { id, user: { email } },
@@ -34,7 +30,8 @@ export async function POST(
   });
   if (!quiz) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const status = action === "suspend" ? "Suspended" : "Active";
+  // Default to "suspend" when no action is provided (UI calls without body)
+  const status = action === "resume" ? "Active" : "Suspended";
 
   await prisma.quiz.update({
     where: { id },

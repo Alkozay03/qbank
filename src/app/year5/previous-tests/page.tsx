@@ -103,7 +103,7 @@ export default async function PreviousTests() {
         status: true,
         createdAt: true,
         _count: {
-          select: { items: true } // Count questions instead of fetching them
+          select: { QuizItem: true } // Count questions instead of fetching them
         },
       },
       orderBy: { createdAt: "desc" },
@@ -168,12 +168,13 @@ export default async function PreviousTests() {
   const rows: ScoreRow[] = quizzes.map((quiz) => {
     const stats = quizStats.get(quiz.id);
     const correct = stats?.correct || 0;
-    const answered = stats?.total || 0;
-    const scorePercent = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+    const totalQuestions = quiz._count.QuizItem ?? 0;
+    const rawPercent = totalQuestions > 0 ? (correct / totalQuestions) * 100 : 0;
+    const scorePercent = Number(rawPercent.toFixed(1)); // keep accuracy to 0.1%
     const rotationLabel = stats?.rotation || "General";
 
     const shortId = quiz.id.slice(0, 6).toUpperCase();
-    const baseColor = pickScoreColor(scorePercent);
+    const baseColor = pickScoreColor(rawPercent);
     const accentColor = lightenHex(baseColor, 0.45);
 
     return {
@@ -181,7 +182,7 @@ export default async function PreviousTests() {
       shortId,
       status: quiz.status,
       createdAt: quiz.createdAt,
-      questionCount: quiz._count.QuizItem, // Use _count instead of items.length
+      questionCount: totalQuestions,
       rotationLabel,
       scorePercent,
       scoreBackground: `linear-gradient(135deg, ${baseColor}, ${accentColor})`,
