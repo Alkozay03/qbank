@@ -37,69 +37,46 @@ export async function POST(req: Request) {
       ? body.selectedModes.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
 
-    // Build static filters (tag + year). OR within each category, AND across categories.
-    const baseConditions: Prisma.Sql[] = [];
-
-    if (rotValues.length) {
-      baseConditions.push(
-        Prisma.sql`EXISTS (
+    // Optional filters for cascade (applied to downstream scopes only)
+    const rotationFilter = rotValues.length
+      ? Prisma.sql`EXISTS (
           SELECT 1 FROM "QuestionTag" qr
           JOIN "Tag" tr ON tr.id = qr."tagId"
-          WHERE qr."questionId" = q.id
+          WHERE qr."questionId" = scope.id
             AND tr.type = ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)}
             AND tr.value IN (${Prisma.join(rotValues.map((value) => Prisma.sql`${value}`))})
         )`
-      );
-    }
+      : null;
 
-    if (resValues.length) {
-      baseConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qr2
-          JOIN "Tag" tr2 ON tr2.id = qr2."tagId"
-          WHERE qr2."questionId" = q.id
-            AND tr2.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
-            AND tr2.value IN (${Prisma.join(resValues.map((value) => Prisma.sql`${value}`))})
+    const resourceFilter = resValues.length
+      ? Prisma.sql`EXISTS (
+          SELECT 1 FROM "QuestionTag" qr
+          JOIN "Tag" tr ON tr.id = qr."tagId"
+          WHERE qr."questionId" = scope.id
+            AND tr.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
+            AND tr.value IN (${Prisma.join(resValues.map((value) => Prisma.sql`${value}`))})
         )`
-      );
-    }
+      : null;
 
-    if (discValues.length) {
-      baseConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qs
-          JOIN "Tag" ts ON ts.id = qs."tagId"
-          WHERE qs."questionId" = q.id
-            AND ts.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
-            AND ts.value IN (${Prisma.join(discValues.map((value) => Prisma.sql`${value}`))})
+    const disciplineFilter = discValues.length
+      ? Prisma.sql`EXISTS (
+          SELECT 1 FROM "QuestionTag" qr
+          JOIN "Tag" tr ON tr.id = qr."tagId"
+          WHERE qr."questionId" = scope.id
+            AND tr.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
+            AND tr.value IN (${Prisma.join(discValues.map((value) => Prisma.sql`${value}`))})
         )`
-      );
-    }
+      : null;
 
-    if (sysValues.length) {
-      baseConditions.push(
-        Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qy
-          JOIN "Tag" ty ON ty.id = qy."tagId"
-          WHERE qy."questionId" = q.id
-            AND ty.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
-            AND ty.value IN (${Prisma.join(sysValues.map((value) => Prisma.sql`${value}`))})
+    const systemFilter = sysValues.length
+      ? Prisma.sql`EXISTS (
+          SELECT 1 FROM "QuestionTag" qr
+          JOIN "Tag" tr ON tr.id = qr."tagId"
+          WHERE qr."questionId" = scope.id
+            AND tr.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
+            AND tr.value IN (${Prisma.join(sysValues.map((value) => Prisma.sql`${value}`))})
         )`
-      );
-    }
-
-    // Always scope to year
-    baseConditions.push(
-      Prisma.sql`EXISTS (
-        SELECT 1 FROM "QuestionOccurrence" qo
-        WHERE qo."questionId" = q.id
-          AND qo.year = ${year}
-      )`
-    );
-
-    const baseWhere = baseConditions.length
-      ? Prisma.sql`WHERE ${Prisma.join(baseConditions, ' AND ')}`
-      : Prisma.empty;
+      : null;
 
     const modeFilter = selectedModes.length
       ? Prisma.sql`WHERE mode_lookup.mode IN (${Prisma.join(selectedModes.map((value) => Prisma.sql`${value}`))})`
@@ -108,11 +85,17 @@ export async function POST(req: Request) {
     const rows = await prisma.$queryRaw<Array<{ section: string; key: string; c: number }>>(
       Prisma.sql`
         WITH base AS (
+          -- Year-scoped base set
           SELECT q.id
           FROM "Question" q
-          ${baseWhere}
+          WHERE EXISTS (
+            SELECT 1 FROM "QuestionOccurrence" qo
+            WHERE qo."questionId" = q.id
+              AND qo.year = ${year}
+          )
         ),
         mode_lookup AS (
+          -- Attach per-user mode; missing rows -> unused
           SELECT b.id,
                  COALESCE(uqm.mode, 'unused') AS mode
           FROM base b
@@ -121,31 +104,78 @@ export async function POST(req: Request) {
            AND uqm."userId" = ${userId}
         ),
         mode_counts AS (
+          -- Mode counts do NOT depend on downstream selections
           SELECT mode AS key, COUNT(*)::int AS c
           FROM mode_lookup
           GROUP BY mode
         ),
-        filtered AS (
-          SELECT id, mode
-          FROM mode_lookup
+        mode_filtered AS (
+          -- Apply mode selection (if any) once, reuse downstream
+          SELECT * FROM mode_lookup
           ${modeFilter}
         ),
-        tag_counts AS (
-          SELECT t.type::text AS section, t.value AS key, COUNT(DISTINCT f.id)::int AS c
-          FROM filtered f
-          JOIN "QuestionTag" qt ON qt."questionId" = f.id
-          JOIN "Tag" t ON t.id = qt."tagId"
-          WHERE t.type IN (
-            ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)},
-            ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)},
-            ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)},
-            ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
-          )
-          GROUP BY t.type, t.value
+        rotation_scope AS (
+          -- Cascade level: mode only (no rotation filter)
+          SELECT id FROM mode_filtered
+        ),
+        resource_scope AS (
+          -- Cascade level: mode + rotation selection
+          SELECT scope.id
+          FROM rotation_scope scope
+          WHERE 1=1
+          ${rotationFilter ? Prisma.sql`AND ${rotationFilter}` : Prisma.empty}
+        ),
+        discipline_scope AS (
+          -- Cascade level: mode + rotation + resource selection
+          SELECT scope.id
+          FROM resource_scope scope
+          WHERE 1=1
+          ${resourceFilter ? Prisma.sql`AND ${resourceFilter}` : Prisma.empty}
+        ),
+        system_scope AS (
+          -- Cascade level: mode + rotation + resource + discipline selection
+          SELECT scope.id
+          FROM discipline_scope scope
+          WHERE 1=1
+          ${disciplineFilter ? Prisma.sql`AND ${disciplineFilter}` : Prisma.empty}
+        ),
+        rotation_counts AS (
+          SELECT 'rotation'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
+          FROM rotation_scope r
+          JOIN "QuestionTag" qt ON qt."questionId" = r.id
+          JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)}
+          GROUP BY t.value
+        ),
+        resource_counts AS (
+          SELECT 'resource'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
+          FROM resource_scope r
+          JOIN "QuestionTag" qt ON qt."questionId" = r.id
+          JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
+          GROUP BY t.value
+        ),
+        discipline_counts AS (
+          SELECT 'discipline'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
+          FROM discipline_scope r
+          JOIN "QuestionTag" qt ON qt."questionId" = r.id
+          JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
+          GROUP BY t.value
+        ),
+        system_counts AS (
+          SELECT 'system'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
+          FROM system_scope r
+          JOIN "QuestionTag" qt ON qt."questionId" = r.id
+          JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
+          GROUP BY t.value
         )
         SELECT 'mode' AS section, key, c FROM mode_counts
         UNION ALL
-        SELECT section, key, c FROM tag_counts;
+        SELECT section, key, c FROM rotation_counts
+        UNION ALL
+        SELECT section, key, c FROM resource_counts
+        UNION ALL
+        SELECT section, key, c FROM discipline_counts
+        UNION ALL
+        SELECT section, key, c FROM system_counts;
       `
     );
 
@@ -172,13 +202,13 @@ export async function POST(req: Request) {
         continue;
       }
 
-      if (row.section === TagType.ROTATION) {
+      if (row.section === "rotation") {
         tagCounts.rotations[row.key] = row.c;
-      } else if (row.section === TagType.RESOURCE) {
+      } else if (row.section === "resource") {
         tagCounts.resources[row.key] = row.c;
-      } else if (row.section === TagType.SUBJECT) {
+      } else if (row.section === "discipline") {
         tagCounts.disciplines[row.key] = row.c;
-      } else if (row.section === TagType.SYSTEM) {
+      } else if (row.section === "system") {
         tagCounts.systems[row.key] = row.c;
       }
     }
