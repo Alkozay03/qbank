@@ -4,7 +4,7 @@ const COLOR_HEX: Record<HLColor, string> = {
   red:    "#e11d48",
   green:  "#16a34a",
   blue:   "#56A2CD",
-  yellow: "#ffe066",
+  yellow: "#FBF719",
 };
 
 type InitParams = {

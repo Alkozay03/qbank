@@ -13,6 +13,23 @@ type DisplayTagType = typeof DISPLAY_TAG_TYPES[number];
 
 type QuizStatus = "Active" | "Suspended" | "Ended";
 
+const parseImages = (raw?: string | null): string[] => {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .filter((v) => v.length > 0);
+    }
+  } catch {
+    /* fallback */
+  }
+  return [trimmed];
+};
+
 export default async function QuizPage({
   params,
 }: {
@@ -142,6 +159,9 @@ export default async function QuizPage({
       })();
 
       const mergedReferences = Array.from(new Set([...storedReferences, ...legacy.references]));
+      const questionImageUrls = parseImages(it.Question.questionImageUrl);
+      const explanationImageUrls = parseImages(it.Question.explanationImageUrl);
+
       return {
         id: it.id,
         order: it.orderInQuiz,
@@ -158,8 +178,10 @@ export default async function QuizPage({
           questionYear: it.Question.yearCaptured ?? null,
           rotationNumber: it.Question.rotationNumber ?? null,
           iduScreenshotUrl: it.Question.iduScreenshotUrl ?? null,
-          questionImageUrl: it.Question.questionImageUrl ?? null,
-          explanationImageUrl: it.Question.explanationImageUrl ?? null,
+          questionImageUrl: questionImageUrls[0] ?? null,
+          explanationImageUrl: explanationImageUrls[0] ?? null,
+          questionImageUrls,
+          explanationImageUrls,
           isAnswerConfirmed: it.Question.isAnswerConfirmed ?? true,
           occurrences: (it.Question.QuestionOccurrence ?? []).map((occ: { year: string | null; rotation: string | null; orderIndex: number | null }) => ({
             year: occ.year ?? null,

@@ -56,6 +56,9 @@ type QuestionUpdateBody = {
   iduScreenshotUrl?: string;
   questionImageUrl?: string;
   explanationImageUrl?: string;
+  // New: allow multiple images per slot
+  questionImageUrls?: string[];
+  explanationImageUrls?: string[];
   isAnswerConfirmed?: boolean;
   occurrences?: Array<{
     id?: string;
@@ -71,6 +74,38 @@ const CATEGORY_TO_TAGTYPE: Record<string, TagType> = {
   discipline: TagType.SUBJECT,
   system: TagType.SYSTEM,
   mode: TagType.MODE,
+};
+
+const decodeImages = (raw?: string | null): string[] => {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .filter((v) => v.length > 0);
+    }
+  } catch {
+    /* fall back to single */
+  }
+  return [trimmed];
+};
+
+const encodeImages = (input?: string[] | string | null): string | undefined => {
+  if (input === undefined) return undefined;
+  if (input === null) return "";
+  if (Array.isArray(input)) {
+    const cleaned = input
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter((v) => v.length > 0);
+    if (cleaned.length === 0) return "";
+    if (cleaned.length === 1) return cleaned[0];
+    return JSON.stringify(cleaned);
+  }
+  const trimmed = input.trim();
+  return trimmed;
 };
 
 function normalizeReferences(raw?: string): string | null {
@@ -219,8 +254,10 @@ export async function GET(
       questionYear: question.yearCaptured ?? '',
       rotationNumber: question.rotationNumber ?? '',
       iduScreenshotUrl: question.iduScreenshotUrl ?? '',
-      questionImageUrl: question.questionImageUrl ?? '',
-      explanationImageUrl: question.explanationImageUrl ?? '',
+      questionImageUrls: decodeImages(question.questionImageUrl),
+      explanationImageUrls: decodeImages(question.explanationImageUrl),
+      questionImageUrl: decodeImages(question.questionImageUrl)[0] ?? '',
+      explanationImageUrl: decodeImages(question.explanationImageUrl)[0] ?? '',
       occurrences: question.QuestionOccurrence
         .sort((a, b) => a.orderIndex - b.orderIndex)
         .map((occ) => ({
@@ -282,18 +319,13 @@ export async function PUT(
         : typeof body.iduScreenshotUrl === "string"
         ? body.iduScreenshotUrl.trim()
         : "";
-    const normalizedQuestionImageUrl =
-      body.questionImageUrl === undefined
-        ? undefined
-        : typeof body.questionImageUrl === "string"
-        ? body.questionImageUrl.trim()
-        : "";
-    const normalizedExplanationImageUrl =
-      body.explanationImageUrl === undefined
-        ? undefined
-        : typeof body.explanationImageUrl === "string"
-        ? body.explanationImageUrl.trim()
-        : "";
+
+    const normalizedQuestionImageUrl = encodeImages(
+      body.questionImageUrls ?? body.questionImageUrl ?? null
+    );
+    const normalizedExplanationImageUrl = encodeImages(
+      body.explanationImageUrls ?? body.explanationImageUrl ?? null
+    );
 
     const questionType = body.questionType || existing.questionType || 'MCQ';
     

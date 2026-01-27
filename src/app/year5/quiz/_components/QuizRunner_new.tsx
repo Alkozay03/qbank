@@ -245,7 +245,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     { c: "red" as HLColor, n: "red", hex: "#e11d48" },
                     { c: "green" as HLColor, n: "green", hex: "#16a34a" },
                     { c: "blue" as HLColor, n: "blue", hex: "#56A2CD" },
-                    { c: "yellow" as HLColor, n: "yellow", hex: "#ffe066" },
+                    { c: "yellow" as HLColor, n: "yellow", hex: "#FBF719" },
                   ].map((k) => (
                     <button
                       key={k.n}

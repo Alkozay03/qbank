@@ -46,6 +46,10 @@ const EMQQuestion = ({
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
+    setSelectedAnswers(submittedAnswers);
+  }, [submittedAnswers]);
+
+  useEffect(() => {
     const checkDark = () => setIsDark(isDarkMode());
     checkDark();
     
@@ -155,6 +159,16 @@ const EMQQuestion = ({
           const selectedOptionId = selectedAnswers[stem.id];
           const isCorrect = submitted && stem.correctOptionIds.includes(selectedOptionId);
           const isIncorrect = submitted && selectedOptionId && !stem.correctOptionIds.includes(selectedOptionId);
+          const selectedLabel = selectedOptionId
+            ? getOptionLabel(options.findIndex((opt) => opt.id === selectedOptionId))
+            : "—";
+          const correctLabels = stem.correctOptionIds
+            .map((id) => {
+              const idx = options.findIndex((opt) => opt.id === id);
+              return idx >= 0 ? getOptionLabel(idx) : "";
+            })
+            .filter(Boolean)
+            .join(", ");
           
           return (
             <div 
@@ -256,6 +270,13 @@ const EMQQuestion = ({
                       <span className="text-lg font-extrabold" style={{ color: isDark ? "#ffffff" : "#e11d48" }} title="Incorrect">×</span>
                     )}
                   </>
+                )}
+
+                {submitted && (
+                  <div className="text-xs font-semibold text-slate-600 flex gap-3 items-center">
+                    <span>Your answer: {selectedLabel}</span>
+                    <span>Correct: {correctLabels || "—"}</span>
+                  </div>
                 )}
 
                 {/* Show correct answer if wrong */}

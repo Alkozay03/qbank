@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect } from "react";
+import { memo, useEffect, useMemo } from "react";
 import Image from "next/image";
 import QuestionDiscussion from "./QuestionDiscussion";
 
@@ -26,6 +26,8 @@ type Question = {
   iduScreenshotUrl?: string | null;
   questionImageUrl?: string | null;
   explanationImageUrl?: string | null;
+  questionImageUrls?: string[] | null;
+  explanationImageUrls?: string[] | null;
   references?: string | null;
   choices: Choice[];
   tags?: QuestionTag[];
@@ -96,6 +98,18 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
   sectionHTMLByItem
 }: ClientSideQuestionDetailsProps) {
   const isDark = isDarkMode();
+  const explanationImages = useMemo(() => {
+    const urls = (currentItem.question.explanationImageUrls ?? []).filter(
+      (u): u is string => typeof u === "string" && u.trim().length > 0
+    );
+    const primary =
+      typeof currentItem.question.explanationImageUrl === "string" &&
+      currentItem.question.explanationImageUrl.trim().length > 0
+        ? currentItem.question.explanationImageUrl.trim()
+        : null;
+    if (primary) urls.unshift(primary);
+    return Array.from(new Set(urls));
+  }, [currentItem.question.explanationImageUrl, currentItem.question.explanationImageUrls]);
 
   // CSS injection for dark mode styling of HTML content
   useEffect(() => {
@@ -265,17 +279,24 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
       <div className="quiz-explanation mt-6">
         <div className="text-lg font-bold" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)' }}>Explanation:</div>
         
-        {/* Explanation Image */}
-        {currentItem?.question.explanationImageUrl && (
-          <div className="mt-3">
-            <Image
-              src={currentItem.question.explanationImageUrl}
-              alt="Explanation image"
-              width={1024}
-              height={768}
-              className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
-              unoptimized
-            />
+        {/* Explanation Images */}
+        {explanationImages.length > 0 && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {explanationImages.map((url, idx) => (
+              <div
+                key={`${url}-${idx}`}
+                className="overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF]"
+              >
+                <Image
+                  src={url}
+                  alt={`Explanation image ${idx + 1}`}
+                  width={1024}
+                  height={768}
+                  className="max-h-96 w-full object-contain rounded-lg"
+                  unoptimized
+                />
+              </div>
+            ))}
           </div>
         )}
         

@@ -171,6 +171,8 @@ type Question = {
   iduScreenshotUrl?: string | null;
   questionImageUrl?: string | null;
   explanationImageUrl?: string | null;
+  questionImageUrls?: string[] | null;
+  explanationImageUrls?: string[] | null;
   references?: string | null;
   choices: Choice[];
   tags?: QuestionTag[];
@@ -271,6 +273,14 @@ function findSection(node: Node | null): { el: HTMLElement; key: keyof SectionHT
   }
   return null;
 }
+
+const getSectionForRange = (range: Range) => {
+  const start = findSection(range.startContainer);
+  const end = findSection(range.endContainer);
+  if (!start || !end) return null;
+  if (start.el !== end.el) return null;
+  return start;
+};
 
 const isHL = (n: Node | null): n is HTMLElement =>
   !!n &&
@@ -545,7 +555,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   // Highlighter
   const [highlightEnabled, setHighlightEnabled] = useState(true);
   const [showHighlighter, setShowHighlighter] = useState(false);
-  const [highlightColor, setHighlightColor] = useState<string>("#ffe066");
+  const [highlightColor, setHighlightColor] = useState<string>("#FBF719");
   const paletteRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
 
@@ -565,11 +575,14 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   // Timers
   const [blockSeconds, setBlockSeconds] = useState(0);
   const [questionSeconds, setQuestionSeconds] = useState(0);
+  const [timeByItem, setTimeByItem] = useState<Record<string, number>>({});
   const tickRef = useRef<number | null>(null);
   const qTickRef = useRef<number | null>(null);
   // --- added: answer-change tracking ---
   const changeRef = useRef<number>(0);
   const lastChoiceRef = useRef<string | null>(null);
+  const prevItemIdRef = useRef<string | null>(null);
+  const questionSecondsRef = useRef<number>(0);
 
   // Answers
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
@@ -577,6 +590,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   
   // EMQ answers: stemId -> optionId
   const [emqAnswers, setEmqAnswers] = useState<Record<string, string>>({});
+  const [emqAnswersByItem, setEmqAnswersByItem] = useState<Record<string, Record<string, string>>>({});
 
   // Persisted HTML with marks per item
   const [sectionHTMLByItem, setSectionHTMLByItem] = useState<Record<string, SectionHTML>>({});
@@ -589,6 +603,15 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     currentItem.responses[0] && 
     currentItem.responses[0].choiceId
   );
+
+  const questionImages = useMemo(() => {
+    const urls = (currentItem?.question.questionImageUrls ?? []).filter((u): u is string => typeof u === "string" && u.trim().length > 0);
+    const primary = typeof currentItem?.question.questionImageUrl === "string" && currentItem.question.questionImageUrl.trim().length > 0
+      ? currentItem.question.questionImageUrl.trim()
+      : null;
+    if (primary) urls.unshift(primary);
+    return Array.from(new Set(urls));
+  }, [currentItem]);
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -637,14 +660,29 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // Reset per-question state
   useEffect(() => {
-    setQuestionSeconds(0);
+    const prevId = prevItemIdRef.current;
+    if (prevId) {
+      setTimeByItem((prev) => ({ ...prev, [prevId]: questionSecondsRef.current }));
+    }
+    const nextId = currentItem?.id ?? null;
+    prevItemIdRef.current = nextId;
+    setQuestionSeconds(nextId ? timeByItem[nextId] ?? 0 : 0);
+
     setSelectedChoiceId(null);
     setCrossed({});
-    setEmqAnswers({}); // Reset EMQ answers on question change
+    setEmqAnswers(
+      nextId && currentItem?.question.questionType === "EMQ"
+        ? emqAnswersByItem[nextId] ?? {}
+        : {}
+    );
     // --- added: reset change counter & last choice on question change ---
     changeRef.current = 0;
     lastChoiceRef.current = null;
-  }, [curIndex]);
+  }, [curIndex, currentItem?.id, currentItem?.question.questionType, timeByItem, emqAnswersByItem]);
+
+  useEffect(() => {
+    questionSecondsRef.current = questionSeconds;
+  }, [questionSeconds]);
 
   const fetchQuestionStats = useCallback(async (questionIds: string[]) => {
     if (!Array.isArray(questionIds) || questionIds.length === 0) return;
@@ -874,9 +912,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const range = sel.getRangeAt(0);
     if (range.collapsed) return;
 
-    if (!findSection(range.commonAncestorContainer)) return;
+    const sectionInfo = getSectionForRange(range);
+    if (!sectionInfo) return;
 
-    // Store selection text before manipulating the DOM
     const selectedText = sel.toString();
     if (!selectedText.trim()) return;
 
@@ -893,25 +931,17 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     markStyle.WebkitBoxDecorationBreak = "clone";
     mark.setAttribute("data-qa", "highlight");
 
-    let sectionInfo: { el: Element; key: keyof SectionHTML } | null = null;
-
     try {
-      // Clone the range to avoid mutation issues
-      const clonedRange = range.cloneRange();
-      const frag = clonedRange.extractContents();
-      
-      // Only proceed if we extracted something meaningful
-      if (frag.textContent?.trim()) {
-        mark.appendChild(frag);
-        range.deleteContents();
-        range.insertNode(mark);
-        sel.removeAllRanges();
+      const frag = range.cloneContents();
+      if (!frag.textContent?.trim()) return;
 
-        if (mark.isConnected) {
-          normalizeInsertedMark(mark);
-          sectionInfo = findSection(mark) ?? findSection(range.commonAncestorContainer);
-        }
-      }
+      range.deleteContents();
+      mark.appendChild(frag);
+      range.insertNode(mark);
+      sel.removeAllRanges();
+
+      normalizeInsertedMark(mark);
+      saveSectionHTML(sectionInfo.el, sectionInfo.key);
     } catch {
       // Fallback to insertHTML for complex selections
       const escapedText = selectedText.replace(/[<>&]/g, (c) => {
@@ -924,13 +954,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         `<mark data-qa="highlight" style="background:${highlightColor};padding:0;margin:0;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;">${escapedText}</mark>`
       );
       sel.removeAllRanges();
-
-      sectionInfo = findSection(range.commonAncestorContainer);
-      if (sectionInfo) normalizeSectionHighlights(sectionInfo.el);
+      normalizeSectionHighlights(sectionInfo.el);
+      saveSectionHTML(sectionInfo.el, sectionInfo.key);
     }
-
-    if (!sectionInfo) sectionInfo = findSection(range.commonAncestorContainer);
-    if (sectionInfo) saveSectionHTML(sectionInfo.el, sectionInfo.key);
 
     lastMarkInsertAtRef.current = Date.now();
   }, [highlightEnabled, highlightColor, saveSectionHTML]);
@@ -942,8 +968,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // Click a mark to remove it
   useEffect(() => {
-    if (!highlightEnabled) return;
-
     function onClick(ev: Event) {
       const t = ev.target as HTMLElement; // plain click removes highlight
       if (t?.getAttribute?.("data-qa") === "highlight") {
@@ -962,7 +986,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const rootEl: Document | HTMLElement = mainRef.current ?? document;
     (rootEl as EventTarget).addEventListener("click", onClick as EventListener);
     return () => (rootEl as EventTarget).removeEventListener("click", onClick as EventListener);
-  }, [highlightEnabled, saveSectionHTML]);
+  }, [saveSectionHTML]);
 
   return (
     <div
@@ -1266,7 +1290,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     { c: "#fca5a5", n: "Red" },
                     { c: "#86efac", n: "Green" },
                     { c: "#93c5fd", n: "Blue" },
-                    { c: "#fde047", n: "Yellow" },
+                    { c: "#FBF719", n: "Yellow" },
                   ].map((k) => (
                     <button
                       key={k.n}
@@ -1461,7 +1485,12 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 submitted={isAnswered}
                 submittedAnswers={emqAnswers}
                 fontScale={fontScale}
-                onAnswersChange={setEmqAnswers}
+                onAnswersChange={(answers) => {
+                  setEmqAnswers(answers);
+                  if (currentItem?.id) {
+                    setEmqAnswersByItem((prev) => ({ ...prev, [currentItem.id]: answers }));
+                  }
+                }}
                 onSubmit={submitAnswer}
               />
             </div>
@@ -1494,16 +1523,20 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               </div>
 
               {/* Question Image */}
-              {currentItem?.question.questionImageUrl && (
-                <div className="mt-4">
-                  <Image
-                    src={currentItem.question.questionImageUrl}
-                    alt="Question image"
-                    width={1024}
-                    height={768}
-                    className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
-                    unoptimized
-                  />
+              {questionImages.length > 0 && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {questionImages.map((url, idx) => (
+                    <div key={`${url}-${idx}`} className="rounded-lg border border-[#E6F0F7] overflow-hidden bg-white">
+                      <Image
+                        src={url}
+                        alt={`Question image ${idx + 1}`}
+                        width={1024}
+                        height={768}
+                        className="max-h-96 w-full object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
 
