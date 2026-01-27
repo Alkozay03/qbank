@@ -26,6 +26,8 @@ type Question = {
   iduScreenshotUrl?: string | null;
   questionImageUrl?: string | null;
   explanationImageUrl?: string | null;
+  questionImageUrls?: string | null;
+  explanationImageUrls?: string | null;
   references?: string | null;
   choices: Choice[];
   tags?: QuestionTag[];
@@ -66,6 +68,30 @@ const DEFAULT_OBJECTIVE = "This section summarizes the key takeaway for rapid re
 function toHTML(s: string) { 
   return s.replace(/\n/g, "<br/>"); 
 }
+
+// Parse a string that may contain a single URL or a JSON-stringified array of URLs
+const toUrlArray = (raw?: string | null): string[] => {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return Array.from(
+          new Set(
+            parsed
+              .filter((v) => typeof v === "string" && v.trim().length > 0)
+              .map((v) => v.trim())
+          )
+        );
+      }
+    } catch {
+      /* fall back to single */
+    }
+  }
+  return [trimmed];
+};
 
 function parseReferences(refs?: string | null): string[] {
   if (!refs) return [];
@@ -143,6 +169,12 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
   });
 
   const references = parseReferences(currentItem.question.references);
+  const explanationImages = useMemo(() => {
+    const urls: string[] = [];
+    urls.push(...toUrlArray(currentItem.question.explanationImageUrl));
+    urls.push(...toUrlArray(currentItem.question.explanationImageUrls));
+    return Array.from(new Set(urls));
+  }, [currentItem.question.explanationImageUrl, currentItem.question.explanationImageUrls]);
   const screenshotUrl = currentItem.question.iduScreenshotUrl
     ? currentItem.question.iduScreenshotUrl.trim()
     : "";
@@ -265,17 +297,21 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
       <div className="quiz-explanation mt-6">
         <div className="text-lg font-bold" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)' }}>Explanation:</div>
         
-        {/* Explanation Image */}
-        {currentItem?.question.explanationImageUrl && (
-          <div className="mt-3">
-            <Image
-              src={currentItem.question.explanationImageUrl}
-              alt="Explanation image"
-              width={1024}
-              height={768}
-              className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
-              unoptimized
-            />
+        {/* Explanation Images */}
+        {explanationImages.length > 0 && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {explanationImages.map((url, idx) => (
+              <div key={`${url}-${idx}`} className="overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF]">
+                <Image
+                  src={url}
+                  alt={`Explanation image ${idx + 1}`}
+                  width={1024}
+                  height={768}
+                  className="max-h-96 w-full object-contain rounded-lg"
+                  unoptimized
+                />
+              </div>
+            ))}
           </div>
         )}
         

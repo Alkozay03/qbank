@@ -171,6 +171,9 @@ type Question = {
   iduScreenshotUrl?: string | null;
   questionImageUrl?: string | null;
   explanationImageUrl?: string | null;
+  // Optional JSON-encoded arrays for multi-image support (backward compatible)
+  questionImageUrls?: string | null;
+  explanationImageUrls?: string | null;
   references?: string | null;
   choices: Choice[];
   tags?: QuestionTag[];
@@ -248,6 +251,30 @@ function getSafeResponse(item: Item | undefined) {
 }
 
 const SECTION_SELECTOR = '[data-section="stem"],[data-section="explanation"],[data-section="objective"]';
+
+// Parse a string that may contain a single URL or a JSON-stringified array of URLs
+const toUrlArray = (raw?: string | null): string[] => {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return Array.from(
+          new Set(
+            parsed
+              .filter((v) => typeof v === "string" && v.trim().length > 0)
+              .map((v) => v.trim())
+          )
+        );
+      }
+    } catch {
+      /* fall back to single */
+    }
+  }
+  return [trimmed];
+};
 
 function findSection(node: Node | null): { el: HTMLElement; key: keyof SectionHTML } | null {
   if (!node) return null;
@@ -589,6 +616,13 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     currentItem.responses[0] && 
     currentItem.responses[0].choiceId
   );
+
+  const questionImages = useMemo(() => {
+    const urls: string[] = [];
+    urls.push(...toUrlArray(currentItem?.question.questionImageUrl));
+    urls.push(...toUrlArray(currentItem?.question.questionImageUrls));
+    return Array.from(new Set(urls));
+  }, [currentItem]);
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -1493,17 +1527,21 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 />
               </div>
 
-              {/* Question Image */}
-              {currentItem?.question.questionImageUrl && (
-                <div className="mt-4">
-                  <Image
-                    src={currentItem.question.questionImageUrl}
-                    alt="Question image"
-                    width={1024}
-                    height={768}
-                    className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
-                    unoptimized
-                  />
+              {/* Question Images */}
+              {questionImages.length > 0 && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {questionImages.map((url, idx) => (
+                    <div key={`${url}-${idx}`} className="rounded-lg border border-[#E6F0F7] overflow-hidden bg-white">
+                      <Image
+                        src={url}
+                        alt={`Question image ${idx + 1}`}
+                        width={1024}
+                        height={768}
+                        className="max-h-96 w-full object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
 
