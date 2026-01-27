@@ -54,8 +54,8 @@ type QuestionUpdateBody = {
   questionYear?: string;
   rotationNumber?: string;
   iduScreenshotUrl?: string;
-  questionImageUrl?: string;
-  explanationImageUrl?: string;
+  questionImageUrl?: string | string[];
+  explanationImageUrl?: string | string[];
   isAnswerConfirmed?: boolean;
   occurrences?: Array<{
     id?: string;
@@ -113,6 +113,39 @@ function normaliseTags(raw: IncomingTag[] | undefined): TagPayload[] {
     seen.add(key);
     return true;
   });
+}
+
+function serializeImageInput(input: unknown): string | undefined {
+  if (input === undefined) return undefined;
+  if (Array.isArray(input)) {
+    const urls = Array.from(
+      new Set(
+        input
+          .filter((v) => typeof v === "string")
+          .map((v) => (v as string).trim())
+          .filter((v) => v.length > 0)
+      )
+    );
+    if (urls.length === 0) return "";
+    if (urls.length === 1) return urls[0];
+    return JSON.stringify(urls);
+  }
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return serializeImageInput(parsed) ?? "";
+        }
+      } catch {
+        // fall through
+      }
+    }
+    return trimmed;
+  }
+  return "";
 }
 
 async function upsertTag(questionId: string, payload: TagPayload) {
@@ -282,18 +315,8 @@ export async function PUT(
         : typeof body.iduScreenshotUrl === "string"
         ? body.iduScreenshotUrl.trim()
         : "";
-    const normalizedQuestionImageUrl =
-      body.questionImageUrl === undefined
-        ? undefined
-        : typeof body.questionImageUrl === "string"
-        ? body.questionImageUrl.trim()
-        : "";
-    const normalizedExplanationImageUrl =
-      body.explanationImageUrl === undefined
-        ? undefined
-        : typeof body.explanationImageUrl === "string"
-        ? body.explanationImageUrl.trim()
-        : "";
+    const normalizedQuestionImageUrl = serializeImageInput(body.questionImageUrl);
+    const normalizedExplanationImageUrl = serializeImageInput(body.explanationImageUrl);
 
     const questionType = body.questionType || existing.questionType || 'MCQ';
     

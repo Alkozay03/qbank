@@ -12,6 +12,7 @@ import type { TagCategory } from "@/lib/tags/catalog";
 
 type AnswerInput = { text: unknown; isCorrect: unknown };
 type TagInput = { type: string; value: unknown };
+type ImageInput = unknown;
 
 function normalizeAnswers(input: unknown): Array<{ text: string; isCorrect: boolean }> {
   if (!Array.isArray(input)) return [];
@@ -51,6 +52,39 @@ function normalizeReferences(input: unknown): string | null {
 
   if (!values.size) return null;
   return Array.from(values).join("\n");
+}
+
+function serializeImageInput(input: ImageInput): string | null {
+  if (input == null) return null;
+  if (Array.isArray(input)) {
+    const urls = Array.from(
+      new Set(
+        input
+          .filter((v) => typeof v === "string")
+          .map((v) => (v as string).trim())
+          .filter((v) => v.length > 0)
+      )
+    );
+    if (!urls.length) return null;
+    if (urls.length === 1) return urls[0];
+    return JSON.stringify(urls);
+  }
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return serializeImageInput(parsed);
+        }
+      } catch {
+        // ignore parse errors and use trimmed string
+      }
+    }
+    return trimmed;
+  }
+  return null;
 }
 
 function normalizeTags(input: unknown): Array<{ type: TagType; value: string }> | undefined {
@@ -140,6 +174,8 @@ export async function POST(req: Request) {
         answers?: unknown;
         refs?: unknown;
         tags?: unknown;
+        questionImageUrl?: unknown;
+        explanationImageUrl?: unknown;
       }>;
     };
 
@@ -163,6 +199,8 @@ export async function POST(req: Request) {
         const answers = normalizeAnswers(it.answers);
         const references = normalizeReferences(it.refs);
         const tags = normalizeTags(it.tags);
+        const questionImageUrl = serializeImageInput(it.questionImageUrl);
+        const explanationImageUrl = serializeImageInput(it.explanationImageUrl);
 
         if (!text) { results.push({ index: i, status: "error", error: "text required" }); continue; }
         if (!answers.length || answers.every((a) => !a.text.trim())) { results.push({ index: i, status: "error", error: "answers required" }); continue; }
@@ -177,6 +215,8 @@ export async function POST(req: Request) {
             text,
             explanation,
             references,
+            questionImageUrl: questionImageUrl ?? null,
+            explanationImageUrl: explanationImageUrl ?? null,
             yearCaptured: yearContext === "year5" ? "5" : "4",
           },
         });
