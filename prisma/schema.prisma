@@ -734,6 +734,7 @@ enum QuizMode {
   RANDOM
   CUSTOM
   EXAM
+  REVIEW
 }
 
 enum Role {
