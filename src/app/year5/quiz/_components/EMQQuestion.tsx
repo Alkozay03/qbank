@@ -45,6 +45,16 @@ const EMQQuestion = ({
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>(submittedAnswers);
   const [isDark, setIsDark] = useState(false);
 
+  // Keep selection in sync when props change (e.g., revisiting a submitted EMQ)
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    stems.forEach((stem) => {
+      const val = submittedAnswers?.[stem.id];
+      if (val) next[stem.id] = val;
+    });
+    setSelectedAnswers(next);
+  }, [submittedAnswers, stems, submitted]);
+
   useEffect(() => {
     const checkDark = () => setIsDark(isDarkMode());
     checkDark();
