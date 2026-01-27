@@ -31,7 +31,7 @@ import React, {
 import clsx from "clsx";
 import { ClientSideQuestionDetails } from "./ClientSideQuestionDetails";
 import EMQQuestion from "./EMQQuestion";
-import { initHighlight, type HLColor, COLOR_HEX } from "../_utils/highlight";
+import { initHighlight, type HLColor } from "../_utils/highlight";
 
 // Helper to check if dark mode is active
 const isDarkMode = () => {
@@ -216,6 +216,12 @@ type InitialQuiz = {
 const TOP_H = 56;
 const BOTTOM_H = 56;
 const DEFAULT_OBJECTIVE = "This section summarizes the key takeaway for rapid review.";
+const COLOR_HEX: Record<HLColor, string> = {
+  red: "#e11d48",
+  green: "#16a34a",
+  blue: "#56A2CD",
+  yellow: "#FBF719",
+};
 
 /** Persisted HTML (with highlights) per item and section */
 type SectionHTML = { stem: string; explanation: string; objective: string };
