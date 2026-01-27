@@ -559,7 +559,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const paletteRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
   const highlightDragRef = useRef(false);
-  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Avoid “create then instantly remove” mark on click
   const lastMarkInsertAtRef = useRef<number>(0);
@@ -1471,72 +1470,13 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* MAIN CONTENT */}
       <main
         ref={mainRef}
-        onMouseDown={(e) => {
-          if (!highlightEnabled) {
-            highlightDragRef.current = false;
-            dragStartRef.current = null;
-            return;
-          }
-          const target = e.target as HTMLElement | null;
-          // Skip interactions on answers/controls to avoid accidental clearing/selecting
-          if (target?.closest(".quiz-answer-choice, button, select, textarea, input")) {
-            highlightDragRef.current = false;
-            dragStartRef.current = null;
-            return;
-          }
-          const sectionHit = findSection(target);
-          highlightDragRef.current = Boolean(sectionHit);
-          dragStartRef.current = sectionHit
-            ? { x: e.clientX, y: e.clientY }
-            : null;
+        onMouseDownCapture={(e) => {
+          if (!highlightEnabled) return;
+          const target = e.target as Node;
+          highlightDragRef.current = Boolean(findSection(target));
         }}
-        onMouseUp={(e) => {
-          if (!highlightEnabled) {
-            highlightDragRef.current = false;
-            dragStartRef.current = null;
-            return;
-          }
-          const origin = dragStartRef.current;
-          if (!origin || !highlightDragRef.current) {
-            highlightDragRef.current = false;
-            dragStartRef.current = null;
-            return;
-          }
-          const dx = e.clientX - origin.x;
-          const dy = e.clientY - origin.y;
-          // Require an actual drag (not a click) to trigger highlighting
-          if (Math.hypot(dx, dy) <= 3) {
-            highlightDragRef.current = false;
-            dragStartRef.current = null;
-            return;
-          }
-          // Defer until selection is finalized
-          requestAnimationFrame(applyHighlight);
-          dragStartRef.current = null;
-        }}
-        onTouchStart={(e) => {
-          if (!highlightEnabled) {
-            highlightDragRef.current = false;
-            dragStartRef.current = null;
-            return;
-          }
-          const target = e.target as HTMLElement | null;
-          if (target?.closest(".quiz-answer-choice, button, select, textarea, input")) {
-            highlightDragRef.current = false;
-            dragStartRef.current = null;
-            return;
-          }
-          const sectionHit = findSection(target);
-          highlightDragRef.current = Boolean(sectionHit);
-          const t = e.touches?.[0];
-          dragStartRef.current = sectionHit && t
-            ? { x: t.clientX, y: t.clientY }
-            : null;
-        }}
-        onTouchEnd={() => {
-          dragStartRef.current = null;
-          onTouchEndHighlight();
-        }}
+        onMouseUpCapture={applyHighlight}
+        onTouchEnd={onTouchEndHighlight}
         className={[
           "absolute left-0 right-0 overflow-auto",
           "transition-[padding-left] duration-300 ease-in-out"
