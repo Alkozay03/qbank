@@ -31,7 +31,6 @@ import React, {
 import clsx from "clsx";
 import { ClientSideQuestionDetails } from "./ClientSideQuestionDetails";
 import EMQQuestion from "./EMQQuestion";
-import { initHighlight, type HLColor } from "../_utils/highlight";
 
 // Helper to check if dark mode is active
 const isDarkMode = () => {
@@ -216,12 +215,6 @@ type InitialQuiz = {
 const TOP_H = 56;
 const BOTTOM_H = 56;
 const DEFAULT_OBJECTIVE = "This section summarizes the key takeaway for rapid review.";
-const COLOR_HEX: Record<HLColor, string> = {
-  red: "#e11d48",
-  green: "#16a34a",
-  blue: "#56A2CD",
-  yellow: "#FBF719",
-};
 
 /** Persisted HTML (with highlights) per item and section */
 type SectionHTML = { stem: string; explanation: string; objective: string };
@@ -562,10 +555,15 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   // Highlighter
   const [highlightEnabled, setHighlightEnabled] = useState(true);
   const [showHighlighter, setShowHighlighter] = useState(false);
-  const [highlightColor, setHighlightColor] = useState<HLColor>("yellow");
+  const [highlightColor, setHighlightColor] = useState<string>("#FBF719");
   const paletteRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
-  const sectionObserversRef = useRef<MutationObserver[]>([]);
+  const highlightDragRef = useRef(false); // track whether current pointer sequence began in highlightable text
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Avoid “create then instantly remove” mark on click
+  const lastMarkInsertAtRef = useRef<number>(0);
+  const SUPPRESS_CLICK_MS = 250;
 
   // Calculator / Labs / Fullscreen
   const [showCalc, setShowCalc] = useState(false);
@@ -587,6 +585,10 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const lastChoiceRef = useRef<string | null>(null);
   const prevItemIdRef = useRef<string | null>(null);
   const questionSecondsRef = useRef<number>(0);
+  useEffect(() => {
+    highlightDragRef.current = false; // reset drag flag when changing items
+  }, [curIndex]);
+
   // Answers
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [crossed, setCrossed] = useState<Record<string, boolean>>({});
@@ -606,45 +608,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     currentItem.responses[0] && 
     currentItem.responses[0].choiceId
   );
-
-  // Re-init highlighter for the currently rendered sections
-  useEffect(() => {
-    const sections = Array.from(
-      mainRef.current?.querySelectorAll(SECTION_SELECTOR) ?? []
-    ) as HTMLElement[];
-    const dispose = initHighlight({
-      roots: sections,
-      getColor: () => (highlightEnabled ? highlightColor : null),
-    });
-    return () => dispose?.();
-  }, [currentItem?.id, isAnswered, highlightEnabled, highlightColor]);
-
-  // Persist section HTML when highlights mutate
-  useEffect(() => {
-    sectionObserversRef.current.forEach((obs) => obs.disconnect());
-    sectionObserversRef.current = [];
-
-    const sections = Array.from(
-      mainRef.current?.querySelectorAll(SECTION_SELECTOR) ?? []
-    ) as HTMLElement[];
-
-    sections.forEach((el) => {
-      const section = el.getAttribute("data-section");
-      const key =
-        section === "stem" || section === "explanation" || section === "objective"
-          ? (section as keyof SectionHTML)
-          : null;
-      if (!key) return;
-      const obs = new MutationObserver(() => saveSectionHTML(el, key));
-      obs.observe(el, { childList: true, subtree: true, characterData: true });
-      sectionObserversRef.current.push(obs);
-    });
-
-    return () => {
-      sectionObserversRef.current.forEach((obs) => obs.disconnect());
-      sectionObserversRef.current = [];
-    };
-  }, [currentItem?.id, isAnswered, saveSectionHTML]);
 
   const questionImages = useMemo(() => {
     const urls = (currentItem?.question.questionImageUrls ?? []).filter((u): u is string => typeof u === "string" && u.trim().length > 0);
@@ -945,17 +908,96 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     [currentItem]
   );
 
+  const applyHighlight = useCallback(() => {
+    if (!highlightEnabled) {
+      highlightDragRef.current = false;
+      return;
+    }
+
+    if (!highlightDragRef.current) return;
+
+    const sel = window.getSelection?.();
+    if (!sel || sel.rangeCount === 0) {
+      highlightDragRef.current = false;
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) {
+      highlightDragRef.current = false;
+      return;
+    }
+
+    const sectionInfo = getSectionForRange(range);
+    if (!sectionInfo) return;
+
+    const selectedText = sel.toString();
+    if (!selectedText.trim()) return;
+
+    const mark = document.createElement("mark");
+    mark.style.backgroundColor = highlightColor;
+    mark.style.padding = "0"; // no gaps within words
+    mark.style.margin = "0";
+    mark.style.borderRadius = "2px";
+    const markStyle = mark.style as CSSStyleDeclaration & {
+      boxDecorationBreak?: string;
+      WebkitBoxDecorationBreak?: string;
+    };
+    markStyle.boxDecorationBreak = "clone";
+    markStyle.WebkitBoxDecorationBreak = "clone";
+    mark.setAttribute("data-qa", "highlight");
+
+    try {
+      const frag = range.cloneContents();
+      if (!frag.textContent?.trim()) return;
+
+      range.deleteContents();
+      mark.appendChild(frag);
+      range.insertNode(mark);
+      sel.removeAllRanges();
+
+      normalizeInsertedMark(mark);
+      saveSectionHTML(sectionInfo.el, sectionInfo.key);
+    } catch {
+      // Fallback to insertHTML for complex selections
+      const escapedText = selectedText.replace(/[<>&]/g, (c) => {
+        const escapeMap: Record<string, string> = { '<': '&lt;', '>': '&gt;', '&': '&amp;' };
+        return escapeMap[c] || c;
+      });
+      document.execCommand(
+        "insertHTML",
+        false,
+        `<mark data-qa="highlight" style="background:${highlightColor};padding:0;margin:0;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;">${escapedText}</mark>`
+      );
+      sel.removeAllRanges();
+      normalizeSectionHighlights(sectionInfo.el);
+      saveSectionHTML(sectionInfo.el, sectionInfo.key);
+    }
+
+    lastMarkInsertAtRef.current = Date.now();
+    highlightDragRef.current = false;
+  }, [highlightEnabled, highlightColor, saveSectionHTML]);
+
+  // Touch devices
+  const onTouchEndHighlight = useCallback(() => {
+    setTimeout(() => applyHighlight(), 0);
+  }, [applyHighlight]);
+
   // Click a mark to remove it
   useEffect(() => {
     function onClick(ev: Event) {
       const t = ev.target as HTMLElement; // plain click removes highlight
-      if (t?.getAttribute?.("data-qa") !== "highlight") return;
-      const info = findSection(t);
-      const p = t.parentNode;
-      if (!p) return;
-      while (t.firstChild) p.insertBefore(t.firstChild, t);
-      p.removeChild(t);
-      if (info) saveSectionHTML(info.el, info.key);
+      if (t?.getAttribute?.("data-qa") === "highlight") {
+        const now = Date.now();
+        if (now - lastMarkInsertAtRef.current < SUPPRESS_CLICK_MS) return;
+
+        const info = findSection(t);
+        const p = t.parentNode;
+        if (!p) return;
+        while (t.firstChild) p.insertBefore(t.firstChild, t);
+        p.removeChild(t);
+
+        if (info) saveSectionHTML(info.el, info.key);
+      }
     }
     const rootEl: Document | HTMLElement = mainRef.current ?? document;
     (rootEl as EventTarget).addEventListener("click", onClick as EventListener);
@@ -1261,10 +1303,10 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
                 <div className="mt-3 flex items-center justify-between gap-3">
                   {[
-                    { c: "red" as HLColor, n: "Red" },
-                    { c: "green" as HLColor, n: "Green" },
-                    { c: "blue" as HLColor, n: "Blue" },
-                    { c: "yellow" as HLColor, n: "Yellow" },
+                    { c: "#fca5a5", n: "Red" },
+                    { c: "#86efac", n: "Green" },
+                    { c: "#93c5fd", n: "Blue" },
+                    { c: "#FBF719", n: "Yellow" },
                   ].map((k) => (
                     <button
                       key={k.n}
@@ -1276,7 +1318,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                         highlightEnabled ? "hover:scale-105 cursor-pointer" : "cursor-not-allowed"
                       )}
                       style={{ 
-                        backgroundColor: COLOR_HEX[k.c],
+                        backgroundColor: k.c,
                         borderColor: isDark ? '#4b5563' : '#e5e7eb',
                         filter: highlightEnabled ? 'none' : 'opacity(0.5)',
                         ...(highlightColor === k.c ? {
@@ -1428,6 +1470,69 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* MAIN CONTENT */}
       <main
         ref={mainRef}
+        onMouseDown={(e) => {
+          if (!highlightEnabled) {
+            highlightDragRef.current = false;
+            dragStartRef.current = null;
+            return;
+          }
+          const target = e.target as HTMLElement | null;
+          if (target?.closest(".quiz-answer-choice, button, select, textarea, input")) {
+            highlightDragRef.current = false;
+            dragStartRef.current = null;
+            return;
+          }
+          const sectionHit = findSection(target);
+          highlightDragRef.current = Boolean(sectionHit);
+          dragStartRef.current = sectionHit
+            ? { x: e.clientX, y: e.clientY }
+            : null;
+        }}
+        onMouseUp={(e) => {
+          if (!highlightEnabled) {
+            highlightDragRef.current = false;
+            dragStartRef.current = null;
+            return;
+          }
+          const origin = dragStartRef.current;
+          if (!origin || !highlightDragRef.current) {
+            highlightDragRef.current = false;
+            dragStartRef.current = null;
+            return;
+          }
+          const dx = e.clientX - origin.x;
+          const dy = e.clientY - origin.y;
+          if (Math.hypot(dx, dy) <= 3) {
+            highlightDragRef.current = false;
+            dragStartRef.current = null;
+            return;
+          }
+          requestAnimationFrame(applyHighlight);
+          dragStartRef.current = null;
+        }}
+        onTouchStart={(e) => {
+          if (!highlightEnabled) {
+            highlightDragRef.current = false;
+            dragStartRef.current = null;
+            return;
+          }
+          const target = e.target as HTMLElement | null;
+          if (target?.closest(".quiz-answer-choice, button, select, textarea, input")) {
+            highlightDragRef.current = false;
+            dragStartRef.current = null;
+            return;
+          }
+          const sectionHit = findSection(target);
+          highlightDragRef.current = Boolean(sectionHit);
+          const t = e.touches?.[0];
+          dragStartRef.current = sectionHit && t
+            ? { x: t.clientX, y: t.clientY }
+            : null;
+        }}
+        onTouchEnd={() => {
+          dragStartRef.current = null;
+          onTouchEndHighlight();
+        }}
         className={[
           "absolute left-0 right-0 overflow-auto",
           "transition-[padding-left] duration-300 ease-in-out"
