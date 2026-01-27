@@ -660,6 +660,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     return filtered.length > 0 ? filtered : opts;
   }, [currentItem, isReviewMode]);
 
+  // Full-screen image preview
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
   // Initialize persisted sections for current item
   useEffect(() => {
     if (!currentItem) return;
@@ -1526,12 +1529,14 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 Leave
               </a>
             )}
-            <div 
-              className="text-sm font-semibold"
-              style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
-            >
-              Block Elapsed Time: <span className="tabular-nums">{fmtHMS(blockSeconds)}</span>
-            </div>
+            {!isReviewMode && (
+              <div 
+                className="text-sm font-semibold"
+                style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
+              >
+                Block Elapsed Time: <span className="tabular-nums">{fmtHMS(blockSeconds)}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -1681,8 +1686,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                         alt={`Question image ${idx + 1}`}
                         width={1024}
                         height={768}
-                        className="max-h-96 w-full object-contain"
+                        className="max-h-96 w-full object-contain cursor-zoom-in transition-transform duration-200 hover:scale-[1.01]"
                         unoptimized
+                        onClick={() => setPreviewImageUrl(url)}
                       />
                     </div>
                   ))}
@@ -1824,6 +1830,39 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
       {showCalc && <DraggableCalc onClose={() => setShowCalc(false)} />}
       {showLabs && <LabDrawer onClose={() => setShowLabs(false)} />}
+
+      {/* Image preview */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewImageUrl(null)}
+          role="presentation"
+        >
+          <div
+            className="relative max-h-full w-full max-w-5xl overflow-hidden rounded-2xl bg-white/90 p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Image preview"
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white hover:bg-black/80"
+              aria-label="Close image preview"
+            >
+              ×
+            </button>
+            <div className="max-h-[80vh] overflow-auto">
+              <img
+                src={previewImageUrl}
+                alt="Preview"
+                className="max-h-[80vh] w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Suspend confirm */}
       {confirmSuspend && (
