@@ -612,12 +612,14 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   const currentItem = items[curIndex];
   const total = items.length;
-  const isAnswered = Boolean(
-    currentItem && 
-    currentItem.responses && 
-    currentItem.responses[0] && 
-    currentItem.responses[0].choiceId
-  );
+  const hasResponses = (currentItem?.responses?.length ?? 0) > 0;
+  const firstChoiceId = currentItem?.responses?.[0]?.choiceId ?? null;
+  const isAnswered =
+    status === "Ended"
+      ? true
+      : currentItem?.question.questionType === "EMQ"
+        ? hasResponses
+        : Boolean(firstChoiceId);
 
   const questionImages = useMemo(() => {
     const urls: string[] = [];
