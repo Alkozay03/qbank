@@ -176,6 +176,7 @@ export async function POST(req: Request) {
         tags?: unknown;
         questionImageUrl?: unknown;
         explanationImageUrl?: unknown;
+        iduScreenshotUrl?: unknown;
       }>;
     };
 
@@ -201,6 +202,7 @@ export async function POST(req: Request) {
         const tags = normalizeTags(it.tags);
         const questionImageUrl = serializeImageInput(it.questionImageUrl);
         const explanationImageUrl = serializeImageInput(it.explanationImageUrl);
+        const iduScreenshotUrl = serializeImageInput(it.iduScreenshotUrl);
 
         if (!text) { results.push({ index: i, status: "error", error: "text required" }); continue; }
         if (!answers.length || answers.every((a) => !a.text.trim())) { results.push({ index: i, status: "error", error: "answers required" }); continue; }
@@ -217,6 +219,7 @@ export async function POST(req: Request) {
             references,
             questionImageUrl: questionImageUrl ?? null,
             explanationImageUrl: explanationImageUrl ?? null,
+            iduScreenshotUrl: iduScreenshotUrl ?? null,
             yearCaptured: yearContext === "year5" ? "5" : "4",
           },
         });

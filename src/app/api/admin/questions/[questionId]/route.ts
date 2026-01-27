@@ -53,7 +53,7 @@ type QuestionUpdateBody = {
   tags?: IncomingTag[];
   questionYear?: string;
   rotationNumber?: string;
-  iduScreenshotUrl?: string;
+  iduScreenshotUrl?: string | string[];
   questionImageUrl?: string | string[];
   explanationImageUrl?: string | string[];
   isAnswerConfirmed?: boolean;
@@ -309,12 +309,7 @@ export async function PUT(
         : typeof body.rotationNumber === "string"
         ? body.rotationNumber.trim()
         : "";
-    const normalizedScreenshotUrl =
-      body.iduScreenshotUrl === undefined
-        ? undefined
-        : typeof body.iduScreenshotUrl === "string"
-        ? body.iduScreenshotUrl.trim()
-        : "";
+    const normalizedScreenshotUrl = serializeImageInput(body.iduScreenshotUrl);
     const normalizedQuestionImageUrl = serializeImageInput(body.questionImageUrl);
     const normalizedExplanationImageUrl = serializeImageInput(body.explanationImageUrl);
 

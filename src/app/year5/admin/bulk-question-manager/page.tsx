@@ -213,6 +213,7 @@ interface ExtractedQuestion {
   questionYear?: string;
   rotationNumber?: string;
   iduScreenshotUrl?: string;
+  iduScreenshotUrls?: string[];
   // Legacy single-image fields (mirror first entry of arrays for compatibility)
   questionImageUrl?: string;
   explanationImageUrl?: string;
@@ -401,6 +402,7 @@ function BulkQuestionManagerContent() {
     questionYear: '',
     rotationNumber: '',
     iduScreenshotUrl: '',
+    iduScreenshotUrls: [],
     questionImageUrl: '',
     explanationImageUrl: '',
     questionImageUrls: [],
@@ -538,7 +540,8 @@ function BulkQuestionManagerContent() {
         resource: data?.resource ?? '',
         questionYear: data?.questionYear ?? '',
         rotationNumber: data?.rotationNumber ?? '',
-        iduScreenshotUrl: data?.iduScreenshotUrl ?? '',
+        iduScreenshotUrls: normalizeImageList(data?.iduScreenshotUrls ?? data?.iduScreenshotUrl),
+        iduScreenshotUrl: normalizeImageList(data?.iduScreenshotUrls ?? data?.iduScreenshotUrl)[0] ?? '',
         questionImageUrls: normalizeImageList(data?.questionImageUrls ?? data?.questionImageUrl),
         explanationImageUrls: normalizeImageList(data?.explanationImageUrls ?? data?.explanationImageUrl),
         questionImageUrl: normalizeImageList(data?.questionImageUrls ?? data?.questionImageUrl)[0] ?? '',
@@ -680,7 +683,7 @@ function BulkQuestionManagerContent() {
         tags: uniqueTags,
         questionYear: (updatedQuestion.questionYear ?? '').trim(),
         rotationNumber: (updatedQuestion.rotationNumber ?? '').trim(),
-        iduScreenshotUrl: (updatedQuestion.iduScreenshotUrl ?? '').trim(),
+        iduScreenshotUrl: serializeImageList(updatedQuestion.iduScreenshotUrls ?? updatedQuestion.iduScreenshotUrl),
         questionImageUrl: serializeImageList(updatedQuestion.questionImageUrls ?? updatedQuestion.questionImageUrl),
         explanationImageUrl: serializeImageList(updatedQuestion.explanationImageUrls ?? updatedQuestion.explanationImageUrl),
         occurrences: sanitizedOccurrences,
@@ -768,6 +771,7 @@ function BulkQuestionManagerContent() {
           answers,
           refs: (question.references || '').trim(),
           tags: formattedTags,
+          iduScreenshotUrl: serializeImageList(question.iduScreenshotUrls ?? question.iduScreenshotUrl),
           questionImageUrl: serializeImageList(question.questionImageUrls ?? question.questionImageUrl),
           explanationImageUrl: serializeImageList(question.explanationImageUrls ?? question.explanationImageUrl),
         };
@@ -1500,7 +1504,10 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       }
       const payload = (await res.json().catch(() => ({}))) as { url?: string };
       if (!payload?.url) throw new Error('Upload did not return a URL');
-      setEditedQuestion((prev) => ({ ...prev, iduScreenshotUrl: payload.url }));
+      setEditedQuestion((prev) => {
+        const next = [...(prev.iduScreenshotUrls ?? []), payload.url];
+        return { ...prev, iduScreenshotUrls: next, iduScreenshotUrl: next[0] ?? '' };
+      });
     } catch (error) {
       setScreenshotError(error instanceof Error ? error.message : 'Failed to upload screenshot');
     } finally {
@@ -2123,40 +2130,54 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               ) : null}
             </div>
 
-            {editedQuestion.iduScreenshotUrl ? (
-              <div className="mt-4 rounded-xl border border-[#E6F0F7] bg-white p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#2F6F8F]">Current screenshot</p>
-                    <a
-                      href={editedQuestion.iduScreenshotUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[#2F6F8F] underline"
-                    >
-                      Open in new tab
-                    </a>
+            {(() => {
+              const imgs = editedQuestion.iduScreenshotUrls?.length
+                ? editedQuestion.iduScreenshotUrls
+                : editedQuestion.iduScreenshotUrl
+                ? [editedQuestion.iduScreenshotUrl]
+                : [];
+              return imgs.length ? (
+                <div className="mt-4 rounded-xl border border-[#E6F0F7] bg-white p-3">
+                  <p className="text-sm font-semibold text-[#2F6F8F] mb-2">Current screenshot(s)</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {imgs.map((url, idx) => (
+                      <div key={`${url}-${idx}`} className="rounded-lg border border-[#E6F0F7] bg-[#F9FCFF] overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2">
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-[#2F6F8F] underline"
+                          >
+                            Open in new tab
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditedQuestion((prev) => {
+                                const next = (prev.iduScreenshotUrls ?? imgs).filter((u) => u !== url);
+                                return { ...prev, iduScreenshotUrls: next, iduScreenshotUrl: next[0] ?? '' };
+                              })
+                            }
+                            className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <Image
+                          src={url}
+                          alt={`IDU screenshot preview ${idx + 1}`}
+                          width={1024}
+                          height={768}
+                          className="max-h-64 w-full object-contain bg-white"
+                          unoptimized
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditedQuestion((prev) => ({ ...prev, iduScreenshotUrl: '' }))}
-                    className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
-                  >
-                    Remove screenshot
-                  </button>
                 </div>
-                <div className="mt-3 overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF]">
-                  <Image
-                    src={editedQuestion.iduScreenshotUrl}
-                    alt="IDU screenshot preview"
-                    width={1024}
-                    height={768}
-                    className="max-h-64 w-full object-contain"
-                    unoptimized
-                  />
-                </div>
-              </div>
-            ) : null}
+              ) : null;
+            })()}
           </div>
 
           {/* Answer Confirmation Status */}
