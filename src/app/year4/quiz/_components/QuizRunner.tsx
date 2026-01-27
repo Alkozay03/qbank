@@ -602,8 +602,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [crossed, setCrossed] = useState<Record<string, boolean>>({});
   
-  // EMQ answers: stemId -> optionId
+  // EMQ answers: per item map of stemId -> optionId
   const [emqAnswers, setEmqAnswers] = useState<Record<string, string>>({});
+  const [emqAnswersByItem, setEmqAnswersByItem] = useState<Record<string, Record<string, string>>>({});
 
   // Persisted HTML with marks per item
   const [sectionHTMLByItem, setSectionHTMLByItem] = useState<Record<string, SectionHTML>>({});
@@ -674,11 +675,29 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     setQuestionSeconds(0);
     setSelectedChoiceId(null);
     setCrossed({});
-    setEmqAnswers({}); // Reset EMQ answers on question change
     // --- added: reset change counter & last choice on question change ---
     changeRef.current = 0;
     lastChoiceRef.current = null;
   }, [curIndex]);
+
+  // Restore EMQ answers for the current item (so revisiting shows selections)
+  useEffect(() => {
+    if (!currentItem?.id) {
+      setEmqAnswers({});
+      return;
+    }
+    setEmqAnswers(emqAnswersByItem[currentItem.id] ?? {});
+  }, [currentItem?.id, emqAnswersByItem]);
+
+  const handleEmqAnswersChange = useCallback(
+    (answers: Record<string, string>) => {
+      setEmqAnswers(answers);
+      if (currentItem?.id) {
+        setEmqAnswersByItem((prev) => ({ ...prev, [currentItem.id]: answers }));
+      }
+    },
+    [currentItem?.id]
+  );
 
   const fetchQuestionStats = useCallback(async (questionIds: string[]) => {
     if (!Array.isArray(questionIds) || questionIds.length === 0) return;
@@ -1495,7 +1514,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 submitted={isAnswered}
                 submittedAnswers={emqAnswers}
                 fontScale={fontScale}
-                onAnswersChange={setEmqAnswers}
+                onAnswersChange={handleEmqAnswersChange}
                 onSubmit={submitAnswer}
               />
             </div>

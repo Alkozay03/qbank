@@ -45,6 +45,11 @@ const EMQQuestion = ({
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>(submittedAnswers);
   const [isDark, setIsDark] = useState(false);
 
+  // Keep local selection in sync when parent provides stored answers (e.g., on revisit)
+  useEffect(() => {
+    setSelectedAnswers(submittedAnswers);
+  }, [submittedAnswers]);
+
   useEffect(() => {
     const checkDark = () => setIsDark(isDarkMode());
     checkDark();
