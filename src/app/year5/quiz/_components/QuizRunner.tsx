@@ -584,6 +584,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const lastChoiceRef = useRef<string | null>(null);
   const prevItemIdRef = useRef<string | null>(null);
   const questionSecondsRef = useRef<number>(0);
+  useEffect(() => {
+    highlightDragRef.current = false; // reset drag flag when changing items
+  }, [curIndex]);
 
   // Answers
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
