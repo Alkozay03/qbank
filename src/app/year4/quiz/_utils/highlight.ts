@@ -1,6 +1,6 @@
 ﻿export type HLColor = "red" | "green" | "blue" | "yellow";
 
-const COLOR_HEX: Record<HLColor, string> = {
+export const COLOR_HEX: Record<HLColor, string> = {
   red:    "#e11d48",
   green:  "#16a34a",
   blue:   "#56A2CD",
