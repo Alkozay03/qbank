@@ -558,6 +558,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [highlightColor, setHighlightColor] = useState<string>("#FBF719");
   const paletteRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
+  const highlightDragRef = useRef(false);
 
   // Avoid “create then instantly remove” mark on click
   const lastMarkInsertAtRef = useRef<number>(0);
@@ -905,12 +906,23 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   );
 
   const applyHighlight = useCallback(() => {
-    if (!highlightEnabled) return;
+    if (!highlightEnabled) {
+      highlightDragRef.current = false;
+      return;
+    }
+
+    if (!highlightDragRef.current) return;
 
     const sel = window.getSelection?.();
-    if (!sel || sel.rangeCount === 0) return;
+    if (!sel || sel.rangeCount === 0) {
+      highlightDragRef.current = false;
+      return;
+    }
     const range = sel.getRangeAt(0);
-    if (range.collapsed) return;
+    if (range.collapsed) {
+      highlightDragRef.current = false;
+      return;
+    }
 
     const sectionInfo = getSectionForRange(range);
     if (!sectionInfo) return;
@@ -959,6 +971,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     }
 
     lastMarkInsertAtRef.current = Date.now();
+    highlightDragRef.current = false;
   }, [highlightEnabled, highlightColor, saveSectionHTML]);
 
   // Touch devices
@@ -1454,6 +1467,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* MAIN CONTENT */}
       <main
         ref={mainRef}
+        onMouseDownCapture={(e) => {
+          if (!highlightEnabled) return;
+          const target = e.target as Node;
+          highlightDragRef.current = Boolean(findSection(target));
+        }}
         onMouseUpCapture={applyHighlight}
         onTouchEnd={onTouchEndHighlight}
         className={[
