@@ -86,6 +86,13 @@ export async function selectQuestions(opts: {
   }
 
   if (types.length > 0) {
+    // Pull stored modes first (source of truth, includes "used")
+    const userModes = await prisma.userQuestionMode.findMany({
+      where: { userId },
+      select: { questionId: true, mode: true, updatedAt: true },
+    });
+
+    // Latest responses + quiz items (fallback for questions without stored mode)
     const answeredQuestions = await prisma.response.findMany({
       where: { userId },
       include: {
@@ -103,6 +110,13 @@ export async function selectQuestions(opts: {
       where: { Quiz: { userId } },
       select: { questionId: true, marked: true },
     });
+
+    const modeByQuestion = new Map<string, string>();
+    for (const row of userModes) {
+      if (row.questionId && row.mode) {
+        modeByQuestion.set(row.questionId, row.mode);
+      }
+    }
 
     const responsesByQuestion = new Map<string, (typeof answeredQuestions)[number]>();
     const markedQuestions = new Set<string>();
@@ -127,21 +141,26 @@ export async function selectQuestions(opts: {
     }
 
     const questionIdsByType: Record<string, Set<string>> = {
-      marked: markedQuestions,
+      marked: new Set<string>(),
       unused: new Set<string>(),
       correct: new Set<string>(),
       incorrect: new Set<string>(),
       omitted: new Set<string>(),
+      used: new Set<string>(),
     };
 
-    // ✅ CACHE THIS: All questions is global data (same for all users)
-    const allQuestions = await prisma.question.findMany({ 
-      select: { id: true },
-      cacheStrategy: { ttl: 3600, swr: 600 }  // 1h cache, 10min stale
-    });
-    
-    // First, classify all questions based on their response history
+    // Apply stored modes as the authoritative source
+    for (const [questionId, mode] of modeByQuestion.entries()) {
+      if (mode === "marked") questionIdsByType.marked.add(questionId);
+      else if (mode === "correct") questionIdsByType.correct.add(questionId);
+      else if (mode === "incorrect") questionIdsByType.incorrect.add(questionId);
+      else if (mode === "omitted") questionIdsByType.omitted.add(questionId);
+      else if (mode === "used") questionIdsByType.used.add(questionId);
+    }
+
+    // Fallback classification for questions without a stored mode
     for (const [questionId, response] of responsesByQuestion.entries()) {
+      if (modeByQuestion.has(questionId)) continue;
       if (response.choiceId === null || response.choiceId === undefined) {
         questionIdsByType.omitted.add(questionId);
       } else if (response.isCorrect === true) {
@@ -150,22 +169,39 @@ export async function selectQuestions(opts: {
         questionIdsByType.incorrect.add(questionId);
       }
     }
-    
-    // Questions that were in tests but have no response should be omitted, not unused
+
     for (const questionId of usedQuestionIds) {
+      if (modeByQuestion.has(questionId)) continue;
       if (!responsesByQuestion.has(questionId) && !markedQuestions.has(questionId)) {
-        questionIdsByType.omitted.add(questionId);
+        questionIdsByType.used.add(questionId); // in a quiz but unanswered (suspended)
       }
     }
-    
+
+    // Marked overrides all other modes
+    for (const qid of markedQuestions) {
+      questionIdsByType.marked.add(qid);
+      questionIdsByType.used.delete(qid);
+      questionIdsByType.correct.delete(qid);
+      questionIdsByType.incorrect.delete(qid);
+      questionIdsByType.omitted.delete(qid);
+    }
+
+    // ✅ CACHE THIS: All questions is global data (same for all users)
+    const allQuestions = await prisma.question.findMany({
+      select: { id: true },
+      cacheStrategy: { ttl: 3600, swr: 600 }, // 1h cache, 10min stale
+    });
+
     // Only questions that have NEVER been in any test are truly "unused"
     for (const q of allQuestions) {
       const questionId = q.id;
-      if (!questionIdsByType.correct.has(questionId) && 
-          !questionIdsByType.incorrect.has(questionId) && 
-          !questionIdsByType.omitted.has(questionId) && 
-          !markedQuestions.has(questionId) &&
-          !usedQuestionIds.has(questionId)) {
+      if (
+        !questionIdsByType.correct.has(questionId) &&
+        !questionIdsByType.incorrect.has(questionId) &&
+        !questionIdsByType.omitted.has(questionId) &&
+        !questionIdsByType.marked.has(questionId) &&
+        !questionIdsByType.used.has(questionId)
+      ) {
         questionIdsByType.unused.add(questionId);
       }
     }

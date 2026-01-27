@@ -34,6 +34,7 @@ export default async function QuizPage({
     where: { id, User: { email } },
     select: {
       id: true,
+      status: true,
       QuizItem: {
         select: {
           id: true,
@@ -68,7 +69,7 @@ export default async function QuizPage({
               Choice: { select: { id: true, text: true, isCorrect: true, correctOptionIds: true, stemImageUrl: true } },
             },
           },
-          Response: { select: { choiceId: true, isCorrect: true } },
+          Response: { select: { choiceId: true, isCorrect: true, createdAt: true }, orderBy: { createdAt: "desc" } },
         },
       },
     },
@@ -177,19 +178,16 @@ export default async function QuizPage({
             stemImageUrl: a.stemImageUrl ?? null,
           })),
         },
-        responses: it.Response?.length
-          ? [
-              {
-                choiceId: it.responses[0]?.choiceId ?? null,
-                isCorrect: it.responses[0]?.isCorrect ?? null,
-              },
-            ]
-          : [],
+        responses: (it.Response ?? []).map((r: { choiceId: string | null; isCorrect: boolean | null }) => ({
+          choiceId: r.choiceId ?? null,
+          isCorrect: r.isCorrect ?? null,
+        })),
       };
     });
 
   // Narrow status to the union the UI expects
-  const status: QuizStatus = "Active"; // DB status type mismatch safe default
+  const status: QuizStatus =
+    quiz.status === "Suspended" ? "Suspended" : quiz.status === "Ended" ? "Ended" : "Active";
 
   // Map Prisma Role enum to QuizRunner expected role type
   const mapRole = (role: string | null): "MEMBER" | "ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | null => {

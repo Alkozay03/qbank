@@ -597,6 +597,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   // --- added: answer-change tracking ---
   const changeRef = useRef<number>(0);
   const lastChoiceRef = useRef<string | null>(null);
+  const suspendingRef = useRef(false);
+  const resumedRef = useRef(false);
 
   // Answers
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
@@ -753,6 +755,57 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       /* no-op */
     }
   }
+
+  // Auto-suspend on tab close/navigation so progress is preserved
+  const autoSuspend = useCallback(() => {
+    if (status !== "Active") return;
+    if (suspendingRef.current) return;
+    suspendingRef.current = true;
+    setStatus("Suspended");
+    fetch(`/api/quiz/${id}/suspend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "suspend", reason: "auto-close" }),
+      keepalive: true,
+    }).catch(() => {
+      /* best-effort */
+    });
+  }, [id, status]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPageHide = () => autoSuspend();
+    const onBeforeUnload = () => autoSuspend();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") autoSuspend();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [autoSuspend]);
+
+  // Auto-resume if the quiz was previously suspended
+  useEffect(() => {
+    if (status !== "Suspended") return;
+    if (resumedRef.current) return;
+    resumedRef.current = true;
+    fetch(`/api/quiz/${id}/suspend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "resume" }),
+    })
+      .then((r) => {
+        if (r.ok) setStatus("Active");
+      })
+      .catch(() => {
+        /* best-effort */
+      });
+  }, [status, id]);
 
   // Submit answer
   async function submitAnswer() {

@@ -13,6 +13,7 @@ const modes: Option[] = [
   { key: "omitted", label: "Omitted", hint: "Previously omitted after submitting exam" },
   { key: "correct", label: "Correct", hint: "Previously answered correctly" },
   { key: "marked", label: "Marked", hint: "Previously marked/flagged for review" },
+  { key: "used", label: "Used (suspended)", hint: "Appeared in a suspended quiz and remains unanswered" },
 ];
 
 const rotations: Option[] = [
@@ -94,7 +95,8 @@ export default function CreateTest() {
     correct: number;
     omitted: number;
     marked: number;
-  }>({ unused: 0, incorrect: 0, correct: 0, omitted: 0, marked: 0 });
+    used: number;
+  }>({ unused: 0, incorrect: 0, correct: 0, omitted: 0, marked: 0, used: 0 });
   const [counts, setCounts] = useState<{
     rotations: Record<string, number>;
     resources: Record<string, number>;
@@ -140,6 +142,7 @@ export default function CreateTest() {
       case "correct": return modeCounts.correct;
       case "omitted": return modeCounts.omitted;
       case "marked": return modeCounts.marked;
+      case "used": return modeCounts.used;
       default: return 0;
     }
   }

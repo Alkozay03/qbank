@@ -185,6 +185,7 @@ export async function POST(req: Request) {
       correct: 0,
       omitted: 0,
       marked: 0,
+      used: 0,
     };
 
     const tagCounts = {
