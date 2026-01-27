@@ -1820,7 +1820,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             <ClientSideQuestionDetails
               currentItem={currentItem}
               statsByQuestion={statsByQuestion}
-              questionSeconds={isReviewMode ? 0 : questionSeconds}
+              questionSeconds={isReviewMode ? null : questionSeconds}
               fontScale={fontScale}
               sectionHTMLByItem={sectionHTMLByItem}
             />

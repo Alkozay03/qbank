@@ -111,7 +111,7 @@ function parseReferences(refs?: string | null): string[] {
 interface ClientSideQuestionDetailsProps {
   currentItem: Item;
   statsByQuestion: Record<string, QuestionFirstAttemptStats>;
-  questionSeconds: number;
+  questionSeconds: number | null;
   fontScale: number;
   sectionHTMLByItem: Record<string, SectionHTML>;
 }
@@ -176,6 +176,8 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
     urls.push(...toUrlArray(currentItem.question.explanationImageUrls));
     return Array.from(new Set(urls));
   }, [currentItem.question.explanationImageUrl, currentItem.question.explanationImageUrls]);
+
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const screenshotUrl = currentItem.question.iduScreenshotUrl
     ? currentItem.question.iduScreenshotUrl.trim()
     : "";
@@ -208,26 +210,28 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
            borderColor: 'var(--color-primary)',
            backgroundColor: isDark ? '#000000' : ''
          }}>
-      <div className="flex items-center justify-center">
-        <div className="text-center">
-          <div 
-            className="text-lg font-extrabold"
-            style={{
-              ...(isDark ? {
-                color: '#ffffff'
-              } : {
-                background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              })
-            }}
-          >
-            {Math.floor(questionSeconds / 60)} Mins, {questionSeconds % 60} Secs
+      {typeof questionSeconds === "number" && (
+        <div className="flex items-center justify-center">
+          <div className="text-center">
+            <div 
+              className="text-lg font-extrabold"
+              style={{
+                ...(isDark ? {
+                  color: '#ffffff'
+                } : {
+                  background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-hover))',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                })
+              }}
+            >
+              {Math.floor(questionSeconds / 60)} Mins, {questionSeconds % 60} Secs
+            </div>
+            <div className="text-xs" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)', opacity: isDark ? 1 : 0.6 }}>Time Spent on Question</div>
           </div>
-          <div className="text-xs" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)', opacity: isDark ? 1 : 0.6 }}>Time Spent on Question</div>
         </div>
-      </div>
+      )}
 
       {screenshotUrl ? (
         <div className="mt-6">
@@ -316,8 +320,9 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
                   alt={`Explanation image ${idx + 1}`}
                   width={1024}
                   height={768}
-                  className="max-h-96 w-full object-contain rounded-lg"
+                  className="max-h-96 w-full object-contain rounded-lg cursor-zoom-in transition-transform duration-200 hover:scale-[1.01]"
                   unoptimized
+                  onClick={() => setPreviewImageUrl(url)}
                 />
               </div>
             ))}
@@ -442,6 +447,39 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
       <div className="mt-6">
         <QuestionDiscussion questionId={currentItem.question.id} />
       </div>
+
+      {/* Explanation image preview */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewImageUrl(null)}
+          role="presentation"
+        >
+          <div
+            className="relative max-h-full w-full max-w-5xl overflow-hidden rounded-2xl bg-white/90 p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Explanation image preview"
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-lg font-semibold text-white hover:bg-black/80"
+              aria-label="Close image preview"
+            >
+              ×
+            </button>
+            <div className="max-h-[80vh] overflow-auto">
+              <img
+                src={previewImageUrl}
+                alt="Explanation preview"
+                className="max-h-[80vh] w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
