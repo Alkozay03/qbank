@@ -159,7 +159,6 @@ const EMQQuestion = ({
         {stems.map((stem, stemIdx) => {
           const selectedOptionId = selectedAnswers[stem.id];
           const isCorrect = submitted && stem.correctOptionIds.includes(selectedOptionId);
-          const isIncorrect = submitted && selectedOptionId && !stem.correctOptionIds.includes(selectedOptionId);
           
           return (
             <div 
@@ -263,8 +262,8 @@ const EMQQuestion = ({
                   </>
                 )}
 
-                {/* Show correct answer if wrong */}
-                {submitted && isIncorrect && (
+                {/* Always show correct answer once submitted (review clarity) */}
+                {submitted && (
                   <div 
                     className="flex items-center gap-2 px-3 py-2 rounded-lg mt-2 w-full"
                     style={{ 
@@ -279,7 +278,7 @@ const EMQQuestion = ({
                       Correct Answer: {stem.correctOptionIds.map(id => {
                         const optIdx = options.findIndex(opt => opt.id === id);
                         return optIdx >= 0 ? getOptionLabel(optIdx) : '';
-                      }).join(', ')}
+                      }).filter(Boolean).join(', ')}
                     </span>
                   </div>
                 )}

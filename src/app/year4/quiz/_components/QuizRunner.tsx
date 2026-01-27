@@ -1457,11 +1457,35 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         }}
       >
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4">
-          <div 
-            className="text-sm font-semibold"
-            style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
-          >
-            Block Elapsed Time: <span className="tabular-nums">{fmtHMS(blockSeconds)}</span>
+          <div className="flex items-center gap-3">
+            <a
+              href={`${portalRoot}/previous-tests`}
+              className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm"
+              style={{
+                backgroundColor: isDark ? '#000000' : 'white',
+                color: isDark ? '#ffffff' : 'var(--color-primary)',
+                borderColor: isDark ? '#4b5563' : 'var(--color-primary)',
+                transition: 'all 0.2s ease-out'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,0,0,0.15)';
+                e.currentTarget.style.backgroundColor = 'var(--color-primary-light)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
+                e.currentTarget.style.backgroundColor = isDark ? '#000000' : 'white';
+              }}
+            >
+              Leave
+            </a>
+            <div 
+              className="text-sm font-semibold"
+              style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
+            >
+              Block Elapsed Time: <span className="tabular-nums">{fmtHMS(blockSeconds)}</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
