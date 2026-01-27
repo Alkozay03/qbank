@@ -128,24 +128,6 @@ function normalizeTagValues(tags?: string[]) {
   );
 }
 
-const parseImageField = (raw?: string | null): string[] => {
-  if (!raw) return [];
-  const trimmed = raw.trim();
-  if (!trimmed) return [];
-  try {
-    const parsed = JSON.parse(trimmed);
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map((v) => (typeof v === "string" ? v.trim() : ""))
-        .filter((v) => v.length > 0);
-    }
-  } catch {
-    /* fallback */
-  }
-  return [trimmed];
-};
-
-
 const DISPLAYABLE_TAG_CATEGORIES: ReadonlyArray<TagCategory> = ["rotation", "resource", "discipline", "system"];
 const DISPLAYABLE_TAG_SET = new Set(DISPLAYABLE_TAG_CATEGORIES);
 
@@ -197,8 +179,8 @@ interface ExtractedQuestion {
   questionYear?: string;
   rotationNumber?: string;
   iduScreenshotUrl?: string;
-  questionImageUrls?: string[];
-  explanationImageUrls?: string[];
+  questionImageUrl?: string;
+  explanationImageUrl?: string;
   occurrences?: OccurrenceDraft[];
   dbId?: string;
   customId?: number;
@@ -343,12 +325,6 @@ function BulkQuestionManagerContent() {
     const normalisedQuestion: ExtractedQuestion = {
       ...question,
       tags: normalizedTags,
-      questionImageUrls: Array.isArray(question.questionImageUrls)
-        ? question.questionImageUrls.map((u) => (u ?? "").trim()).filter(Boolean)
-        : parseImageField((question as unknown as { questionImageUrl?: string })?.questionImageUrl),
-      explanationImageUrls: Array.isArray(question.explanationImageUrls)
-        ? question.explanationImageUrls.map((u) => (u ?? "").trim()).filter(Boolean)
-        : parseImageField((question as unknown as { explanationImageUrl?: string })?.explanationImageUrl),
       occurrences: normalisedOccurrences,
     };
 
@@ -392,8 +368,8 @@ function BulkQuestionManagerContent() {
     questionYear: '',
     rotationNumber: '',
     iduScreenshotUrl: '',
-    questionImageUrls: [],
-    explanationImageUrls: [],
+    questionImageUrl: '',
+    explanationImageUrl: '',
     occurrences: [],
     source: 'manual',
     isAnswerConfirmed: true, // Default to confirmed for new questions
@@ -539,12 +515,8 @@ function BulkQuestionManagerContent() {
         questionYear: data?.questionYear ?? '',
         rotationNumber: data?.rotationNumber ?? '',
         iduScreenshotUrl: data?.iduScreenshotUrl ?? '',
-        questionImageUrls: Array.isArray(data?.questionImageUrls)
-          ? (data.questionImageUrls as string[]).map((u) => String(u ?? '').trim()).filter(Boolean)
-          : parseImageField(data?.questionImageUrl),
-        explanationImageUrls: Array.isArray(data?.explanationImageUrls)
-          ? (data.explanationImageUrls as string[]).map((u) => String(u ?? '').trim()).filter(Boolean)
-          : parseImageField(data?.explanationImageUrl),
+        questionImageUrl: data?.questionImageUrl ?? '',
+        explanationImageUrl: data?.explanationImageUrl ?? '',
         occurrences,
         source: 'existing',
       };
@@ -720,13 +692,6 @@ function BulkQuestionManagerContent() {
         rotationNumber: primaryOccurrenceMeta.rotationNumber,
       };
 
-      const questionImageUrls = Array.isArray(updatedQuestion.questionImageUrls)
-        ? updatedQuestion.questionImageUrls.map((u) => (u ?? "").trim()).filter(Boolean)
-        : [];
-      const explanationImageUrls = Array.isArray(updatedQuestion.explanationImageUrls)
-        ? updatedQuestion.explanationImageUrls.map((u) => (u ?? "").trim()).filter(Boolean)
-        : [];
-
       const payload = {
         questionType: updatedQuestion.questionType || 'MCQ',
         questionText: updatedQuestion.questionText,
@@ -746,8 +711,8 @@ function BulkQuestionManagerContent() {
         questionYear: (updatedQuestion.questionYear ?? '').trim(),
         rotationNumber: (updatedQuestion.rotationNumber ?? '').trim(),
         iduScreenshotUrl: (updatedQuestion.iduScreenshotUrl ?? '').trim(),
-        questionImageUrls,
-        explanationImageUrls,
+        questionImageUrl: (updatedQuestion.questionImageUrl ?? '').trim(),
+        explanationImageUrl: (updatedQuestion.explanationImageUrl ?? '').trim(),
         occurrences: sanitizedOccurrences,
         isAnswerConfirmed: updatedQuestion.isAnswerConfirmed !== false, // Default to true if undefined
       };
@@ -1673,10 +1638,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       }
       const payload = (await res.json().catch(() => ({}))) as { url?: string };
       if (!payload?.url) throw new Error('Upload did not return a URL');
-      setEditedQuestion((prev) => ({
-        ...prev,
-        questionImageUrls: [...(prev.questionImageUrls ?? []), payload.url],
-      }));
+      setEditedQuestion((prev) => ({ ...prev, questionImageUrl: payload.url }));
     } catch (error) {
       setQuestionImageError(error instanceof Error ? error.message : 'Failed to upload question image');
     } finally {
@@ -1686,12 +1648,10 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
   const handleQuestionImageInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files ? Array.from(event.target.files) : [];
+      const file = event.target.files?.[0];
       event.target.value = '';
-      if (!files.length) return;
-      for (const file of files) {
-        await handleQuestionImageUpload(file);
-      }
+      if (!file) return;
+      await handleQuestionImageUpload(file);
     },
     [handleQuestionImageUpload]
   );
@@ -1744,10 +1704,7 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
       }
       const payload = (await res.json().catch(() => ({}))) as { url?: string };
       if (!payload?.url) throw new Error('Upload did not return a URL');
-      setEditedQuestion((prev) => ({
-        ...prev,
-        explanationImageUrls: [...(prev.explanationImageUrls ?? []), payload.url],
-      }));
+      setEditedQuestion((prev) => ({ ...prev, explanationImageUrl: payload.url }));
     } catch (error) {
       setExplanationImageError(error instanceof Error ? error.message : 'Failed to upload explanation image');
     } finally {
@@ -1757,12 +1714,10 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
   const handleExplanationImageInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files ? Array.from(event.target.files) : [];
+      const file = event.target.files?.[0];
       event.target.value = '';
-      if (!files.length) return;
-      for (const file of files) {
-        await handleExplanationImageUpload(file);
-      }
+      if (!file) return;
+      await handleExplanationImageUpload(file);
     },
     [handleExplanationImageUpload]
   );
@@ -2281,7 +2236,6 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               ref={questionImageInputRef}
               type="file"
               accept="image/*"
-              multiple
               onChange={handleQuestionImageInputChange}
               className="hidden"
             />
@@ -2308,46 +2262,37 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               ) : null}
             </div>
 
-            {(editedQuestion.questionImageUrls ?? []).length > 0 ? (
+            {editedQuestion.questionImageUrl ? (
               <div className="mt-4 rounded-xl border border-sky-200 bg-white p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#0ea5e9]">
-                      Current question images ({editedQuestion.questionImageUrls?.length ?? 0})
-                    </p>
-                    <p className="text-xs text-slate-500">Click an image to open in new tab. Use Remove to delete.</p>
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {(editedQuestion.questionImageUrls ?? []).map((url, idx) => (
-                    <div
-                      key={`${url}-${idx}`}
-                      className="overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF] relative group"
+                    <p className="text-sm font-semibold text-[#0ea5e9]">Current question image</p>
+                    <a
+                      href={editedQuestion.questionImageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#2F6F8F] underline"
                     >
-                      <a href={url} target="_blank" rel="noopener noreferrer">
-                        <Image
-                          src={url}
-                          alt={`Question image ${idx + 1}`}
-                          width={1024}
-                          height={768}
-                          className="max-h-64 w-full object-contain"
-                          unoptimized
-                        />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditedQuestion((prev) => ({
-                            ...prev,
-                            questionImageUrls: (prev.questionImageUrls ?? []).filter((_, i) => i !== idx),
-                          }))
-                        }
-                        className="absolute right-2 top-2 rounded bg-white/80 px-2 py-1 text-xs font-semibold text-[#e11d48] opacity-0 transition group-hover:opacity-100"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
+                      Open in new tab
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditedQuestion((prev) => ({ ...prev, questionImageUrl: '' }))}
+                    className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
+                  >
+                    Remove image
+                  </button>
+                </div>
+                <div className="mt-3 overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF]">
+                  <Image
+                    src={editedQuestion.questionImageUrl}
+                    alt="Question image preview"
+                    width={1024}
+                    height={768}
+                    className="max-h-64 w-full object-contain"
+                    unoptimized
+                  />
                 </div>
               </div>
             ) : null}
@@ -2425,7 +2370,6 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               ref={explanationImageInputRef}
               type="file"
               accept="image/*"
-              multiple
               onChange={handleExplanationImageInputChange}
               className="hidden"
             />
@@ -2452,46 +2396,37 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
               ) : null}
             </div>
 
-            {(editedQuestion.explanationImageUrls ?? []).length ? (
+            {editedQuestion.explanationImageUrl ? (
               <div className="mt-4 rounded-xl border border-[#E6F0F7] bg-white p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#2F6F8F]">
-                      Current explanation images ({editedQuestion.explanationImageUrls?.length ?? 0})
-                    </p>
-                    <p className="text-xs text-slate-500">Click an image to open in new tab. Use Remove to delete.</p>
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {(editedQuestion.explanationImageUrls ?? []).map((url, idx) => (
-                    <div
-                      key={`${url}-${idx}`}
-                      className="overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF] relative group"
+                    <p className="text-sm font-semibold text-[#2F6F8F]">Current explanation image</p>
+                    <a
+                      href={editedQuestion.explanationImageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#2F6F8F] underline"
                     >
-                      <a href={url} target="_blank" rel="noopener noreferrer">
-                        <Image
-                          src={url}
-                          alt={`Explanation image ${idx + 1}`}
-                          width={1024}
-                          height={768}
-                          className="max-h-64 w-full object-contain"
-                          unoptimized
-                        />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditedQuestion((prev) => ({
-                            ...prev,
-                            explanationImageUrls: (prev.explanationImageUrls ?? []).filter((_, i) => i !== idx),
-                          }))
-                        }
-                        className="absolute right-2 top-2 rounded bg-white/80 px-2 py-1 text-xs font-semibold text-[#e11d48] opacity-0 transition group-hover:opacity-100"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
+                      Open in new tab
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditedQuestion((prev) => ({ ...prev, explanationImageUrl: '' }))}
+                    className="text-xs font-semibold text-[#e11d48] underline underline-offset-2 hover:text-[#be123c]"
+                  >
+                    Remove image
+                  </button>
+                </div>
+                <div className="mt-3 overflow-hidden rounded-lg border border-[#E6F0F7] bg-[#F9FCFF]">
+                  <Image
+                    src={editedQuestion.explanationImageUrl}
+                    alt="Explanation image preview"
+                    width={1024}
+                    height={768}
+                    className="max-h-64 w-full object-contain"
+                    unoptimized
+                  />
                 </div>
               </div>
             ) : null}

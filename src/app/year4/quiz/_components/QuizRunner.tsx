@@ -171,8 +171,6 @@ type Question = {
   iduScreenshotUrl?: string | null;
   questionImageUrl?: string | null;
   explanationImageUrl?: string | null;
-  questionImageUrls?: string[] | null;
-  explanationImageUrls?: string[] | null;
   references?: string | null;
   choices: Choice[];
   tags?: QuestionTag[];
@@ -273,14 +271,6 @@ function findSection(node: Node | null): { el: HTMLElement; key: keyof SectionHT
   }
   return null;
 }
-
-const getSectionForRange = (range: Range) => {
-  const start = findSection(range.startContainer);
-  const end = findSection(range.endContainer);
-  if (!start || !end) return null;
-  if (start.el !== end.el) return null;
-  return start;
-};
 
 const isHL = (n: Node | null): n is HTMLElement =>
   !!n &&
@@ -555,10 +545,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   // Highlighter
   const [highlightEnabled, setHighlightEnabled] = useState(true);
   const [showHighlighter, setShowHighlighter] = useState(false);
-  const [highlightColor, setHighlightColor] = useState<string>("#FBF719");
+  const [highlightColor, setHighlightColor] = useState<string>("#ffe066");
   const paletteRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLDivElement | null>(null);
-  const highlightDragRef = useRef(false);
 
   // Avoid “create then instantly remove” mark on click
   const lastMarkInsertAtRef = useRef<number>(0);
@@ -576,17 +565,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   // Timers
   const [blockSeconds, setBlockSeconds] = useState(0);
   const [questionSeconds, setQuestionSeconds] = useState(0);
-  const [timeByItem, setTimeByItem] = useState<Record<string, number>>({});
   const tickRef = useRef<number | null>(null);
   const qTickRef = useRef<number | null>(null);
   // --- added: answer-change tracking ---
   const changeRef = useRef<number>(0);
   const lastChoiceRef = useRef<string | null>(null);
-  const prevItemIdRef = useRef<string | null>(null);
-  const questionSecondsRef = useRef<number>(0);
-  useEffect(() => {
-    highlightDragRef.current = false; // reset drag flag when changing items
-  }, [curIndex]);
 
   // Answers
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
@@ -594,7 +577,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   
   // EMQ answers: stemId -> optionId
   const [emqAnswers, setEmqAnswers] = useState<Record<string, string>>({});
-  const [emqAnswersByItem, setEmqAnswersByItem] = useState<Record<string, Record<string, string>>>({});
 
   // Persisted HTML with marks per item
   const [sectionHTMLByItem, setSectionHTMLByItem] = useState<Record<string, SectionHTML>>({});
@@ -607,15 +589,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     currentItem.responses[0] && 
     currentItem.responses[0].choiceId
   );
-
-  const questionImages = useMemo(() => {
-    const urls = (currentItem?.question.questionImageUrls ?? []).filter((u): u is string => typeof u === "string" && u.trim().length > 0);
-    const primary = typeof currentItem?.question.questionImageUrl === "string" && currentItem.question.questionImageUrl.trim().length > 0
-      ? currentItem.question.questionImageUrl.trim()
-      : null;
-    if (primary) urls.unshift(primary);
-    return Array.from(new Set(urls));
-  }, [currentItem]);
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -664,29 +637,14 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // Reset per-question state
   useEffect(() => {
-    const prevId = prevItemIdRef.current;
-    if (prevId) {
-      setTimeByItem((prev) => ({ ...prev, [prevId]: questionSecondsRef.current }));
-    }
-    const nextId = currentItem?.id ?? null;
-    prevItemIdRef.current = nextId;
-    setQuestionSeconds(nextId ? timeByItem[nextId] ?? 0 : 0);
-
+    setQuestionSeconds(0);
     setSelectedChoiceId(null);
     setCrossed({});
-    setEmqAnswers(
-      nextId && currentItem?.question.questionType === "EMQ"
-        ? emqAnswersByItem[nextId] ?? {}
-        : {}
-    );
+    setEmqAnswers({}); // Reset EMQ answers on question change
     // --- added: reset change counter & last choice on question change ---
     changeRef.current = 0;
     lastChoiceRef.current = null;
-  }, [curIndex, currentItem?.id, currentItem?.question.questionType, timeByItem, emqAnswersByItem]);
-
-  useEffect(() => {
-    questionSecondsRef.current = questionSeconds;
-  }, [questionSeconds]);
+  }, [curIndex]);
 
   const fetchQuestionStats = useCallback(async (questionIds: string[]) => {
     if (!Array.isArray(questionIds) || questionIds.length === 0) return;
@@ -909,27 +867,16 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   );
 
   const applyHighlight = useCallback(() => {
-    if (!highlightEnabled) {
-      highlightDragRef.current = false;
-      return;
-    }
-
-    if (!highlightDragRef.current) return;
+    if (!highlightEnabled) return;
 
     const sel = window.getSelection?.();
-    if (!sel || sel.rangeCount === 0) {
-      highlightDragRef.current = false;
-      return;
-    }
+    if (!sel || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
-    if (range.collapsed) {
-      highlightDragRef.current = false;
-      return;
-    }
+    if (range.collapsed) return;
 
-    const sectionInfo = getSectionForRange(range);
-    if (!sectionInfo) return;
+    if (!findSection(range.commonAncestorContainer)) return;
 
+    // Store selection text before manipulating the DOM
     const selectedText = sel.toString();
     if (!selectedText.trim()) return;
 
@@ -946,17 +893,25 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     markStyle.WebkitBoxDecorationBreak = "clone";
     mark.setAttribute("data-qa", "highlight");
 
+    let sectionInfo: { el: Element; key: keyof SectionHTML } | null = null;
+
     try {
-      const frag = range.cloneContents();
-      if (!frag.textContent?.trim()) return;
+      // Clone the range to avoid mutation issues
+      const clonedRange = range.cloneRange();
+      const frag = clonedRange.extractContents();
+      
+      // Only proceed if we extracted something meaningful
+      if (frag.textContent?.trim()) {
+        mark.appendChild(frag);
+        range.deleteContents();
+        range.insertNode(mark);
+        sel.removeAllRanges();
 
-      range.deleteContents();
-      mark.appendChild(frag);
-      range.insertNode(mark);
-      sel.removeAllRanges();
-
-      normalizeInsertedMark(mark);
-      saveSectionHTML(sectionInfo.el, sectionInfo.key);
+        if (mark.isConnected) {
+          normalizeInsertedMark(mark);
+          sectionInfo = findSection(mark) ?? findSection(range.commonAncestorContainer);
+        }
+      }
     } catch {
       // Fallback to insertHTML for complex selections
       const escapedText = selectedText.replace(/[<>&]/g, (c) => {
@@ -969,12 +924,15 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         `<mark data-qa="highlight" style="background:${highlightColor};padding:0;margin:0;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;">${escapedText}</mark>`
       );
       sel.removeAllRanges();
-      normalizeSectionHighlights(sectionInfo.el);
-      saveSectionHTML(sectionInfo.el, sectionInfo.key);
+
+      sectionInfo = findSection(range.commonAncestorContainer);
+      if (sectionInfo) normalizeSectionHighlights(sectionInfo.el);
     }
 
+    if (!sectionInfo) sectionInfo = findSection(range.commonAncestorContainer);
+    if (sectionInfo) saveSectionHTML(sectionInfo.el, sectionInfo.key);
+
     lastMarkInsertAtRef.current = Date.now();
-    highlightDragRef.current = false;
   }, [highlightEnabled, highlightColor, saveSectionHTML]);
 
   // Touch devices
@@ -984,6 +942,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // Click a mark to remove it
   useEffect(() => {
+    if (!highlightEnabled) return;
+
     function onClick(ev: Event) {
       const t = ev.target as HTMLElement; // plain click removes highlight
       if (t?.getAttribute?.("data-qa") === "highlight") {
@@ -1002,7 +962,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const rootEl: Document | HTMLElement = mainRef.current ?? document;
     (rootEl as EventTarget).addEventListener("click", onClick as EventListener);
     return () => (rootEl as EventTarget).removeEventListener("click", onClick as EventListener);
-  }, [saveSectionHTML]);
+  }, [highlightEnabled, saveSectionHTML]);
 
   return (
     <div
@@ -1306,7 +1266,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     { c: "#fca5a5", n: "Red" },
                     { c: "#86efac", n: "Green" },
                     { c: "#93c5fd", n: "Blue" },
-                    { c: "#FBF719", n: "Yellow" },
+                    { c: "#fde047", n: "Yellow" },
                   ].map((k) => (
                     <button
                       key={k.n}
@@ -1470,11 +1430,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* MAIN CONTENT */}
       <main
         ref={mainRef}
-        onMouseDownCapture={(e) => {
-          if (!highlightEnabled) return;
-          const target = e.target as Node;
-          highlightDragRef.current = Boolean(findSection(target));
-        }}
         onMouseUpCapture={applyHighlight}
         onTouchEnd={onTouchEndHighlight}
         className={[
@@ -1506,12 +1461,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 submitted={isAnswered}
                 submittedAnswers={emqAnswers}
                 fontScale={fontScale}
-                onAnswersChange={(answers) => {
-                  setEmqAnswers(answers);
-                  if (currentItem?.id) {
-                    setEmqAnswersByItem((prev) => ({ ...prev, [currentItem.id]: answers }));
-                  }
-                }}
+                onAnswersChange={setEmqAnswers}
                 onSubmit={submitAnswer}
               />
             </div>
@@ -1544,20 +1494,16 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               </div>
 
               {/* Question Image */}
-              {questionImages.length > 0 && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {questionImages.map((url, idx) => (
-                    <div key={`${url}-${idx}`} className="rounded-lg border border-[#E6F0F7] overflow-hidden bg-white">
-                      <Image
-                        src={url}
-                        alt={`Question image ${idx + 1}`}
-                        width={1024}
-                        height={768}
-                        className="max-h-96 w-full object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  ))}
+              {currentItem?.question.questionImageUrl && (
+                <div className="mt-4">
+                  <Image
+                    src={currentItem.question.questionImageUrl}
+                    alt="Question image"
+                    width={1024}
+                    height={768}
+                    className="max-h-96 w-full object-contain rounded-lg border border-[#E6F0F7]"
+                    unoptimized
+                  />
                 </div>
               )}
 
