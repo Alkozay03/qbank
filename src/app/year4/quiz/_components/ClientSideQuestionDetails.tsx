@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import QuestionDiscussion from "./QuestionDiscussion";
 import { AnswerVoting } from "./AnswerVoting";
