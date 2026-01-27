@@ -44,6 +44,7 @@ export function initHighlight({ roots, getColor }: InitParams) {
     // Wrap selection in a <mark>
     const mark = document.createElement("mark");
     mark.dataset.hl = color;
+    mark.setAttribute("data-qa", "highlight");
     mark.style.backgroundColor = COLOR_HEX[color];
     mark.style.padding = "0 2px";
     mark.style.borderRadius = "2px";
@@ -60,7 +61,7 @@ export function initHighlight({ roots, getColor }: InitParams) {
       document.execCommand(
         "insertHTML",
         false,
-        `<mark data-hl="${color}" style="background:${COLOR_HEX[color]};padding:0 2px;border-radius:2px;">${txt}</mark>`
+        `<mark data-hl="${color}" data-qa="highlight" style="background:${COLOR_HEX[color]};padding:0 2px;border-radius:2px;">${txt}</mark>`
       );
       sel.removeAllRanges();
     }
