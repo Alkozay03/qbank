@@ -191,7 +191,6 @@ type Item = {
   marked: boolean;
   question: Question;
   responses: { choiceId: string | null; isCorrect: boolean | null }[];
-  emqAnswers?: Record<string, string> | null; // persisted EMQ selections (stemId -> optionId)
 };
 
 type Viewer = {
@@ -675,17 +674,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     setQuestionSeconds(0);
     setSelectedChoiceId(null);
     setCrossed({});
-    // Reset EMQ answers to any saved state for this item (or blank for new items)
-    const nextItem = items[curIndex];
-    if (nextItem?.question.questionType === 'EMQ' && nextItem.emqAnswers) {
-      setEmqAnswers(nextItem.emqAnswers);
-    } else {
-      setEmqAnswers({});
-    }
+    setEmqAnswers({}); // Reset EMQ answers on question change
     // --- added: reset change counter & last choice on question change ---
     changeRef.current = 0;
     lastChoiceRef.current = null;
-  }, [curIndex, items]);
+  }, [curIndex]);
 
   const fetchQuestionStats = useCallback(async (questionIds: string[]) => {
     if (!Array.isArray(questionIds) || questionIds.length === 0) return;
@@ -848,7 +841,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                         isCorrect: Boolean(finalCorrect),
                       },
                     ],
-                emqAnswers: isEMQ ? { ...emqAnswers } : it.emqAnswers,
               }
             : it
         )
@@ -858,22 +850,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       setItems((prev) =>
         prev.map((it) =>
           it.id === currentItem.id
-            ? isEMQ
-              ? {
-                  ...it,
-                  responses: Object.keys(emqAnswers).length
-                    ? Object.entries(emqAnswers).map(([stemId]) => ({
-                        choiceId: stemId,
-                        isCorrect: null,
-                      }))
-                    : it.responses,
-                  emqAnswers: { ...emqAnswers },
-                }
-              : { 
-                  ...it, 
-                  // Keep marked state unchanged - user controls it manually
-                  responses: [{ choiceId: selectedChoiceId, isCorrect: Boolean(localCorrect) }] 
-                }
+            ? { 
+                ...it, 
+                // Keep marked state unchanged - user controls it manually
+                responses: [{ choiceId: selectedChoiceId, isCorrect: Boolean(localCorrect) }] 
+              }
             : it
         )
       );
