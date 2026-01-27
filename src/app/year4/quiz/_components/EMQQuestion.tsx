@@ -45,6 +45,17 @@ const EMQQuestion = ({
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>(submittedAnswers);
   const [isDark, setIsDark] = useState(false);
 
+  // Keep local selection in sync when we revisit a submitted EMQ or when props change
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    stems.forEach((stem) => {
+      const val = submittedAnswers?.[stem.id];
+      if (val) next[stem.id] = val;
+    });
+    // Always sync to the latest answers when question/props change (covers revisit after submit)
+    setSelectedAnswers(next);
+  }, [submittedAnswers, stems, submitted]);
+
   useEffect(() => {
     const checkDark = () => setIsDark(isDarkMode());
     checkDark();
