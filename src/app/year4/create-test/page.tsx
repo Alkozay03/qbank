@@ -105,18 +105,23 @@ export default function CreateTest() {
     topics?: Record<string, number>;
   } | null>(null);
 
+  // Test type (Tutored vs Review)
+  const [testMode, setTestMode] = useState<"tutored" | "review">("tutored");
+
   // Progressive disclosure locks
-  const allowRotations = selModes.length > 0;
-  const allowResources = selRotations.length > 0;
-  const allowDisciplines = selResources.length > 0;
-  const allowSystems = selDisciplines.length > 0;
+  const allowRotations = testMode === "review" ? true : selModes.length > 0;
+  const allowResources = testMode === "review" ? false : selRotations.length > 0;
+  const allowDisciplines = testMode === "review" ? false : selResources.length > 0;
+  const allowSystems = testMode === "review" ? false : selDisciplines.length > 0;
 
   // validation
   const valid =
-    selDisciplines.length > 0 &&
-    selSystems.length > 0 &&
-    qCount >= 1 &&
-    qCount <= 100;
+    testMode === "review"
+      ? selRotations.length > 0
+      : selDisciplines.length > 0 &&
+        selSystems.length > 0 &&
+        qCount >= 1 &&
+        qCount <= 100;
 
   // effective selections
   const effectiveModes = selModes.length ? selModes : ["unused"];
@@ -174,7 +179,7 @@ export default function CreateTest() {
     }, 500); // Increased from 250ms to 500ms to reduce API call frequency
     return () => { controller.abort(); clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selModes.join(","), selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(",")]);
+  }, [selModes.join(","), selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(","), testMode]);
 
   // Fetch initial mode counts ONCE on mount (and refresh when page becomes visible)
   useEffect(() => {
@@ -225,20 +230,29 @@ export default function CreateTest() {
 
     try {
       setBusy(true);
+      const payload =
+        testMode === "review"
+          ? {
+              year: "Y4",
+              rotationKeys: effectiveRot,
+              reviewMode: true,
+            }
+          : {
+              year: "Y4",
+              rotationKeys: effectiveRot,       // ["im","gs",...]
+              resources: effectiveRes,          // kept for future use
+              disciplines: selDisciplines,      // kept for future use
+              systems: selSystems,              // kept for future use
+              count: qCount,
+              types: effectiveModes,            // ["unused","incorrect","marked",...]
+              mode: "RANDOM",
+            };
+
       // Send exactly your chip keys; backend maps and randomizes
       const res = await fetch("/api/quiz/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          year: "Y4",
-          rotationKeys: effectiveRot,       // ["im","gs",...]
-          resources: effectiveRes,          // kept for future use
-          disciplines: selDisciplines,      // kept for future use
-          systems: selSystems,              // kept for future use
-          count: qCount,
-          types: effectiveModes,            // ["unused","incorrect","marked",...]
-          mode: "RANDOM",
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create quiz");
@@ -254,68 +268,107 @@ export default function CreateTest() {
   return (
     <Shell title={title} pageName="Create Test">
       <section className="space-y-6">
-        {/* Modes */}
+        {/* Test Type */}
         <Card>
-          <HeaderRow title="Question Mode" />
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {modes.map((m) => {
-              const isSelected = selModes.includes(m.key);
+          <HeaderRow title="Test Type" />
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { key: "tutored", label: "Tutored Test", description: "Use question modes and filters with a question limit." },
+              { key: "review", label: "Review", description: "Pull every question from the selected rotations and show the answers." },
+            ].map((opt) => {
+              const active = testMode === opt.key;
               return (
-                <label
-                  key={m.key}
-                  className={`
-                    group relative flex items-center justify-between gap-2 rounded-xl px-4 py-3 cursor-pointer transition-all duration-300 ease-out btn-hover
-                    ${isSelected 
-                      ? 'theme-gradient text-inverse shadow-lg' 
-                      : 'bg-white border border-border hover:bg-accent hover:border-primary'
-                    }
-                  `}
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setTestMode(opt.key as "tutored" | "review")}
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-300 ${
+                    active
+                      ? "theme-gradient text-inverse shadow-lg"
+                      : "bg-white border-border hover:bg-accent hover:border-primary"
+                  }`}
                 >
-                  <span className={`flex-1 font-semibold break-words ${isSelected ? '' : 'text-primary'}`}>{m.label}</span>
-                  <div className="flex items-center gap-3">
-                    <span className={`
-                      text-xs rounded-full px-3 py-1.5 min-w-8 text-center font-bold transition-colors
-                      ${isSelected 
-                        ? 'bg-white' 
-                        : 'theme-gradient text-inverse'
-                      }
-                    `}>
-                      <span className={isSelected ? 'theme-gradient-text' : ''}>
-                        {getModeCount(m.key)}
-                      </span>
-                    </span>
-                    {m.hint && (
-                      <SimpleTooltip text={m.hint}>
-                        <span 
-                          className={`ml-1 text-base transition-colors cursor-help font-bold ${isSelected ? 'text-inverse' : 'theme-gradient-text'}`}
-                        >
-                          ⓘ
-                        </span>
-                      </SimpleTooltip>
-                    )}
-                    <div className="relative inline-flex items-center justify-center w-4 h-4">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggle(setSelModes, m.key)}
-                        className="w-4 h-4 cursor-pointer appearance-none rounded border bg-white"
-                        style={{
-                          borderColor: 'var(--color-primary)',
-                          borderWidth: '1.5px',
-                          backgroundColor: isSelected ? 'var(--color-primary)' : 'white',
-                        }}
-                      />
-                      {isSelected && (
-                        <svg className="absolute w-2.5 h-2.5 pointer-events-none text-white" viewBox="0 0 12 12" fill="none">
-                          <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
+                  <div className="flex-1">
+                    <div className={`font-semibold ${active ? "" : "text-primary"}`}>{opt.label}</div>
+                    <p className={`text-sm mt-0.5 ${active ? "text-inverse/90" : "text-slate-600"}`}>{opt.description}</p>
                   </div>
-                </label>
+                  <span
+                    className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-bold ${
+                      active ? "bg-white text-primary" : "theme-gradient text-inverse"
+                    }`}
+                  >
+                    {active ? "Selected" : "Tap to choose"}
+                  </span>
+                </button>
               );
             })}
           </div>
+        </Card>
+
+        {/* Question Mode */}
+        <Card>
+          <HeaderRow title="Question Mode" />
+          {testMode === "review" ? (
+            <p className="mt-3 text-sm text-primary">
+              Review mode ignores question modes and adds every question from the chosen rotations with the correct answers revealed.
+            </p>
+          ) : (
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {modes.map((m) => {
+                const isSelected = selModes.includes(m.key);
+                return (
+                  <label
+                    key={m.key}
+                    className={`group relative flex items-center justify-between gap-2 rounded-xl px-4 py-3 cursor-pointer transition-all duration-300 ease-out btn-hover ${
+                      isSelected
+                        ? "theme-gradient text-inverse shadow-lg"
+                        : "bg-white border border-border hover:bg-accent hover:border-primary"
+                    }`}
+                  >
+                    <span className={`flex-1 font-semibold break-words ${isSelected ? "" : "text-primary"}`}>{m.label}</span>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-xs rounded-full px-3 py-1.5 min-w-8 text-center font-bold transition-colors ${
+                          isSelected ? "bg-white" : "theme-gradient text-inverse"
+                        }`}
+                      >
+                        <span className={isSelected ? "theme-gradient-text" : ""}>
+                          {getModeCount(m.key)}
+                        </span>
+                      </span>
+                      {m.hint && (
+                        <SimpleTooltip text={m.hint}>
+                          <span
+                            className={`ml-1 text-base transition-colors cursor-help font-bold ${isSelected ? "text-inverse" : "theme-gradient-text"}`}
+                          >
+                            i
+                          </span>
+                        </SimpleTooltip>
+                      )}
+                      <div className="relative inline-flex items-center justify-center w-4 h-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggle(setSelModes, m.key)}
+                          className="w-4 h-4 cursor-pointer appearance-none rounded border bg-white"
+                          style={{
+                            borderColor: 'var(--color-primary)',
+                            borderWidth: '1.5px',
+                            backgroundColor: isSelected ? 'var(--color-primary)' : 'white',
+                          }}
+                        />
+                        {isSelected && (
+                          <svg className="absolute w-2.5 h-2.5 pointer-events-none text-white" viewBox="0 0 12 12" fill="none">
+                            <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </Card>
 
         {/* Rotations */}
@@ -341,118 +394,153 @@ export default function CreateTest() {
           )}
         </Card>
 
-        {/* Resources */}
-        <Card locked={!allowResources}>
-          <HeaderRow
-            title="Resources"
-            withAll
-            disabledAll={!allowResources}
-            onAll={(_checked) => toggleAll(setSelResources, resources, _checked)}
-          />
-          <CheckGrid
-            list={resources}
-            selected={selResources}
-            onToggle={(optKey) => toggle(setSelResources, optKey)}
-            disabled={!allowResources}
-            counts={counts}
-            section="resources"
-          />
-          {!allowResources && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one rotation to choose resources.
-            </p>
-          )}
-        </Card>
+        {testMode !== "review" && (
+          <>
+            {/* Resources */}
+            <Card locked={!allowResources}>
+              <HeaderRow
+                title="Resources"
+                withAll
+                disabledAll={!allowResources}
+                onAll={(_checked) => toggleAll(setSelResources, resources, _checked)}
+              />
+              <CheckGrid
+                list={resources}
+                selected={selResources}
+                onToggle={(optKey) => toggle(setSelResources, optKey)}
+                disabled={!allowResources}
+                counts={counts}
+                section="resources"
+              />
+              {!allowResources && (
+                <p className="mt-2 text-sm text-red-600">
+                  Select at least one rotation to choose resources.
+                </p>
+              )}
+            </Card>
 
-        {/* Disciplines */}
-        <Card locked={!allowDisciplines}>
-          <HeaderRow
-            title="Discipline"
-            withAll
-            disabledAll={!allowDisciplines}
-            onAll={(_checked) => toggleAll(setSelDisciplines, disciplines, _checked)}
-          />
-          <CheckGrid
-            list={disciplines}
-            selected={selDisciplines}
-            onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
-            disabled={!allowDisciplines}
-            counts={counts}
-            section="disciplines"
-          />
-          {!allowDisciplines && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one resource to choose disciplines.
-            </p>
-          )}
-        </Card>
+            {/* Disciplines */}
+            <Card locked={!allowDisciplines}>
+              <HeaderRow
+                title="Discipline"
+                withAll
+                disabledAll={!allowDisciplines}
+                onAll={(_checked) => toggleAll(setSelDisciplines, disciplines, _checked)}
+              />
+              <CheckGrid
+                list={disciplines}
+                selected={selDisciplines}
+                onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
+                disabled={!allowDisciplines}
+                counts={counts}
+                section="disciplines"
+              />
+              {!allowDisciplines && (
+                <p className="mt-2 text-sm text-red-600">
+                  Select at least one resource to choose disciplines.
+                </p>
+              )}
+            </Card>
 
-        {/* Systems */}
-        <Card locked={!allowSystems}>
-          <HeaderRow
-            title="System"
-            withAll
-            disabledAll={!allowSystems}
-            onAll={(_checked) => toggleAll(setSelSystems, systems, _checked)}
-          />
-          <CheckGrid
-            list={systems}
-            selected={selSystems}
-            onToggle={(optKey) => toggle(setSelSystems, optKey)}
-            disabled={!allowSystems}
-            counts={counts}
-            section="systems"
-          />
-          {!allowSystems && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one discipline to choose systems.
-            </p>
-          )}
-        </Card>
+            {/* Systems */}
+            <Card locked={!allowSystems}>
+              <HeaderRow
+                title="System"
+                withAll
+                disabledAll={!allowSystems}
+                onAll={(_checked) => toggleAll(setSelSystems, systems, _checked)}
+              />
+              <CheckGrid
+                list={systems}
+                selected={selSystems}
+                onToggle={(optKey) => toggle(setSelSystems, optKey)}
+                disabled={!allowSystems}
+                counts={counts}
+                section="systems"
+              />
+              {!allowSystems && (
+                <p className="mt-2 text-sm text-red-600">
+                  Select at least one discipline to choose systems.
+                </p>
+              )}
+            </Card>
+          </>
+        )}
 
         {/* Count + Create */}
-        <div className="flex items-center justify-between gap-4 p-6 rounded-2xl bg-primary-light border-2 border-primary shadow-lg">
-          <div className="flex items-center gap-4">
-            <label className="text-lg font-semibold text-primary">
-              Number of Questions
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={qCount || ""}
-                onChange={(e) => setQCount(Number(e.target.value))}
-                className="w-32 rounded-2xl border-2 border-border px-4 py-3 text-center text-lg font-bold text-primary bg-card outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
-                placeholder="1-100"
-              />
+        {testMode === "review" ? (
+          <div className="flex items-center justify-between gap-4 p-6 rounded-2xl bg-primary-light border-2 border-primary shadow-lg">
+            <div className="flex-1">
+              <div className="text-lg font-semibold text-primary">Create Review</div>
+              <p className="text-sm text-slate-700">
+                All questions from the selected rotation(s) will be added with answers revealed. No question limit.
+              </p>
             </div>
+            <button
+              disabled={!valid || busy}
+              onClick={submit}
+              className="
+                group relative overflow-hidden rounded-2xl px-8 py-4 font-bold text-inverse text-lg btn-hover color-smooth
+                bg-primary hover:bg-primary-hover
+                disabled:opacity-50 disabled:cursor-not-allowed
+                shadow-lg hover:shadow-xl 
+                transition-all duration-300
+              "
+            >
+              <span className="relative z-10">
+                {busy ? "Creating..." : "Start Review"}
+              </span>
+              {!busy && (
+                <div className="absolute inset-0 bg-primary-hover opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              )}
+            </button>
           </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-4 p-6 rounded-2xl bg-primary-light border-2 border-primary shadow-lg">
+              <div className="flex items-center gap-4">
+                <label className="text-lg font-semibold text-primary">
+                  Number of Questions
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={qCount || ""}
+                    onChange={(e) => setQCount(Number(e.target.value))}
+                    className="w-32 rounded-2xl border-2 border-border px-4 py-3 text-center text-lg font-bold text-primary bg-card outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200"
+                    placeholder="1-100"
+                  />
+                </div>
+              </div>
 
-          <button
-            disabled={!valid || busy}
-            onClick={submit}
-            className="
-              group relative overflow-hidden rounded-2xl px-8 py-4 font-bold text-inverse text-lg btn-hover color-smooth
-              bg-primary hover:bg-primary-hover
-              disabled:opacity-50 disabled:cursor-not-allowed
-              shadow-lg hover:shadow-xl 
-              transition-all duration-300
-            "
-          >
-            <span className="relative z-10">
-              {busy ? "Creating..." : "Create Test!"}
-            </span>
-            {!busy && (
-              <div className="absolute inset-0 bg-primary-hover opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-            )}
-          </button>
-        </div>
+              <button
+                disabled={!valid || busy}
+                onClick={submit}
+                className="
+                  group relative overflow-hidden rounded-2xl px-8 py-4 font-bold text-inverse text-lg btn-hover color-smooth
+                  bg-primary hover:bg-primary-hover
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  shadow-lg hover:shadow-xl 
+                  transition-all duration-300
+                "
+              >
+                <span className="relative z-10">
+                  {busy ? "Creating..." : "Create Test!"}
+                </span>
+                {!busy && (
+                  <div className="absolute inset-0 bg-primary-hover opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                )}
+              </button>
+            </div>
 
-        <p className="text-xs text-muted-foreground">
-          If you do not select rotations/resources/question mode, defaults are applied
-          automatically (all rotations/resources; Unanswered mode).
-        </p>
+            <p className="text-xs text-muted-foreground">
+              If you do not select rotations/resources/question mode, defaults are applied
+              automatically (all rotations/resources; Unanswered mode).
+            </p>
+          </>
+        )}
       </section>
     </Shell>
   );

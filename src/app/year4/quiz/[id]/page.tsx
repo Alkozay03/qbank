@@ -35,6 +35,7 @@ export default async function QuizPage({
     select: {
       id: true,
       status: true,
+      mode: true,
       QuizItem: {
         select: {
           id: true,
@@ -202,6 +203,7 @@ export default async function QuizPage({
   const initialQuiz = {
     id: quiz.id,
     status,
+    mode: quiz.mode ?? "RANDOM",
     items,
     viewer: {
       name: [viewer?.firstName, viewer?.lastName]

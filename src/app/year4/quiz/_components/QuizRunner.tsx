@@ -209,6 +209,7 @@ type QuestionFirstAttemptStats = {
 type InitialQuiz = {
   id: string;
   status: "Active" | "Suspended" | "Ended";
+  mode?: string | null;
   items: Item[];
   viewer?: Viewer;
 };
@@ -248,6 +249,18 @@ function getSafeResponse(item: Item | undefined) {
     choiceId: item.responses[0].choiceId || null,
     isCorrect: item.responses[0].isCorrect ?? null
   };
+}
+
+// Helper to derive a submitted choice for review mode (fallback to correct answer if omitted)
+function getReviewChoiceId(item: Item | undefined, status: "Active" | "Suspended" | "Ended") {
+  if (!item) return null;
+  const hasResponse = item.responses && item.responses.length > 0 && item.responses[0]?.choiceId;
+  if (hasResponse) return item.responses[0]?.choiceId ?? null;
+  if (status === "Ended" && item.question.questionType === "MCQ") {
+    const correct = item.question.choices.find((c) => c.isCorrect);
+    return correct?.id ?? null;
+  }
+  return null;
 }
 
 const SECTION_SELECTOR = '[data-section="stem"],[data-section="explanation"],[data-section="objective"]';
@@ -549,6 +562,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   }, []);
 
   const [status, setStatus] = useState<"Active" | "Suspended" | "Ended">(initialQuiz.status);
+  const isReviewMode = (initialQuiz.mode ?? "").toUpperCase() === "REVIEW";
   const [statsByQuestion, setStatsByQuestion] = useState<Record<string, QuestionFirstAttemptStats>>({});
   const statsLoadedRef = useRef(false);
 
@@ -629,6 +643,24 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     return Array.from(new Set(urls));
   }, [currentItem]);
 
+  const displayChoices = useMemo(() => {
+    const all = currentItem?.question.choices ?? [];
+    if (!isReviewMode) return all;
+    const correctOnly = all.filter((c) => c.isCorrect);
+    return correctOnly.length > 0 ? correctOnly : all;
+  }, [currentItem, isReviewMode]);
+
+  const displayEmqOptions = useMemo(() => {
+    const opts = (currentItem?.question.emqOptions as EMQOption[]) ?? [];
+    if (!isReviewMode) return opts;
+    const correctIds = new Set<string>();
+    (currentItem?.question.choices ?? []).forEach((stem) => {
+      (stem.correctOptionIds ?? []).forEach((id: string) => correctIds.add(id));
+    });
+    const filtered = opts.filter((opt) => correctIds.has(opt.id));
+    return filtered.length > 0 ? filtered : opts;
+  }, [currentItem, isReviewMode]);
+
   // Initialize persisted sections for current item
   useEffect(() => {
     if (!currentItem) return;
@@ -702,6 +734,20 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     },
     [currentItem?.id]
   );
+
+  // Build review-time EMQ answers: if no answers and quiz ended, show correct options
+  const reviewEmqAnswers = useMemo(() => {
+    if (status !== "Ended") return emqAnswers;
+    if (Object.keys(emqAnswers).length > 0) return emqAnswers;
+    const fallback: Record<string, string> = {};
+    currentItem?.question.choices.forEach((stem) => {
+      const correctIds = Array.isArray(stem.correctOptionIds) ? stem.correctOptionIds : [];
+      if (correctIds.length > 0) {
+        fallback[stem.id] = correctIds[0];
+      }
+    });
+    return fallback;
+  }, [status, emqAnswers, currentItem]);
 
   const fetchQuestionStats = useCallback(async (questionIds: string[]) => {
     if (!Array.isArray(questionIds) || questionIds.length === 0) return;
@@ -1585,7 +1631,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             >
               <EMQQuestion
                 theme={currentItem.question.emqTheme ?? currentItem.question.stem}
-                options={(currentItem.question.emqOptions as EMQOption[]) ?? []}
+                options={displayEmqOptions}
                 stems={currentItem.question.choices.map(ch => ({
                   id: ch.id,
                   text: ch.text,
@@ -1593,7 +1639,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   stemImageUrl: ch.stemImageUrl ?? null,
                 }))}
                 submitted={isAnswered}
-                submittedAnswers={emqAnswers}
+                submittedAnswers={reviewEmqAnswers}
                 fontScale={fontScale}
                 onAnswersChange={handleEmqAnswersChange}
                 onSubmit={submitAnswer}
@@ -1646,7 +1692,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               )}
 
               <div className="mt-4 space-y-2">
-                {currentItem?.question.choices.map((ch, idx) => {
+                {displayChoices.map((ch, idx) => {
               const questionId = currentItem?.question.id;
               if (!questionId) return null;
               const questionStats = statsByQuestion[questionId];
@@ -1680,13 +1726,20 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               } else {
                 countValue = 0;
               }
+              const reviewChoiceId = getReviewChoiceId(currentItem, status);
+              const submittedId = status === "Ended" ? reviewChoiceId : getSafeResponse(currentItem).choiceId;
+              const submittedFlag =
+                status === "Ended"
+                  ? Boolean(submittedId)
+                  : Boolean(getSafeResponse(currentItem).choiceId);
+
               return (
                 <AnswerRow
                   key={ch.id}
                   choice={ch}
                   index={idx}
-                  submittedId={getSafeResponse(currentItem).choiceId}
-                  submitted={Boolean(getSafeResponse(currentItem).choiceId)}
+                  submittedId={submittedId}
+                  submitted={submittedFlag}
                   selectedId={selectedChoiceId}
                   crossed={!!crossed[ch.id]}
                   status={status}

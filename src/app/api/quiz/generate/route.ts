@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import { NextResponse } from "next/server";
 import { selectQuestions } from "@/lib/quiz/selectQuestions";
+import { TagType } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
       count: number;
       mode: string;
       types: string[];
+      reviewMode?: boolean;
     }>;
 
     const year = typeof body.year === "string" ? body.year : "Y4"; // Default to Y4 for backwards compatibility
@@ -41,30 +43,60 @@ export async function POST(req: Request) {
     const types = Array.isArray(body.types)
       ? body.types.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
+    const reviewMode = body.reviewMode === true;
 
     const rawCount = Number(body.count);
     const requestedCount = Number.isFinite(rawCount) ? rawCount : 10;
-    if (requestedCount > 100) {
+    if (!reviewMode && requestedCount > 100) {
       return NextResponse.json({ error: "Maximum question count is 100" }, { status: 400 });
     }
 
-    const take = Math.max(1, Math.min(100, requestedCount));
+    const take = reviewMode ? undefined : Math.max(1, Math.min(100, requestedCount));
     if (!rotationKeys.length) {
       return NextResponse.json({ error: "Select at least one rotation" }, { status: 400 });
     }
 
     const userId = session.user.id;
 
-    const ids = await selectQuestions({
-      userId,
-      year,
-      rotationKeys,
-      resourceValues,
-      disciplineValues,
-      systemValues,
-      types,
-      take,
-    });
+    let ids: string[] = [];
+
+    if (reviewMode) {
+      // Fetch ALL questions for the rotations/year (no mode filtering, no count cap)
+      const rows = await prisma.question.findMany({
+        where: {
+          QuestionOccurrence: {
+            some: { year },
+          },
+          QuestionTag: {
+            some: {
+              Tag: {
+                type: TagType.ROTATION,
+                value: { in: rotationKeys },
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      // Shuffle to vary ordering
+      for (let i = rows.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rows[i], rows[j]] = [rows[j], rows[i]];
+      }
+      ids = rows.map((r) => r.id);
+    } else {
+      ids = await selectQuestions({
+        userId,
+        year,
+        rotationKeys,
+        resourceValues,
+        disciplineValues,
+        systemValues,
+        types,
+        take: take ?? 10,
+      });
+    }
 
     if (ids.length === 0) {
       return NextResponse.json({ error: "No questions match your filters." }, { status: 400 });
@@ -75,8 +107,8 @@ export async function POST(req: Request) {
       data: {
         id: quizId,
         userId,
-        status: "Active",
-        mode: "RANDOM",
+        status: reviewMode ? "Ended" : "Active",
+        mode: reviewMode ? "REVIEW" : "RANDOM",
         count: ids.length,
         QuizItem: {
           create: ids.map((qid, i) => ({ 
