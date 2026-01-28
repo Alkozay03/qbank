@@ -113,13 +113,15 @@ interface ClientSideQuestionDetailsProps {
   questionSeconds: number | null;
   fontScale: number;
   sectionHTMLByItem: Record<string, SectionHTML>;
+  showDiscussionInline?: boolean;
 }
 
 export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails({
   currentItem,
   questionSeconds,
   fontScale,
-  sectionHTMLByItem
+  sectionHTMLByItem,
+  showDiscussionInline = true
 }: ClientSideQuestionDetailsProps) {
   const isDark = isDarkMode();
 
@@ -435,9 +437,11 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
         </div>
       </div>
 
-      <div className="mt-6">
-        <QuestionDiscussion questionId={currentItem.question.id} />
-      </div>
+      {showDiscussionInline ? (
+        <div className="mt-6">
+          <QuestionDiscussion questionId={currentItem.question.id} />
+        </div>
+      ) : null}
 
       {/* Explanation image preview */}
       {previewImageUrl && (

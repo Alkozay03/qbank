@@ -12,6 +12,8 @@ import {
   Minimize2,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   PauseCircle,
   Undo2,
   X,
@@ -31,6 +33,7 @@ import React, {
 import clsx from "clsx";
 import { ClientSideQuestionDetails } from "./ClientSideQuestionDetails";
 import EMQQuestion from "./EMQQuestion";
+import QuestionDiscussion from "./QuestionDiscussion";
 
 // Helper to check if dark mode is active
 const isDarkMode = () => {
@@ -662,6 +665,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   // Full-screen image preview
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [discussionPlacement, setDiscussionPlacement] = useState<"bottom" | "side">("bottom");
+  const [discussionCollapsed, setDiscussionCollapsed] = useState(false);
+  const [isDesktopWidth, setIsDesktopWidth] = useState(false);
+  const useSideDiscussion = discussionPlacement === "side" && isAnswered && isDesktopWidth;
+  const showSideDiscussion = useSideDiscussion && !discussionCollapsed;
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -717,6 +725,33 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     changeRef.current = 0;
     lastChoiceRef.current = null;
   }, [curIndex]);
+
+  // Discussion placement persistence + responsive guard
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const stored = window.localStorage.getItem("quiz-discussion-placement");
+    if (stored === "side" || stored === "bottom") {
+      setDiscussionPlacement(stored);
+    }
+
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktopWidth(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("quiz-discussion-placement", discussionPlacement);
+  }, [discussionPlacement]);
+
+  useEffect(() => {
+    if (discussionPlacement === "side") {
+      setDiscussionCollapsed(false);
+    }
+  }, [discussionPlacement]);
 
   // Restore EMQ answers for the current item (so revisiting shows selections)
   useEffect(() => {
@@ -1456,6 +1491,77 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               </div>
             )}
 
+            {/* Discussion placement */}
+            <div
+              className="hidden sm:flex items-center gap-1 rounded-xl border px-1 py-1 text-xs font-semibold"
+              style={{
+                backgroundColor: isDark ? '#000000' : 'white',
+                color: isDark ? '#e5e7eb' : 'var(--color-primary)',
+                borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                transition: 'all 0.2s ease-out'
+              }}
+            >
+              <span
+                className="px-2 uppercase tracking-wide"
+                style={{ fontSize: '10px', color: isDark ? '#e5e7eb' : 'var(--color-primary)', opacity: 0.7 }}
+              >
+                Discussion
+              </span>
+              <button
+                type="button"
+                onClick={() => setDiscussionPlacement("bottom")}
+                className="rounded-lg px-3 py-1 transition-colors"
+                style={{
+                  backgroundColor: discussionPlacement === "bottom"
+                    ? (isDark ? '#1f2937' : 'var(--color-primary)')
+                    : 'transparent',
+                  color: discussionPlacement === "bottom"
+                    ? '#ffffff'
+                    : (isDark ? '#e5e7eb' : 'var(--color-primary)'),
+                  border: '1px solid',
+                  borderColor: discussionPlacement === "bottom"
+                    ? (isDark ? '#4b5563' : 'var(--color-primary)')
+                    : 'transparent'
+                }}
+              >
+                Bottom
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscussionPlacement("side")}
+                className="rounded-lg px-3 py-1 transition-colors"
+                style={{
+                  backgroundColor: discussionPlacement === "side"
+                    ? (isDark ? '#1f2937' : 'var(--color-primary)')
+                    : 'transparent',
+                  color: discussionPlacement === "side"
+                    ? '#ffffff'
+                    : (isDark ? '#e5e7eb' : 'var(--color-primary)'),
+                  border: '1px solid',
+                  borderColor: discussionPlacement === "side"
+                    ? (isDark ? '#4b5563' : 'var(--color-primary)')
+                    : 'transparent'
+                }}
+              >
+                Side
+              </button>
+            </div>
+            <div className="sm:hidden">
+              <select
+                value={discussionPlacement}
+                onChange={(e) => setDiscussionPlacement(e.target.value as "bottom" | "side")}
+                className="rounded-xl border px-2 py-1 text-xs font-semibold"
+                style={{
+                  backgroundColor: isDark ? '#000000' : 'white',
+                  color: isDark ? '#e5e7eb' : 'var(--color-primary)',
+                  borderColor: isDark ? '#4b5563' : 'var(--color-border)'
+                }}
+              >
+                <option value="bottom">Discussion: Bottom</option>
+                <option value="side">Discussion: Side</option>
+              </select>
+            </div>
+
             {/* Text size */}
             <ZoomButtons decFont={decFont} resetFont={resetFont} incFont={incFont} />
 
@@ -1621,7 +1727,12 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         ].join(" ")}
         style={{ top: `${TOP_H}px`, bottom: `${BOTTOM_H}px`, paddingLeft: `var(--sbw)` }}
       >
-        <div className="mx-auto max-w-4xl px-4 py-6">
+        <div
+          className={clsx(
+            "mx-auto px-4 py-6",
+            useSideDiscussion ? "max-w-6xl lg:max-w-7xl" : "max-w-4xl"
+          )}
+        >
           {/* Render EMQ or MCQ based on questionType */}
           {currentItem?.question.questionType === 'EMQ' ? (
             <div 
@@ -1817,13 +1928,93 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             )}
 
           {currentItem && isAnswered && (
-            <ClientSideQuestionDetails
-              currentItem={currentItem}
-              statsByQuestion={statsByQuestion}
-              questionSeconds={isReviewMode ? null : questionSeconds}
-              fontScale={fontScale}
-              sectionHTMLByItem={sectionHTMLByItem}
-            />
+            useSideDiscussion ? (
+              <>
+                <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
+                  <div className="min-w-0">
+                    <ClientSideQuestionDetails
+                      currentItem={currentItem}
+                      statsByQuestion={statsByQuestion}
+                      questionSeconds={isReviewMode ? null : questionSeconds}
+                      fontScale={fontScale}
+                      sectionHTMLByItem={sectionHTMLByItem}
+                      showDiscussionInline={false}
+                    />
+                  </div>
+
+                  {showSideDiscussion && (
+                    <aside
+                      className="rounded-2xl border p-3 shadow-sm lg:sticky lg:top-20"
+                      style={{
+                        backgroundColor: isDark ? '#0b0b0b' : 'white',
+                        borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                        maxHeight: 'calc(100vh - 180px)',
+                        overflow: 'auto'
+                      }}
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div
+                          className="text-xs font-semibold uppercase tracking-wide"
+                          style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
+                        >
+                          Question Discussion
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDiscussionCollapsed(true)}
+                          className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold"
+                          style={{
+                            backgroundColor: isDark ? '#111827' : 'var(--color-background)',
+                            color: isDark ? '#e5e7eb' : 'var(--color-primary)',
+                            borderColor: isDark ? '#4b5563' : 'var(--color-border)'
+                          }}
+                          title="Collapse discussion panel"
+                        >
+                          <PanelRightClose size={14} />
+                          Hide
+                        </button>
+                      </div>
+                      <QuestionDiscussion questionId={currentItem.question.id} />
+                    </aside>
+                  )}
+                </div>
+
+                {useSideDiscussion && !showSideDiscussion && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setDiscussionCollapsed(false)}
+                      className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm"
+                      style={{
+                        backgroundColor: isDark ? '#000000' : 'white',
+                        color: isDark ? '#e5e7eb' : 'var(--color-primary)',
+                        borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                        transition: 'all 0.2s ease-out'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
+                      }}
+                    >
+                      <PanelRightOpen size={16} />
+                      Show discussion
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <ClientSideQuestionDetails
+                currentItem={currentItem}
+                statsByQuestion={statsByQuestion}
+                questionSeconds={isReviewMode ? null : questionSeconds}
+                fontScale={fontScale}
+                sectionHTMLByItem={sectionHTMLByItem}
+              />
+            )
           )}
         </div>
       </main>
