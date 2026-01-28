@@ -1937,24 +1937,16 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             useSideDiscussion ? "max-w-screen-2xl" : "max-w-screen-2xl"
           )}
         >
-          {useSideDiscussion && (
-            <div className="mb-3 flex justify-end">
-              {showSideDiscussion ? (
-                <button
-                  type="button"
-                  onClick={() => setDiscussionCollapsed(true)}
-                  className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold shadow-sm"
-                  style={{
-                    backgroundColor: isDark ? '#111827' : 'var(--color-background)',
-                    color: isDark ? '#e5e7eb' : 'var(--color-primary)',
-                    borderColor: isDark ? '#4b5563' : 'var(--color-border)',
-                    transition: 'all 0.2s ease-out'
-                  }}
-                >
-                  <PanelRightClose size={14} />
-                  Hide discussion
-                </button>
-              ) : (
+          <div
+            className={clsx(
+              "relative grid gap-5",
+              useSideDiscussion && showSideDiscussion
+                ? "lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,360px)]"
+                : ""
+            )}
+          >
+            {useSideDiscussion && !showSideDiscussion && (
+              <div className="hidden lg:block absolute right-0 top-0">
                 <button
                   type="button"
                   onClick={() => setDiscussionCollapsed(false)}
@@ -1969,18 +1961,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   <PanelRightOpen size={14} />
                   Show discussion
                 </button>
-              )}
-            </div>
-          )}
-
-          <div
-            className={clsx(
-              "grid gap-5",
-              useSideDiscussion && showSideDiscussion
-                ? "lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,360px)]"
-                : ""
+              </div>
             )}
-          >
+
             <div className="min-w-0">
               {renderQuestionSection()}
 
@@ -1997,43 +1980,41 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             </div>
 
             {useSideDiscussion && showSideDiscussion && (
-              <aside
-                className="rounded-2xl border p-3 shadow-sm lg:sticky lg:top-4"
-                style={{
-                  backgroundColor: isDark ? '#0b0b0b' : 'white',
-                  borderColor: isDark ? '#4b5563' : 'var(--color-border)',
-                  maxHeight: 'calc(100vh - 140px)',
-                  width: `${SIDE_PANEL_WIDTH}px`,
-                  maxWidth: `${SIDE_PANEL_WIDTH}px`,
-                  minWidth: `${SIDE_PANEL_WIDTH}px`,
-                  overflow: 'auto'
-                }}
-              >
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <div
-                    className="text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
-                  >
-                    Question Discussion
-                  </div>
+              <div className="lg:sticky lg:top-4 flex flex-col gap-2 items-stretch" style={{ minWidth: `${SIDE_PANEL_WIDTH}px`, maxWidth: `${SIDE_PANEL_WIDTH}px` }}>
+                <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={() => setDiscussionCollapsed(true)}
-                    className="inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 text-xs font-semibold shadow-sm"
+                    className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold shadow-sm"
                     style={{
                       backgroundColor: isDark ? '#111827' : 'var(--color-background)',
                       color: isDark ? '#e5e7eb' : 'var(--color-primary)',
                       borderColor: isDark ? '#4b5563' : 'var(--color-border)',
                       transition: 'all 0.2s ease-out'
                     }}
-                    title="Collapse discussion panel"
                   >
                     <PanelRightClose size={14} />
-                    Hide
+                    Hide discussion
                   </button>
                 </div>
-                <QuestionDiscussion questionId={currentItem.question.id} />
-              </aside>
+                <aside
+                  className="rounded-2xl border p-3 shadow-sm"
+                  style={{
+                    backgroundColor: isDark ? '#0b0b0b' : 'white',
+                    borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                    maxHeight: 'calc(100vh - 160px)',
+                    overflow: 'auto'
+                  }}
+                >
+                  <div
+                    className="text-xs font-semibold uppercase tracking-wide mb-2"
+                    style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
+                  >
+                    Question Discussion
+                  </div>
+                  <QuestionDiscussion questionId={currentItem.question.id} />
+                </aside>
+              </div>
             )}
           </div>
         </div>
