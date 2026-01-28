@@ -670,7 +670,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [isDesktopWidth, setIsDesktopWidth] = useState(false);
   const useSideDiscussion = discussionPlacement === "side" && isAnswered && isDesktopWidth;
   const showSideDiscussion = useSideDiscussion && !discussionCollapsed;
-  const SIDE_PANEL_WIDTH = 360;
+  const SIDE_PANEL_WIDTH = 340;
 
   const renderQuestionSection = () => (
     <>
@@ -1934,7 +1934,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         <div
           className={clsx(
             "mx-auto px-4 py-6",
-            useSideDiscussion ? "max-w-6xl lg:max-w-7xl" : "max-w-4xl"
+            useSideDiscussion ? "max-w-screen-2xl" : "max-w-screen-2xl"
           )}
         >
           {useSideDiscussion && (
@@ -1977,7 +1977,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             className={clsx(
               "grid gap-5",
               useSideDiscussion && showSideDiscussion
-                ? "lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,400px)]"
+                ? "lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,360px)]"
                 : ""
             )}
           >
