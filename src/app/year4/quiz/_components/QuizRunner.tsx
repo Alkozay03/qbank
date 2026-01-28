@@ -670,7 +670,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [isDesktopWidth, setIsDesktopWidth] = useState(false);
   const useSideDiscussion = discussionPlacement === "side" && isAnswered && isDesktopWidth;
   const showSideDiscussion = useSideDiscussion && !discussionCollapsed;
-  const SIDE_PANEL_WIDTH = 320;
+  const SIDE_PANEL_WIDTH = 345;
 
   const renderQuestionSection = () => (
     <>
@@ -1941,7 +1941,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             className={clsx(
               "relative grid gap-4",
               useSideDiscussion && showSideDiscussion
-                ? "lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,340px)]"
+                ? "lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,340px)]"
                 : ""
             )}
           >
@@ -1980,7 +1980,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             </div>
 
             {useSideDiscussion && showSideDiscussion && (
-              <div className="lg:sticky lg:top-4 flex flex-col gap-2 items-stretch" style={{ minWidth: `${SIDE_PANEL_WIDTH}px`, maxWidth: `${SIDE_PANEL_WIDTH}px` }}>
+              <div className="flex flex-col gap-2 items-stretch" style={{ minWidth: `${SIDE_PANEL_WIDTH}px`, maxWidth: `${SIDE_PANEL_WIDTH}px` }}>
                 <div className="flex justify-end">
                   <button
                     type="button"
@@ -2002,8 +2002,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   style={{
                     backgroundColor: isDark ? '#0b0b0b' : 'white',
                     borderColor: isDark ? '#4b5563' : 'var(--color-border)',
-                    maxHeight: 'calc(100vh - 160px)',
-                    overflow: 'auto'
+                    maxHeight: 'none',
+                    overflow: 'visible'
                   }}
                 >
                   <div

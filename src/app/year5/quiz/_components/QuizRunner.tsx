@@ -670,7 +670,200 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [isDesktopWidth, setIsDesktopWidth] = useState(false);
   const useSideDiscussion = discussionPlacement === "side" && isAnswered && isDesktopWidth;
   const showSideDiscussion = useSideDiscussion && !discussionCollapsed;
-  const SIDE_PANEL_WIDTH = 320;
+  const SIDE_PANEL_WIDTH = 345;
+  const renderQuestionSection = () => (
+    <>
+      {currentItem?.question.questionType === 'EMQ' ? (
+        <div 
+          className="quiz-question rounded-2xl border p-5" 
+          style={{ 
+            borderColor: 'var(--color-primary)',
+            backgroundColor: isDark ? '#000000' : '#ffffff',
+            transition: 'all 0.2s ease-out'
+          }}
+        >
+          <EMQQuestion
+            theme={currentItem.question.emqTheme ?? currentItem.question.stem}
+            options={displayEmqOptions}
+            stems={currentItem.question.choices.map(ch => ({
+              id: ch.id,
+              text: ch.text,
+              correctOptionIds: (ch.correctOptionIds as string[]) ?? [],
+              stemImageUrl: ch.stemImageUrl ?? null,
+            }))}
+            submitted={isAnswered}
+            submittedAnswers={reviewEmqAnswers}
+            fontScale={fontScale}
+            onAnswersChange={handleEmqAnswersChange}
+            onSubmit={submitAnswer}
+          />
+        </div>
+      ) : (
+        <>
+          <div 
+            className="quiz-question rounded-2xl border p-5" 
+            style={{ 
+              borderColor: 'var(--color-primary)',
+              backgroundColor: isDark ? '#000000' : '#ffffff',
+              transition: 'all 0.2s ease-out'
+            }}
+          >
+            <div
+              data-section="stem"
+              className="text-[15px] leading-relaxed rich-content"
+              style={{ 
+                fontSize: `${fontScale}rem`,
+                color: isDark ? 'var(--color-text-primary)' : '#171717'
+              }}
+              dangerouslySetInnerHTML={{
+                __html: getSafeHTML(
+                  currentItem, 
+                  sectionHTMLByItem, 
+                  'stem', 
+                  () => toHTML(currentItem?.question.stem ?? "")
+                )
+              }}
+            />
+          </div>
+
+          {questionImages.length > 0 && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {questionImages.map((url, idx) => (
+                <div key={`${url}-${idx}`} className="rounded-lg border border-[#E6F0F7] overflow-hidden bg-white">
+                  <Image
+                    src={url}
+                    alt={`Question image ${idx + 1}`}
+                    width={1024}
+                    height={768}
+                    className="max-h-96 w-full object-contain cursor-zoom-in transition-transform duration-200 hover:scale-[1.01]"
+                    unoptimized
+                    onClick={() => setPreviewImageUrl(url)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4 space-y-2">
+            {displayChoices.map((ch, idx) => {
+          const questionId = currentItem?.question.id;
+          if (!questionId) return null;
+          const questionStats = statsByQuestion[questionId];
+          const totalFirstAttempts = questionStats?.totalFirstAttempts;
+          const hasAttemptData =
+            typeof totalFirstAttempts === "number" && Number.isFinite(totalFirstAttempts) && totalFirstAttempts > 0;
+          const choiceStats = questionStats?.choiceFirstAttempts?.[ch.id];
+          const isCorrectChoice = ch.isCorrect === true;
+          let percentValue: number | null | undefined;
+          if (!hasAttemptData) {
+            percentValue = null;
+          } else if (typeof choiceStats?.percent === "number" && Number.isFinite(choiceStats.percent)) {
+            percentValue = choiceStats.percent;
+          } else if (isCorrectChoice && typeof questionStats?.percent === "number" && Number.isFinite(questionStats.percent)) {
+            percentValue = questionStats.percent;
+          } else {
+            percentValue = 0;
+          }
+
+          let countValue: number | undefined;
+          if (!hasAttemptData) {
+            countValue = undefined;
+          } else if (typeof choiceStats?.count === "number" && Number.isFinite(choiceStats.count)) {
+            countValue = choiceStats.count;
+          } else if (
+            isCorrectChoice &&
+            typeof questionStats?.firstAttemptCorrect === "number" &&
+            Number.isFinite(questionStats.firstAttemptCorrect)
+          ) {
+            countValue = questionStats.firstAttemptCorrect;
+          } else {
+            countValue = 0;
+          }
+          const reviewChoiceId = getReviewChoiceId(currentItem, status);
+          const submittedId = status === "Ended" ? reviewChoiceId : getSafeResponse(currentItem).choiceId;
+          const submittedFlag =
+            status === "Ended"
+              ? Boolean(submittedId)
+              : Boolean(getSafeResponse(currentItem).choiceId);
+
+          return (
+            <AnswerRow
+              key={ch.id}
+              choice={ch}
+              index={idx}
+              submittedId={submittedId}
+              submitted={submittedFlag}
+              selectedId={selectedChoiceId}
+              crossed={!!crossed[ch.id]}
+              status={status}
+              fontScale={fontScale}
+              firstAttemptPercent={percentValue}
+              firstAttemptCount={countValue}
+              onSelect={() => {
+                if (getSafeResponse(currentItem).choiceId || status !== "Active" || crossed[ch.id]) return;
+                setSelectedChoiceId((prev) => {
+                  const next = prev === ch.id ? null : ch.id;
+                  if (next !== prev) {
+                    changeRef.current += 1;
+                  }
+                  lastChoiceRef.current = next;
+                  return next;
+                });
+              }}
+              onCross={() => {
+                if (getSafeResponse(currentItem).choiceId) return;
+                const newValue = !crossed[ch.id];
+                setCrossed((m) => ({ ...m, [ch.id]: newValue }));
+                if (selectedChoiceId === ch.id) {
+                  setSelectedChoiceId(null);
+                  changeRef.current += 1;
+                  lastChoiceRef.current = null;
+                }
+              }}
+            />
+          );
+        })}
+          </div>
+
+                {!isAnswered && status === "Active" && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={submitAnswer}
+                      disabled={!selectedChoiceId}
+                      className="rounded-2xl px-6 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                      style={{
+                        backgroundColor: isDarkMode() ? '#56A2CD' : 'var(--color-primary)',
+                        transition: 'all 0.2s ease-out',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          const isDark = isDarkMode();
+                          if (!isDark) {
+                            e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
+                          } else {
+                            e.currentTarget.style.backgroundColor = '#2F6F8F';
+                          }
+                          e.currentTarget.style.boxShadow = isDark 
+                            ? '0 10px 25px rgba(75, 85, 99, 0.25)'
+                            : '0 10px 25px rgba(0, 0, 0, 0.15)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const isDark = isDarkMode();
+                        e.currentTarget.style.backgroundColor = isDark ? '#56A2CD' : 'var(--color-primary)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
+                      }}
+                    >
+                      Submit Answer
+                    </button>
+                  </div>
+                )}
+        </>
+      )}
+    </>
+  );
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -1738,7 +1931,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             className={clsx(
               "relative grid gap-4",
               useSideDiscussion && showSideDiscussion
-                ? "lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,340px)]"
+                ? "lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,340px)]"
                 : ""
             )}
           >
@@ -1777,7 +1970,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             </div>
 
             {useSideDiscussion && showSideDiscussion && (
-              <div className="lg:sticky lg:top-4 flex flex-col gap-2 items-stretch" style={{ minWidth: `${SIDE_PANEL_WIDTH}px`, maxWidth: `${SIDE_PANEL_WIDTH}px` }}>
+              <div className="flex flex-col gap-2 items-stretch" style={{ minWidth: `${SIDE_PANEL_WIDTH}px`, maxWidth: `${SIDE_PANEL_WIDTH}px` }}>
                 <div className="flex justify-end">
                   <button
                     type="button"
@@ -1799,8 +1992,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   style={{
                     backgroundColor: isDark ? '#0b0b0b' : 'white',
                     borderColor: isDark ? '#4b5563' : 'var(--color-border)',
-                    maxHeight: 'calc(100vh - 160px)',
-                    overflow: 'auto'
+                    maxHeight: 'none',
+                    overflow: 'visible'
                   }}
                 >
                   <div
