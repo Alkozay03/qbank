@@ -670,6 +670,205 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [isDesktopWidth, setIsDesktopWidth] = useState(false);
   const useSideDiscussion = discussionPlacement === "side" && isAnswered && isDesktopWidth;
   const showSideDiscussion = useSideDiscussion && !discussionCollapsed;
+  const SIDE_PANEL_WIDTH = 380;
+
+  const renderQuestionSection = () => (
+    <>
+      {/* Render EMQ or MCQ based on questionType */}
+      {currentItem?.question.questionType === 'EMQ' ? (
+        <div 
+          className="quiz-question rounded-2xl border p-5" 
+          style={{ 
+            borderColor: 'var(--color-primary)',
+            backgroundColor: isDark ? '#000000' : '#ffffff',
+            transition: 'all 0.2s ease-out'
+          }}
+        >
+          <EMQQuestion
+            theme={currentItem.question.emqTheme ?? currentItem.question.stem}
+            options={displayEmqOptions}
+            stems={currentItem.question.choices.map(ch => ({
+              id: ch.id,
+              text: ch.text,
+              correctOptionIds: (ch.correctOptionIds as string[]) ?? [],
+              stemImageUrl: ch.stemImageUrl ?? null,
+            }))}
+            submitted={isAnswered}
+            submittedAnswers={reviewEmqAnswers}
+            fontScale={fontScale}
+            onAnswersChange={handleEmqAnswersChange}
+            onSubmit={submitAnswer}
+          />
+        </div>
+      ) : (
+        <>
+          <div 
+            className="quiz-question rounded-2xl border p-5" 
+            style={{ 
+              borderColor: 'var(--color-primary)',
+              backgroundColor: isDark ? '#000000' : '#ffffff',
+              transition: 'all 0.2s ease-out'
+            }}
+          >
+            <div
+              data-section="stem"
+              className="text-[15px] leading-relaxed rich-content"
+              style={{ 
+                fontSize: `${fontScale}rem`,
+                color: isDark ? 'var(--color-text-primary)' : '#171717'
+              }}
+              dangerouslySetInnerHTML={{
+                __html: getSafeHTML(
+                  currentItem, 
+                  sectionHTMLByItem, 
+                  'stem', 
+                  () => toHTML(currentItem?.question.stem ?? "")
+                )
+              }}
+            />
+          </div>
+
+          {/* Question Images */}
+          {questionImages.length > 0 && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {questionImages.map((url, idx) => (
+                <div key={`${url}-${idx}`} className="rounded-lg border border-[#E6F0F7] overflow-hidden bg-white">
+                  <Image
+                    src={url}
+                    alt={`Question image ${idx + 1}`}
+                    width={1024}
+                    height={768}
+                    className="max-h-96 w-full object-contain cursor-zoom-in transition-transform duration-200 hover:scale-[1.01]"
+                    unoptimized
+                    onClick={() => setPreviewImageUrl(url)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4 space-y-2">
+            {displayChoices.map((ch, idx) => {
+          const questionId = currentItem?.question.id;
+          if (!questionId) return null;
+          const questionStats = statsByQuestion[questionId];
+          const totalFirstAttempts = questionStats?.totalFirstAttempts;
+          const hasAttemptData =
+            typeof totalFirstAttempts === "number" && Number.isFinite(totalFirstAttempts) && totalFirstAttempts > 0;
+          const choiceStats = questionStats?.choiceFirstAttempts?.[ch.id];
+          const isCorrectChoice = ch.isCorrect === true;
+          let percentValue: number | null | undefined;
+          if (!hasAttemptData) {
+            percentValue = null;
+          } else if (typeof choiceStats?.percent === "number" && Number.isFinite(choiceStats.percent)) {
+            percentValue = choiceStats.percent;
+          } else if (isCorrectChoice && typeof questionStats?.percent === "number" && Number.isFinite(questionStats.percent)) {
+            percentValue = questionStats.percent;
+          } else {
+            percentValue = 0;
+          }
+
+          let countValue: number | undefined;
+          if (!hasAttemptData) {
+            countValue = undefined;
+          } else if (typeof choiceStats?.count === "number" && Number.isFinite(choiceStats.count)) {
+            countValue = choiceStats.count;
+          } else if (
+            isCorrectChoice &&
+            typeof questionStats?.firstAttemptCorrect === "number" &&
+            Number.isFinite(questionStats.firstAttemptCorrect)
+          ) {
+            countValue = questionStats.firstAttemptCorrect;
+          } else {
+            countValue = 0;
+          }
+          const reviewChoiceId = getReviewChoiceId(currentItem, status);
+          const submittedId = status === "Ended" ? reviewChoiceId : getSafeResponse(currentItem).choiceId;
+          const submittedFlag =
+            status === "Ended"
+              ? Boolean(submittedId)
+              : Boolean(getSafeResponse(currentItem).choiceId);
+
+          return (
+            <AnswerRow
+              key={ch.id}
+              choice={ch}
+              index={idx}
+              submittedId={submittedId}
+              submitted={submittedFlag}
+              selectedId={selectedChoiceId}
+              crossed={!!crossed[ch.id]}
+              status={status}
+              fontScale={fontScale}
+              firstAttemptPercent={percentValue}
+              firstAttemptCount={countValue}
+              onSelect={() => {
+                if (getSafeResponse(currentItem).choiceId || status !== "Active" || crossed[ch.id]) return;
+                setSelectedChoiceId((prev) => {
+                  const next = prev === ch.id ? null : ch.id;
+                  if (next !== prev) {
+                    changeRef.current += 1;
+                  }
+                  lastChoiceRef.current = next;
+                  return next;
+                });
+              }}
+              onCross={() => {
+                if (getSafeResponse(currentItem).choiceId) return;
+                const newValue = !crossed[ch.id];
+                setCrossed((m) => ({ ...m, [ch.id]: newValue }));
+                if (selectedChoiceId === ch.id) {
+                  setSelectedChoiceId(null);
+                  changeRef.current += 1;
+                  lastChoiceRef.current = null;
+                }
+              }}
+            />
+          );
+        })}
+          </div>
+
+                {!isAnswered && status === "Active" && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={submitAnswer}
+                      disabled={!selectedChoiceId}
+                      className="rounded-2xl px-6 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                      style={{
+                        backgroundColor: isDarkMode() ? '#56A2CD' : 'var(--color-primary)',
+                        transition: 'all 0.2s ease-out',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!e.currentTarget.disabled) {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          const isDark = isDarkMode();
+                          // Update background color on hover
+                          if (!isDark) {
+                            e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
+                          } else {
+                            e.currentTarget.style.backgroundColor = '#2F6F8F';
+                          }
+                          // Use gray glow in dark mode, theme glow in light mode
+                          e.currentTarget.style.boxShadow = isDark 
+                            ? '0 10px 25px rgba(75, 85, 99, 0.25)' // Gray glow for dark mode
+                            : '0 10px 25px rgba(0, 0, 0, 0.15)'; // Theme glow for light mode
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const isDark = isDarkMode();
+                        e.currentTarget.style.backgroundColor = isDark ? '#56A2CD' : 'var(--color-primary)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
+                      }}
+                    >
+                      Submit Answer
+                    </button>
+                  </div>
+                )}
+        </>
+      )}
+    </>
+  );
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -1726,7 +1925,12 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
           "absolute left-0 right-0 overflow-auto",
           "transition-[padding-left] duration-300 ease-in-out"
         ].join(" ")}
-        style={{ top: `${TOP_H}px`, bottom: `${BOTTOM_H}px`, paddingLeft: `var(--sbw)` }}
+        style={{ 
+          top: `${TOP_H}px`, 
+          bottom: `${BOTTOM_H}px`, 
+          paddingLeft: `var(--sbw)`,
+          paddingRight: useSideDiscussion && showSideDiscussion ? `${SIDE_PANEL_WIDTH + 24}px` : undefined
+        }}
       >
         <div
           className={clsx(
@@ -1734,289 +1938,98 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             useSideDiscussion ? "max-w-6xl lg:max-w-7xl" : "max-w-4xl"
           )}
         >
-          {/* Render EMQ or MCQ based on questionType */}
-          {currentItem?.question.questionType === 'EMQ' ? (
-            <div 
-              className="quiz-question rounded-2xl border p-5" 
-              style={{ 
-                borderColor: 'var(--color-primary)',
-                backgroundColor: isDark ? '#000000' : '#ffffff',
-                transition: 'all 0.2s ease-out'
-              }}
-            >
-              <EMQQuestion
-                theme={currentItem.question.emqTheme ?? currentItem.question.stem}
-                options={displayEmqOptions}
-                stems={currentItem.question.choices.map(ch => ({
-                  id: ch.id,
-                  text: ch.text,
-                  correctOptionIds: (ch.correctOptionIds as string[]) ?? [],
-                  stemImageUrl: ch.stemImageUrl ?? null,
-                }))}
-                submitted={isAnswered}
-                submittedAnswers={reviewEmqAnswers}
-                fontScale={fontScale}
-                onAnswersChange={handleEmqAnswersChange}
-                onSubmit={submitAnswer}
-              />
+          {useSideDiscussion && (
+            <div className="mb-3 flex justify-end">
+              {showSideDiscussion ? (
+                <button
+                  type="button"
+                  onClick={() => setDiscussionCollapsed(true)}
+                  className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold shadow-sm"
+                  style={{
+                    backgroundColor: isDark ? '#111827' : 'var(--color-background)',
+                    color: isDark ? '#e5e7eb' : 'var(--color-primary)',
+                    borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                    transition: 'all 0.2s ease-out'
+                  }}
+                >
+                  <PanelRightClose size={14} />
+                  Hide discussion
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setDiscussionCollapsed(false)}
+                  className="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold shadow-sm"
+                  style={{
+                    backgroundColor: isDark ? '#000000' : 'white',
+                    color: isDark ? '#e5e7eb' : 'var(--color-primary)',
+                    borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                    transition: 'all 0.2s ease-out'
+                  }}
+                >
+                  <PanelRightOpen size={14} />
+                  Show discussion
+                </button>
+              )}
             </div>
-          ) : (
-            <>
-              <div 
-                className="quiz-question rounded-2xl border p-5" 
-                style={{ 
-                  borderColor: 'var(--color-primary)',
-                  backgroundColor: isDark ? '#000000' : '#ffffff',
-                  transition: 'all 0.2s ease-out'
+          )}
+
+          <div className={clsx("grid gap-5", useSideDiscussion ? "lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]" : "")}>
+            <div className="min-w-0">
+              {renderQuestionSection()}
+
+              {currentItem && isAnswered && (
+                <ClientSideQuestionDetails
+                  currentItem={currentItem}
+                  statsByQuestion={statsByQuestion}
+                  questionSeconds={isReviewMode ? null : questionSeconds}
+                  fontScale={fontScale}
+                  sectionHTMLByItem={sectionHTMLByItem}
+                  showDiscussionInline={!useSideDiscussion}
+                />
+              )}
+            </div>
+
+            {useSideDiscussion && showSideDiscussion && (
+              <aside
+                className="rounded-2xl border p-3 shadow-sm lg:sticky lg:top-4"
+                style={{
+                  backgroundColor: isDark ? '#0b0b0b' : 'white',
+                  borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                  maxHeight: 'calc(100vh - 140px)',
+                  width: `${SIDE_PANEL_WIDTH}px`,
+                  maxWidth: `${SIDE_PANEL_WIDTH}px`,
+                  minWidth: `${SIDE_PANEL_WIDTH}px`,
+                  overflow: 'auto'
                 }}
               >
-                <div
-                  data-section="stem"
-                  className="text-[15px] leading-relaxed rich-content"
-                  style={{ 
-                    fontSize: `${fontScale}rem`,
-                    color: isDark ? 'var(--color-text-primary)' : '#171717'
-                  }}
-                  dangerouslySetInnerHTML={{
-                    __html: getSafeHTML(
-                      currentItem, 
-                      sectionHTMLByItem, 
-                      'stem', 
-                      () => toHTML(currentItem?.question.stem ?? "")
-                    )
-                  }}
-                />
-              </div>
-
-              {/* Question Images */}
-              {questionImages.length > 0 && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {questionImages.map((url, idx) => (
-                    <div key={`${url}-${idx}`} className="rounded-lg border border-[#E6F0F7] overflow-hidden bg-white">
-                      <Image
-                        src={url}
-                        alt={`Question image ${idx + 1}`}
-                        width={1024}
-                        height={768}
-                        className="max-h-96 w-full object-contain cursor-zoom-in transition-transform duration-200 hover:scale-[1.01]"
-                        unoptimized
-                        onClick={() => setPreviewImageUrl(url)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-4 space-y-2">
-                {displayChoices.map((ch, idx) => {
-              const questionId = currentItem?.question.id;
-              if (!questionId) return null;
-              const questionStats = statsByQuestion[questionId];
-              const totalFirstAttempts = questionStats?.totalFirstAttempts;
-              const hasAttemptData =
-                typeof totalFirstAttempts === "number" && Number.isFinite(totalFirstAttempts) && totalFirstAttempts > 0;
-              const choiceStats = questionStats?.choiceFirstAttempts?.[ch.id];
-              const isCorrectChoice = ch.isCorrect === true;
-              let percentValue: number | null | undefined;
-              if (!hasAttemptData) {
-                percentValue = null;
-              } else if (typeof choiceStats?.percent === "number" && Number.isFinite(choiceStats.percent)) {
-                percentValue = choiceStats.percent;
-              } else if (isCorrectChoice && typeof questionStats?.percent === "number" && Number.isFinite(questionStats.percent)) {
-                percentValue = questionStats.percent;
-              } else {
-                percentValue = 0;
-              }
-
-              let countValue: number | undefined;
-              if (!hasAttemptData) {
-                countValue = undefined;
-              } else if (typeof choiceStats?.count === "number" && Number.isFinite(choiceStats.count)) {
-                countValue = choiceStats.count;
-              } else if (
-                isCorrectChoice &&
-                typeof questionStats?.firstAttemptCorrect === "number" &&
-                Number.isFinite(questionStats.firstAttemptCorrect)
-              ) {
-                countValue = questionStats.firstAttemptCorrect;
-              } else {
-                countValue = 0;
-              }
-              const reviewChoiceId = getReviewChoiceId(currentItem, status);
-              const submittedId = status === "Ended" ? reviewChoiceId : getSafeResponse(currentItem).choiceId;
-              const submittedFlag =
-                status === "Ended"
-                  ? Boolean(submittedId)
-                  : Boolean(getSafeResponse(currentItem).choiceId);
-
-              return (
-                <AnswerRow
-                  key={ch.id}
-                  choice={ch}
-                  index={idx}
-                  submittedId={submittedId}
-                  submitted={submittedFlag}
-                  selectedId={selectedChoiceId}
-                  crossed={!!crossed[ch.id]}
-                  status={status}
-                  fontScale={fontScale}
-                  firstAttemptPercent={percentValue}
-                  firstAttemptCount={countValue}
-                  onSelect={() => {
-                    if (getSafeResponse(currentItem).choiceId || status !== "Active" || crossed[ch.id]) return;
-                    setSelectedChoiceId((prev) => {
-                      const next = prev === ch.id ? null : ch.id;
-                      if (next !== prev) {
-                        changeRef.current += 1;
-                      }
-                      lastChoiceRef.current = next;
-                      return next;
-                    });
-                  }}
-                  onCross={() => {
-                    if (getSafeResponse(currentItem).choiceId) return;
-                    const newValue = !crossed[ch.id];
-                    setCrossed((m) => ({ ...m, [ch.id]: newValue }));
-                    if (selectedChoiceId === ch.id) {
-                      setSelectedChoiceId(null);
-                      changeRef.current += 1;
-                      lastChoiceRef.current = null;
-                    }
-                  }}
-                />
-              );
-            })}
-          </div>
-
-                {!isAnswered && status === "Active" && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      onClick={submitAnswer}
-                      disabled={!selectedChoiceId}
-                      className="rounded-2xl px-6 py-2 font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
-                      style={{
-                        backgroundColor: isDarkMode() ? '#56A2CD' : 'var(--color-primary)',
-                        transition: 'all 0.2s ease-out',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!e.currentTarget.disabled) {
-                          e.currentTarget.style.transform = 'translateY(-2px)';
-                          const isDark = isDarkMode();
-                          // Update background color on hover
-                          if (!isDark) {
-                            e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
-                          } else {
-                            e.currentTarget.style.backgroundColor = '#2F6F8F';
-                          }
-                          // Use gray glow in dark mode, theme glow in light mode
-                          e.currentTarget.style.boxShadow = isDark 
-                            ? '0 10px 25px rgba(75, 85, 99, 0.25)' // Gray glow for dark mode
-                            : '0 10px 25px rgba(0, 0, 0, 0.15)'; // Theme glow for light mode
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        const isDark = isDarkMode();
-                        e.currentTarget.style.backgroundColor = isDark ? '#56A2CD' : 'var(--color-primary)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)';
-                      }}
-                    >
-                      Submit Answer
-                    </button>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div
+                    className="text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
+                  >
+                    Question Discussion
                   </div>
-                )}
-              </>
+                  <button
+                    type="button"
+                    onClick={() => setDiscussionCollapsed(true)}
+                    className="inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 text-xs font-semibold shadow-sm"
+                    style={{
+                      backgroundColor: isDark ? '#111827' : 'var(--color-background)',
+                      color: isDark ? '#e5e7eb' : 'var(--color-primary)',
+                      borderColor: isDark ? '#4b5563' : 'var(--color-border)',
+                      transition: 'all 0.2s ease-out'
+                    }}
+                    title="Collapse discussion panel"
+                  >
+                    <PanelRightClose size={14} />
+                    Hide
+                  </button>
+                </div>
+                <QuestionDiscussion questionId={currentItem.question.id} />
+              </aside>
             )}
-
-          {currentItem && isAnswered && (
-            useSideDiscussion ? (
-              <>
-                <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
-                  <div className="min-w-0">
-                    <ClientSideQuestionDetails
-                      currentItem={currentItem}
-                      statsByQuestion={statsByQuestion}
-                      questionSeconds={isReviewMode ? null : questionSeconds}
-                      fontScale={fontScale}
-                      sectionHTMLByItem={sectionHTMLByItem}
-                      showDiscussionInline={false}
-                    />
-                  </div>
-
-                  {showSideDiscussion && (
-                    <aside
-                      className="rounded-2xl border p-3 shadow-sm lg:sticky lg:top-20"
-                      style={{
-                        backgroundColor: isDark ? '#0b0b0b' : 'white',
-                        borderColor: isDark ? '#4b5563' : 'var(--color-border)',
-                        maxHeight: 'calc(100vh - 180px)',
-                        overflow: 'auto'
-                      }}
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <div
-                          className="text-xs font-semibold uppercase tracking-wide"
-                          style={{ color: isDark ? '#e5e7eb' : 'var(--color-primary)' }}
-                        >
-                          Question Discussion
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setDiscussionCollapsed(true)}
-                          className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold"
-                          style={{
-                            backgroundColor: isDark ? '#111827' : 'var(--color-background)',
-                            color: isDark ? '#e5e7eb' : 'var(--color-primary)',
-                            borderColor: isDark ? '#4b5563' : 'var(--color-border)'
-                          }}
-                          title="Collapse discussion panel"
-                        >
-                          <PanelRightClose size={14} />
-                          Hide
-                        </button>
-                      </div>
-                      <QuestionDiscussion questionId={currentItem.question.id} />
-                    </aside>
-                  )}
-                </div>
-
-                {useSideDiscussion && !showSideDiscussion && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setDiscussionCollapsed(false)}
-                      className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm"
-                      style={{
-                        backgroundColor: isDark ? '#000000' : 'white',
-                        color: isDark ? '#e5e7eb' : 'var(--color-primary)',
-                        borderColor: isDark ? '#4b5563' : 'var(--color-border)',
-                        transition: 'all 0.2s ease-out'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 1px 3px 0 rgb(0 0 0 / 0.1)';
-                      }}
-                    >
-                      <PanelRightOpen size={16} />
-                      Show discussion
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <ClientSideQuestionDetails
-                currentItem={currentItem}
-                statsByQuestion={statsByQuestion}
-                questionSeconds={isReviewMode ? null : questionSeconds}
-                fontScale={fontScale}
-                sectionHTMLByItem={sectionHTMLByItem}
-              />
-            )
-          )}
+          </div>
         </div>
       </main>
 
