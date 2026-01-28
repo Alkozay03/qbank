@@ -670,7 +670,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [isDesktopWidth, setIsDesktopWidth] = useState(false);
   const useSideDiscussion = discussionPlacement === "side" && isAnswered && isDesktopWidth;
   const showSideDiscussion = useSideDiscussion && !discussionCollapsed;
-  const SIDE_PANEL_WIDTH = 340;
+  const SIDE_PANEL_WIDTH = 320;
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -1614,7 +1614,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
           <div className="flex items-center gap-3">
             {status === "Ended" && (
               <a
-                href={`${portalRoot}/previous-tests`}
+                href={portalRoot}
                 className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm"
                 style={{
                   backgroundColor: isDark ? '#000000' : 'white',
@@ -1736,9 +1736,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         >
           <div
             className={clsx(
-              "relative grid gap-5",
+              "relative grid gap-4",
               useSideDiscussion && showSideDiscussion
-                ? "lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,360px)]"
+                ? "lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,340px)]"
                 : ""
             )}
           >
