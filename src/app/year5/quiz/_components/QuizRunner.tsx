@@ -1879,16 +1879,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
               </select>
             </div>
 
-            <div
-              className="hidden lg:flex items-center gap-2 rounded-xl px-3 py-1 text-[11px] font-semibold"
-              style={{
-                color: isDark ? '#e5e7eb' : 'var(--color-primary)',
-                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(var(--color-primary-rgb,14,165,233),0.08)'
-              }}
-            >
-              <span style={{ fontWeight: 800 }}>NEW:</span>
-              <span>Select text in the question/explanation/objective (or EMQ theme/stems/options) and click “Attach to discussion”. Turn OFF the Highlighter to make selections.</span>
-            </div>
 
             {/* Text size */}
             <ZoomButtons decFont={decFont} resetFont={resetFont} incFont={incFont} />
@@ -2155,6 +2145,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     }}
                     onAnchorFocus={focusAnchor}
                   />
+                  <div className="mt-2 text-[11px] font-semibold leading-snug text-primary">
+                    <strong>Highlight to comment:</strong> select text (stem, explanation, objective, EMQ theme/stems/options) then click “Attach to discussion”. Turn the Highlighter off first.
+                  </div>
                 </aside>
               </div>
             )}
