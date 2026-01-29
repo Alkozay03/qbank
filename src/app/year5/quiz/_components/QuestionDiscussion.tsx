@@ -29,13 +29,30 @@ export type QuestionDiscussionComment = {
   replyCount?: number;
   hasVoted?: boolean;
   replies?: QuestionDiscussionComment[];
+  anchorSelectableId?: string | null;
+  anchorStart?: number | null;
+  anchorEnd?: number | null;
+  anchorSnippet?: string | null;
 };
 
 interface Props {
   questionId: string;
+  selectionAnchor?: {
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null;
+  onAnchorConsumed?: () => void;
+  onAnchorFocus?: (anchor: {
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  }) => void;
 }
 
-export default function QuestionDiscussion({ questionId }: Props) {
+export default function QuestionDiscussion({ questionId, selectionAnchor, onAnchorConsumed, onAnchorFocus }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [comments, setComments] = useState<QuestionDiscussionComment[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +83,12 @@ export default function QuestionDiscussion({ questionId }: Props) {
   const [isReplyUploading, setIsReplyUploading] = useState(false);
   const [isReplySubmitting, setIsReplySubmitting] = useState(false);
   const replyFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [attachedAnchor, setAttachedAnchor] = useState<{
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null>(null);
 
   const absoluteFormatter = useMemo(
     () =>
@@ -196,6 +219,10 @@ export default function QuestionDiscussion({ questionId }: Props) {
             upvoteCount: comment.upvoteCount ?? 0,
             replyCount: comment.replyCount ?? 0,
             hasVoted: comment.hasVoted ?? false,
+            anchorSelectableId: comment.anchorSelectableId ?? null,
+            anchorStart: comment.anchorStart ?? null,
+            anchorEnd: comment.anchorEnd ?? null,
+            anchorSnippet: comment.anchorSnippet ?? null,
           }))
         : [];
       setComments(items);
@@ -211,6 +238,18 @@ export default function QuestionDiscussion({ questionId }: Props) {
       /* handled in loadComments */
     });
   }, [loadComments]);
+
+  // Bring in selection anchor from parent
+  useEffect(() => {
+    if (!selectionAnchor) return;
+    setAttachedAnchor(selectionAnchor);
+    onAnchorConsumed?.();
+    // Scroll focus to composer
+    setTimeout(() => {
+      const el = document.getElementById("comment-composer");
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  }, [selectionAnchor, onAnchorConsumed]);
 
   const triggerUpload = useCallback(() => {
     fileInputRef.current?.click();
@@ -317,6 +356,10 @@ export default function QuestionDiscussion({ questionId }: Props) {
           imageUrl: draftImageUrl,
           authorName: draftName.trim() || "Study Partner",
           origin: "runner",
+          anchorSelectableId: attachedAnchor?.selectableId ?? null,
+          anchorStart: attachedAnchor?.start ?? null,
+          anchorEnd: attachedAnchor?.end ?? null,
+          anchorSnippet: attachedAnchor?.snippet ?? null,
         }),
       });
 
@@ -334,11 +377,16 @@ export default function QuestionDiscussion({ questionId }: Props) {
         ...payload.comment,
         authorName: payload.comment.authorName ?? fallbackAuthorName,
         origin: payload.comment.origin ?? "runner",
+        anchorSelectableId: payload.comment.anchorSelectableId ?? attachedAnchor?.selectableId ?? null,
+        anchorStart: payload.comment.anchorStart ?? attachedAnchor?.start ?? null,
+        anchorEnd: payload.comment.anchorEnd ?? attachedAnchor?.end ?? null,
+        anchorSnippet: payload.comment.anchorSnippet ?? attachedAnchor?.snippet ?? null,
       };
 
       setComments((prev) => [saved, ...prev]);
       setDraftBody("");
       setDraftImageUrl(null);
+      setAttachedAnchor(null);
     } catch (err) {
       setDraftError(err instanceof Error && err.message ? err.message : "Unable to post comment");
     } finally {
@@ -735,6 +783,35 @@ export default function QuestionDiscussion({ questionId }: Props) {
                 ) : null}
               </div>
 
+              {comment.anchorSnippet ? (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (comment.anchorSelectableId && typeof comment.anchorStart === "number" && typeof comment.anchorEnd === "number") {
+                        onAnchorFocus?.({
+                          selectableId: comment.anchorSelectableId,
+                          start: comment.anchorStart,
+                          end: comment.anchorEnd ?? comment.anchorStart + comment.anchorSnippet.length,
+                          snippet: comment.anchorSnippet
+                        });
+                      }
+                    }}
+                    className="rounded-full border px-3 py-1 font-semibold transition"
+                    style={{
+                      borderColor: 'var(--color-primary)',
+                      color: 'var(--color-primary)',
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(var(--color-primary-rgb,14,165,233),0.08)'
+                    }}
+                  >
+                    View referenced text
+                  </button>
+                  <span className="line-clamp-2 text-neutral-600" style={{ maxWidth: '260px' }}>
+                    “{comment.anchorSnippet}”
+                  </span>
+                </div>
+              ) : null}
+
               {comment.body ? (
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed" style={{ color: 'var(--color-primary)', opacity: 0.8 }}>
                   {comment.body}
@@ -1035,6 +1112,7 @@ export default function QuestionDiscussion({ questionId }: Props) {
       </div>
 
       <div
+        id="comment-composer"
         className="mt-6 rounded-2xl border p-4"
         style={{ backgroundColor: 'rgba(var(--color-primary-rgb, 107, 114, 128), 0.015)', borderColor: 'var(--color-border)' }}
         onDrop={handleDrop}
@@ -1082,6 +1160,22 @@ export default function QuestionDiscussion({ questionId }: Props) {
             />
           </div>
         </div>
+
+        {attachedAnchor ? (
+          <div className="mt-3 rounded-xl border px-3 py-2 text-xs" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background-secondary)' }}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold text-primary">Attached selection</span>
+              <button
+                type="button"
+                className="text-[11px] font-semibold text-red-600"
+                onClick={() => setAttachedAnchor(null)}
+              >
+                Remove
+              </button>
+            </div>
+            <p className="mt-1 text-neutral-700 line-clamp-3">{attachedAnchor.snippet}</p>
+          </div>
+        ) : null}
 
         {draftImageUrl ? (
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border p-3 text-sm text-primary" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-background)' }}>

@@ -671,6 +671,16 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const useSideDiscussion = discussionPlacement === "side" && isAnswered && isDesktopWidth;
   const showSideDiscussion = useSideDiscussion && !discussionCollapsed;
   const SIDE_PANEL_WIDTH = 345;
+  type AnchorReference = {
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  };
+  const [selectionAnchor, setSelectionAnchor] = useState<AnchorReference | null>(null);
+  const [showSelectionBubble, setShowSelectionBubble] = useState(false);
+  const [bubblePos, setBubblePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const highlightOverlaysRef = useRef<HTMLDivElement[]>([]);
   const renderQuestionSection = () => (
     <>
       {currentItem?.question.questionType === 'EMQ' ? (
@@ -709,6 +719,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             }}
           >
             <div
+              data-selectable-id="stem"
               data-section="stem"
               className="text-[15px] leading-relaxed rich-content"
               style={{ 
@@ -864,6 +875,117 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       )}
     </>
   );
+
+  const clearCommentHighlight = useCallback(() => {
+    highlightOverlaysRef.current.forEach((el) => el.remove());
+    highlightOverlaysRef.current = [];
+    document.removeEventListener("click", clearCommentHighlight, { capture: true } as any);
+  }, []);
+
+  const highlightRangeWithOverlay = useCallback((range: Range) => {
+    clearCommentHighlight();
+    const rects = Array.from(range.getClientRects());
+    rects.forEach((rect) => {
+      const overlay = document.createElement("div");
+      overlay.style.position = "absolute";
+      overlay.style.left = `${rect.left + window.scrollX}px`;
+      overlay.style.top = `${rect.top + window.scrollY}px`;
+      overlay.style.width = `${rect.width}px`;
+      overlay.style.height = `${rect.height}px`;
+      overlay.style.background = "rgba(14, 165, 233, 0.25)";
+      overlay.style.borderRadius = "4px";
+      overlay.style.pointerEvents = "none";
+      overlay.style.zIndex = "50";
+      document.body.appendChild(overlay);
+      highlightOverlaysRef.current.push(overlay);
+    });
+    setTimeout(() => {
+      document.addEventListener("click", clearCommentHighlight, { capture: true } as any);
+    }, 0);
+  }, [clearCommentHighlight]);
+
+  const buildRangeFromOffsets = useCallback((container: HTMLElement, start: number, end: number) => {
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+    let current = walker.nextNode();
+    let acc = 0;
+    let startNode: Node | null = null;
+    let endNode: Node | null = null;
+    let startOffset = 0;
+    let endOffset = 0;
+    while (current) {
+      const len = current.textContent?.length ?? 0;
+      if (!startNode && acc + len >= start) {
+        startNode = current;
+        startOffset = start - acc;
+      }
+      if (!endNode && acc + len >= end) {
+        endNode = current;
+        endOffset = end - acc;
+        break;
+      }
+      acc += len;
+      current = walker.nextNode();
+    }
+    if (!startNode || !endNode) return null;
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    return range;
+  }, []);
+
+  const focusAnchor = useCallback((anchor: { selectableId: string; start: number; end: number; snippet: string }) => {
+    const target = document.querySelector<HTMLElement>(`[data-selectable-id="${anchor.selectableId}"]`);
+    if (!target) return;
+    const range = buildRangeFromOffsets(target, anchor.start, anchor.end);
+    if (!range) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    highlightRangeWithOverlay(range);
+  }, [buildRangeFromOffsets, highlightRangeWithOverlay]);
+
+  const handleSelectionCapture = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) {
+      setShowSelectionBubble(false);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const containerNode = range.commonAncestorContainer;
+    const el =
+      containerNode instanceof HTMLElement
+        ? containerNode.closest("[data-selectable-id]")
+        : containerNode.parentElement?.closest("[data-selectable-id]");
+    if (!el || !(el instanceof HTMLElement) || !el.dataset.selectableId) {
+      setShowSelectionBubble(false);
+      return;
+    }
+    const selectableId = el.dataset.selectableId;
+    const textContent = el.textContent ?? "";
+    if (!textContent.trim()) {
+      setShowSelectionBubble(false);
+      return;
+    }
+    const rangeBefore = document.createRange();
+    rangeBefore.selectNodeContents(el);
+    rangeBefore.setEnd(range.startContainer, range.startOffset);
+    const start = rangeBefore.toString().length;
+
+    const rangeBeforeEnd = document.createRange();
+    rangeBeforeEnd.selectNodeContents(el);
+    rangeBeforeEnd.setEnd(range.endContainer, range.endOffset);
+    const end = rangeBeforeEnd.toString().length;
+
+    const snippet = sel.toString().trim().slice(0, 400);
+    if (!snippet) {
+      setShowSelectionBubble(false);
+      return;
+    }
+
+    const rect = range.getBoundingClientRect();
+    setBubblePos({ x: rect.left + rect.width / 2 + window.scrollX, y: rect.top + window.scrollY - 8 });
+    setSelectionAnchor({ selectableId, start, end, snippet });
+    setShowSelectionBubble(true);
+  }, []);
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -1913,8 +2035,14 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* MAIN CONTENT */}
       <main
         ref={mainRef}
-        onMouseUpCapture={applyHighlight}
-        onTouchEnd={onTouchEndHighlight}
+        onMouseUpCapture={(e) => {
+          applyHighlight(e);
+          handleSelectionCapture();
+        }}
+        onTouchEnd={(e) => {
+          onTouchEndHighlight(e);
+          handleSelectionCapture();
+        }}
         className={[
           "absolute left-0 right-0 overflow-auto",
           "transition-[padding-left] duration-300 ease-in-out"
@@ -1965,6 +2093,12 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   fontScale={fontScale}
                   sectionHTMLByItem={sectionHTMLByItem}
                   showDiscussionInline={!useSideDiscussion}
+                  selectionAnchor={selectionAnchor}
+                  onAnchorConsumed={() => {
+                    setSelectionAnchor(null);
+                    setShowSelectionBubble(false);
+                  }}
+                  onAnchorFocus={focusAnchor}
                 />
               )}
             </div>
@@ -2002,13 +2136,44 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   >
                     Question Discussion
                   </div>
-                  <QuestionDiscussion questionId={currentItem.question.id} />
+                  <QuestionDiscussion
+                    questionId={currentItem.question.id}
+                    selectionAnchor={selectionAnchor}
+                    onAnchorConsumed={() => {
+                      setSelectionAnchor(null);
+                      setShowSelectionBubble(false);
+                    }}
+                    onAnchorFocus={focusAnchor}
+                  />
                 </aside>
               </div>
             )}
           </div>
         </div>
       </main>
+
+      {showSelectionBubble && (
+        <div
+          className="fixed z-40"
+          style={{
+            left: bubblePos.x,
+            top: bubblePos.y,
+            transform: "translate(-50%, -100%)"
+          }}
+        >
+          <button
+            type="button"
+            className="rounded-full bg-white px-3 py-1 text-xs font-semibold shadow-md border"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-primary)' }}
+            onClick={() => {
+              setDiscussionCollapsed(false);
+              setShowSelectionBubble(false);
+            }}
+          >
+            Attach to discussion
+          </button>
+        </div>
+      )}
 
       {showCalc && <DraggableCalc onClose={() => setShowCalc(false)} />}
       {showLabs && <LabDrawer onClose={() => setShowLabs(false)} />}

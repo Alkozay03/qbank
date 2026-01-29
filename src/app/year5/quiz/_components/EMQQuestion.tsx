@@ -95,6 +95,7 @@ const EMQQuestion = ({
             fontSize: `${fontScale}rem`,
             color: isDark ? '#ffffff' : '#000000'
           }}
+          data-selectable-id="emq-theme"
           dangerouslySetInnerHTML={{ __html: theme }}
         />
       </div>
@@ -136,6 +137,7 @@ const EMQQuestion = ({
               </span>
               <div 
                 className="flex-1 prose prose-sm max-w-none rich-content"
+                data-selectable-id={`emq-option-${option.id}`}
                 style={{ color: isDark ? 'var(--color-text-primary)' : '#171717' }}
                 dangerouslySetInnerHTML={{ __html: option.text }}
               />
@@ -185,6 +187,7 @@ const EMQQuestion = ({
                   </span>
                 <div 
                   className="prose prose-sm max-w-none flex-1 text-[15px] leading-relaxed rich-content"
+                  data-selectable-id={`emq-stem-${stem.id}`}
                   style={{ 
                     fontSize: `${fontScale}rem`,
                     color: isDark ? 'var(--color-text-primary)' : '#171717'

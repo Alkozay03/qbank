@@ -114,6 +114,14 @@ interface ClientSideQuestionDetailsProps {
   fontScale: number;
   sectionHTMLByItem: Record<string, SectionHTML>;
   showDiscussionInline?: boolean;
+  selectionAnchor?: {
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null;
+  onAnchorConsumed?: () => void;
+  onAnchorFocus?: (anchor: { selectableId: string; start: number; end: number; snippet: string }) => void;
 }
 
 export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails({
@@ -121,7 +129,10 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
   questionSeconds,
   fontScale,
   sectionHTMLByItem,
-  showDiscussionInline = true
+  showDiscussionInline = true,
+  selectionAnchor,
+  onAnchorConsumed,
+  onAnchorFocus
 }: ClientSideQuestionDetailsProps) {
   const isDark = isDarkMode();
 
@@ -323,6 +334,7 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
         )}
         
         <div
+          data-selectable-id="explanation"
           data-section="explanation"
           className="prose mt-2 max-w-none rich-content"
           style={{ 
@@ -342,6 +354,7 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
       <div className="quiz-objective mt-6" style={{ fontSize: `${fontScale}rem` }}>
         <div className="text-lg font-bold" style={{ color: isDark ? '#ffffff' : 'var(--color-primary)' }}>Educational Objective:</div>
         <div
+          data-selectable-id="objective"
           data-section="objective"
           className="mt-2 rich-content"
           style={{ color: isDark ? '#ffffff' : '#0f172a' }}
@@ -439,7 +452,12 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
 
       {showDiscussionInline ? (
         <div className="mt-6">
-          <QuestionDiscussion questionId={currentItem.question.id} />
+          <QuestionDiscussion
+            questionId={currentItem.question.id}
+            selectionAnchor={selectionAnchor}
+            onAnchorConsumed={onAnchorConsumed}
+            onAnchorFocus={onAnchorFocus}
+          />
         </div>
       ) : null}
 
