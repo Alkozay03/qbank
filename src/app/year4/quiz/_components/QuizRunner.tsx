@@ -2155,8 +2155,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     }}
                     onAnchorFocus={focusAnchor}
                   />
-                  <div className="mt-2 text-[11px] font-semibold leading-snug text-primary">
-                    <strong>Highlight to comment:</strong> select text (stem, explanation, objective, EMQ theme/stems/options) then click “Attach to discussion”. Turn the Highlighter off first.
+                  <div className="mt-2 text-[12px] font-semibold leading-snug text-primary">
+                    <strong>Anchor Highlight (Optional):</strong> Highlight text (stem, explanation, objective, EMQ theme/stems/options) to insert a comment related to that text. Turn the Highlighter off first.
                   </div>
                 </aside>
               </div>
