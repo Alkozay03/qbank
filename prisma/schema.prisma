@@ -91,25 +91,6 @@ model CommentVote {
   @@index([userId], map: "idx_commentvote_userid")
 }
 
-model Conversation {
-  id                                  String    @id
-  userId                              String
-  isActive                            Boolean   @default(true)
-  createdAt                           DateTime  @default(now())
-  updatedAt                           DateTime
-  recipientId                         String?
-  messageType                         String    @default("HELP_CREATOR")
-  userUnreadCount                     Int       @default(0)
-  adminUnreadCount                    Int       @default(0)
-  lastMessageAt                       DateTime  @default(now())
-  User_Conversation_recipientIdToUser User?     @relation("Conversation_recipientIdToUser", fields: [recipientId], references: [id])
-  User_Conversation_userIdToUser      User      @relation("Conversation_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
-  Message                             Message[]
-
-  @@index([messageType])
-  @@index([recipientId])
-}
-
 model ExtractionImage {
   id           String       @id
   extractionId String
@@ -130,19 +111,6 @@ model HelpItem {
   isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime
-}
-
-model Message {
-  id             String       @id
-  conversationId String
-  senderId       String
-  content        String
-  imageUrl       String?
-  isRead         Boolean      @default(false)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime
-  Conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  User           User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
@@ -655,9 +623,6 @@ model User {
   Account                                     Account[]
   AnswerVote                                  AnswerVote[]
   CommentVote                                 CommentVote[]
-  Conversation_Conversation_recipientIdToUser Conversation[]                 @relation("Conversation_recipientIdToUser")
-  Conversation_Conversation_userIdToUser      Conversation[]                 @relation("Conversation_userIdToUser")
-  Message                                     Message[]
   Notification                                Notification[]
   NotificationRead                            NotificationRead[]
   PreClerkshipAnswerVote                      PreClerkshipAnswerVote[]

@@ -5,7 +5,6 @@ import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Icon } from "./Icons";
 import NotificationsBell from "@/components/NotificationsBell";
-import MessagesBell from "@/components/MessagesBell";
 import SimpleTooltip from "@/components/SimpleTooltip";
 
 export default function TopRightBar(props: { mode?: string } = {}) {
@@ -25,9 +24,6 @@ export default function TopRightBar(props: { mode?: string } = {}) {
         </button>
       </SimpleTooltip>
 
-      {/* Messages */}
-      <MessagesBell />
-      
       {/* Notifications */}
       <NotificationsBell />
 
