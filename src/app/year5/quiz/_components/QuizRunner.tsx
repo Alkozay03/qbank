@@ -677,6 +677,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     end: number;
     snippet: string;
   };
+  const [pendingAnchor, setPendingAnchor] = useState<AnchorReference | null>(null);
   const [selectionAnchor, setSelectionAnchor] = useState<AnchorReference | null>(null);
   const [showSelectionBubble, setShowSelectionBubble] = useState(false);
   const [bubblePos, setBubblePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -983,7 +984,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
     const rect = range.getBoundingClientRect();
     setBubblePos({ x: rect.left + rect.width / 2 + window.scrollX, y: rect.top + window.scrollY - 8 });
-    setSelectionAnchor({ selectableId, start, end, snippet });
+    setPendingAnchor({ selectableId, start, end, snippet });
     setShowSelectionBubble(true);
   }, []);
 
@@ -2107,7 +2108,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   selectionAnchor={selectionAnchor}
                   onAnchorConsumed={() => {
                     setSelectionAnchor(null);
-                    setShowSelectionBubble(false);
                   }}
                   onAnchorFocus={focusAnchor}
                 />
@@ -2152,7 +2152,6 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                     selectionAnchor={selectionAnchor}
                     onAnchorConsumed={() => {
                       setSelectionAnchor(null);
-                      setShowSelectionBubble(false);
                     }}
                     onAnchorFocus={focusAnchor}
                   />
@@ -2179,6 +2178,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             onClick={() => {
               setDiscussionCollapsed(false);
               setShowSelectionBubble(false);
+              if (pendingAnchor) {
+                setSelectionAnchor(pendingAnchor);
+              }
             }}
           >
             Attach to discussion
