@@ -83,6 +83,8 @@ export default async function QuizPage({
     .sort((a: any, b: any) => (a.orderInQuiz ?? 0) - (b.orderInQuiz ?? 0))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((it: any) => {
+      if (!it?.Question) return null;
+
       const rawTagLinks = (it.Question.QuestionTag ?? []) as Array<{ Tag: { type: string; value: string } }>;
       const legacy = rawTagLinks.reduce<{
         references: string[];
@@ -125,8 +127,9 @@ export default async function QuizPage({
       },
       { references: [], tags: [], seen: new Set<string>() });
 
+      // Use the Prisma "Question" shape returned above (capital Q); the lower‑case variant is undefined.
       const storedReferences = (() => {
-        const raw = typeof it.question.references === "string" ? it.question.references : "";
+        const raw = typeof it.Question.references === "string" ? it.Question.references : "";
         if (!raw.trim()) return [] as string[];
         return raw
           .replace(/\r/g, "")
@@ -177,7 +180,10 @@ export default async function QuizPage({
           isCorrect: r.isCorrect ?? null,
         })),
       };
-    });
+    })
+    .filter(Boolean);
+
+  if (!items.length) notFound();
 
   // Narrow status to the union the UI expects
   const status: QuizStatus =
