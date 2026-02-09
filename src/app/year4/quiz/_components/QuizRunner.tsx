@@ -149,8 +149,9 @@ const ZoomButtons = memo(function ZoomButtons({
   );
 });
 
-type TagType = "SUBJECT" | "SYSTEM" | "TOPIC" | "ROTATION" | "RESOURCE" | "MODE";
-type DisplayTagType = Exclude<TagType, "MODE">;
+// Only show the tag types we still surface in the UI
+type TagType = "TOPIC" | "ROTATION";
+type DisplayTagType = TagType;
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { 
   id: string; 
