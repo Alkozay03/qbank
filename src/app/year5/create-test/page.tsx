@@ -501,8 +501,7 @@ export default function CreateTest() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              If you do not select rotations/resources/question mode, defaults are applied
-              automatically (all rotations/resources; Unanswered mode).
+              If you do not select rotations or question mode, defaults are applied automatically (all rotations; Unanswered mode).
             </p>
           </>
         )}
