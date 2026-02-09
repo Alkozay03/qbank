@@ -11,8 +11,7 @@ const isDarkMode = () => {
   return document.documentElement.getAttribute('data-theme-type') === 'dark';
 };
 
-type TagType = "SUBJECT" | "SYSTEM" | "TOPIC" | "ROTATION" | "RESOURCE" | "MODE";
-type DisplayTagType = Exclude<TagType, "MODE">;
+type DisplayTagType = "TOPIC" | "ROTATION"; // Show only the filters we still support
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { id: string; text: string; isCorrect: boolean };
 
@@ -58,10 +57,7 @@ type QuestionFirstAttemptStats = {
 type SectionHTML = { stem: string; explanation: string; objective: string };
 
 const TAG_LABELS: Record<DisplayTagType, string> = {
-  SUBJECT: "Subject/Discipline",
-  SYSTEM: "System",
   ROTATION: "Rotation",
-  RESOURCE: "Resource",
   TOPIC: "Topic",
 };
 
