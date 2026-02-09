@@ -102,6 +102,50 @@ const topicOptions: TagOption[] = [
   { key: "gs_ethics_misc", label: "Ethics and Misc.", aliases: ["ethics", "misc"] },
   { key: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma", aliases: ["emergency", "burns", "icu", "electrolytes", "trauma"] },
   { key: "gs_emqs", label: "EMQs", aliases: ["emqs"] },
+
+  // Obstetrics & Gynaecology topics
+  { key: "obgyn_antenatal_care_complications", label: "Antenatal Care & Common Complications", aliases: ["antenatal", "antenatal complications"] },
+  { key: "obgyn_early_pregnancy_complications", label: "Early Pregnancy Complications", aliases: ["early pregnancy", "early pregnancy complications"] },
+  { key: "obgyn_fetal_growth_surveillance", label: "Fetal Growth & Surveillance", aliases: ["fetal growth", "surveillance"] },
+  { key: "obgyn_normal_abnormal_labor", label: "Normal & Abnormal Labor", aliases: ["labor", "labour", "normal labor", "abnormal labor"] },
+  { key: "obgyn_obstetric_emergencies", label: "Obstetric Emergencies", aliases: ["obstetric emergencies"] },
+  { key: "obgyn_postpartum_care", label: "Postpartum Care", aliases: ["postpartum", "puerperium care"] },
+  { key: "obgyn_menstrual_hormonal_disorders", label: "Menstrual & Hormonal Disorders", aliases: ["menstrual disorders", "hormonal disorders"] },
+  { key: "obgyn_uterine_ovarian_pathologies", label: "Uterine & Ovarian Pathologies", aliases: ["uterine", "ovarian", "uterine pathologies", "ovarian pathologies"] },
+  { key: "obgyn_gynecologic_malignancies", label: "Gynecologic Malignancies", aliases: ["gynecologic cancers", "gyn malignancies"] },
+  { key: "obgyn_infertility_contraception", label: "Infertility & Contraception", aliases: ["infertility", "contraception"] },
+  { key: "obgyn_pelvic_floor_infections", label: "Pelvic Floor Disorders & Genital Infections", aliases: ["pelvic floor", "genital infections"] },
+  { key: "obgyn_multiple_pregnancy_malpresentation", label: "Multiple Pregnancy & Malpresentation", aliases: ["multiple pregnancy", "malpresentation"] },
+  { key: "obgyn_preterm_labor_prom", label: "Preterm Labor & PROM", aliases: ["preterm labor", "prom"] },
+  { key: "obgyn_hyperemesis_gravidarum", label: "Hyperemesis Gravidarum", aliases: ["hyperemesis"] },
+  { key: "obgyn_miscellaneous", label: "Miscellaneous & Others", aliases: ["obgyn misc", "miscellaneous"] },
+
+  // Pediatrics topics
+  { key: "peds_development_growth_vaccines", label: "Development, growth, milestones, vaccines", aliases: ["development", "growth", "milestones", "vaccines"] },
+  { key: "peds_neonatology", label: "Neonatology", aliases: ["neonatology"] },
+  { key: "peds_gastroenterology", label: "Gastroenterology", aliases: ["gastroenterology", "gi"] },
+  { key: "peds_pulmonology", label: "Pulmonology / Respiratory", aliases: ["pulmonology", "respiratory"] },
+  { key: "peds_infectious_disease", label: "Infectious Disease", aliases: ["infectious disease", "id"] },
+  { key: "peds_cardiology", label: "Cardiology", aliases: ["cardiology"] },
+  { key: "peds_haematology", label: "Haematology", aliases: ["hematology", "haematology"] },
+  { key: "peds_endocrinology", label: "Endocrinology", aliases: ["endocrinology"] },
+  { key: "peds_msk_derma_rheum", label: "MSK, Derma & Rheumatology", aliases: ["msk", "derma", "rheumatology", "rheum"] },
+  { key: "peds_genetics_metabolic", label: "Genetics / Metabolic", aliases: ["genetics", "metabolic"] },
+  { key: "peds_urology_nephrology", label: "Urology / Nephrology", aliases: ["urology", "nephrology"] },
+  { key: "peds_neurology", label: "Neurology", aliases: ["neurology"] },
+  { key: "peds_psychiatry", label: "Psychiatry", aliases: ["psychiatry"] },
+  { key: "peds_miscellaneous", label: "Miscellaneous", aliases: ["peds misc", "miscellaneous"] },
+
+  // Internal Medicine topics
+  { key: "im_cardiology", label: "Cardiology", aliases: ["cardiology"] },
+  { key: "im_pulmonology", label: "Pulmonology", aliases: ["pulmonology", "respiratory"] },
+  { key: "im_msk_connective_rheum", label: "Musculoskeletal, Connective Tissues & Rheumatology", aliases: ["msk", "connective tissue", "rheumatology", "rheum"] },
+  { key: "im_gastroenterology", label: "Gastroenterology", aliases: ["gastroenterology", "gi"] },
+  { key: "im_hematology_oncology", label: "Hematology & Oncology", aliases: ["hematology", "oncology", "heme onc"] },
+  { key: "im_nephrology", label: "Nephrology", aliases: ["nephrology"] },
+  { key: "im_infectious_diseases", label: "Infectious Diseases", aliases: ["infectious disease", "id"] },
+  { key: "im_neurology", label: "Neurology", aliases: ["neurology"] },
+  { key: "im_endocrinology_others", label: "Endocrinology & Others", aliases: ["endocrinology", "endocrine"] },
 ];
 
 const modeOptions: TagOption[] = [

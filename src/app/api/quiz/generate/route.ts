@@ -64,9 +64,8 @@ export async function POST(req: Request) {
 
     let ids: string[] = [];
 
-    if (reviewMode) {
-      // Fetch ALL questions for the rotations/year (no mode filtering, no count cap)
-      const rows = await prisma.question.findMany({
+    const fetchReviewRows = async (topics: string[]) =>
+      prisma.question.findMany({
         where: {
           QuestionOccurrence: {
             some: { year },
@@ -82,14 +81,14 @@ export async function POST(req: Request) {
                 },
               },
             },
-            ...(topicValues.length
+            ...(topics.length
               ? [
                   {
                     QuestionTag: {
                       some: {
                         Tag: {
                           type: TagType.TOPIC,
-                          value: { in: topicValues },
+                          value: { in: topics },
                         },
                       },
                     },
@@ -100,6 +99,12 @@ export async function POST(req: Request) {
         },
         select: { id: true },
       });
+
+    if (reviewMode) {
+      let rows = await fetchReviewRows(topicValues);
+      if (rows.length === 0 && topicValues.length > 0) {
+        rows = await fetchReviewRows([]);
+      }
 
       // Shuffle to vary ordering
       for (let i = rows.length - 1; i > 0; i--) {
@@ -119,6 +124,20 @@ export async function POST(req: Request) {
         types,
         take: take ?? 10,
       });
+
+      if (ids.length === 0 && topicValues.length > 0) {
+        ids = await selectQuestions({
+          userId,
+          year,
+          rotationKeys,
+          resourceValues,
+          disciplineValues,
+          systemValues,
+          topicValues: [],
+          types,
+          take: take ?? 10,
+        });
+      }
     }
 
     if (ids.length === 0) {
