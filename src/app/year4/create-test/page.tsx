@@ -129,8 +129,8 @@ export default function CreateTest() {
         qCount <= 100;
 
   // effective selections
-  // If no mode is picked, allow all modes so we don't over-filter
-  const effectiveModes = selModes.length ? selModes : modes.map((m) => m.key);
+  // If no mode is picked, don't apply a mode filter
+  const effectiveModes = selModes.length ? selModes : [];
   const effectiveRot = selRotations.length ? selRotations : rotations.map((o) => o.key);
 
   // toggle helpers

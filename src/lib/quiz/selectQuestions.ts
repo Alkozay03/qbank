@@ -205,10 +205,9 @@ export async function selectQuestions(opts: {
       questionIdsByType.omitted.delete(qid);
     }
 
-    // ✅ CACHE THIS: All questions is global data (same for all users)
+    // All questions (used to derive "unused" set)
     const allQuestions = await prisma.question.findMany({
       select: { id: true },
-      cacheStrategy: { ttl: 3600, swr: 600 }, // 1h cache, 10min stale
     });
 
     // Only questions that have NEVER been in any test are truly "unused"
@@ -246,24 +245,12 @@ export async function selectQuestions(opts: {
     : {};
 
   let pool: { id: string }[] = [];
-  try {
-    // ✅ CACHE THIS: Question pool queries are filtered but can still benefit from caching
-    pool = await prisma.question.findMany({
-      where,
-      select: { id: true },
-      take: Math.max(take * 3, take),
-      orderBy: { createdAt: "desc" },
-      cacheStrategy: { ttl: 3600, swr: 600 }  // 1h cache, 10min stale
-    });
-  } catch (error) {
-    console.error("selectQuestions primary query failed; retrying without cacheStrategy", error);
-    pool = await prisma.question.findMany({
-      where,
-      select: { id: true },
-      take: Math.max(take * 3, take),
-      orderBy: { createdAt: "desc" }
-    });
-  }
+  pool = await prisma.question.findMany({
+    where,
+    select: { id: true },
+    take: Math.max(take * 3, take),
+    orderBy: { createdAt: "desc" }
+  });
 
   if (pool.length === 0) {
     return [];
