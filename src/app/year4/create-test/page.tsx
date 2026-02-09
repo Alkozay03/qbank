@@ -120,9 +120,8 @@ export default function CreateTest() {
   // validation
   const valid =
     testMode === "review"
-      ? selRotations.length > 0
-      : selRotations.length > 0 &&
-        qCount >= 1 &&
+      ? true
+      : qCount >= 1 &&
         qCount <= 100;
 
   // effective selections
