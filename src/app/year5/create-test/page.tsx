@@ -41,6 +41,7 @@ const topicsByRotation: Record<string, Option[]> = {
     { key: "gs_ethics_misc", label: "Ethics and Misc." },
     { key: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma" },
     { key: "gs_emqs", label: "EMQs" },
+    { key: "topic_not_selected", label: "Not Selected" },
   ],
   obgyn: [
     { key: "obgyn_antenatal_care_complications", label: "Antenatal Care & Common Complications" },
@@ -58,6 +59,7 @@ const topicsByRotation: Record<string, Option[]> = {
     { key: "obgyn_preterm_labor_prom", label: "Preterm Labor & PROM" },
     { key: "obgyn_hyperemesis_gravidarum", label: "Hyperemesis Gravidarum" },
     { key: "obgyn_miscellaneous", label: "Miscellaneous & Others" },
+    { key: "topic_not_selected", label: "Not Selected" },
   ],
   im2: [
     { key: "im_cardiology", label: "Cardiology" },
@@ -69,6 +71,7 @@ const topicsByRotation: Record<string, Option[]> = {
     { key: "im_infectious_diseases", label: "Infectious Diseases" },
     { key: "im_neurology", label: "Neurology" },
     { key: "im_endocrinology_others", label: "Endocrinology & Others" },
+    { key: "topic_not_selected", label: "Not Selected" },
   ],
 };
 

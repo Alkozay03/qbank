@@ -12,6 +12,11 @@ function buildTagFilter(type: TagType, rawValues: string[]): Prisma.QuestionWher
     .map((v) => v.trim())
     .filter((v) => v.length > 0 && v !== "topic_not_selected");
 
+  if (type === TagType.TOPIC && includeNotSelected && explicit.length === 0) {
+    // Only "Not Selected" chosen: do not filter by topic at all
+    return null;
+  }
+
   if (type === TagType.TOPIC && includeNotSelected) {
     const hasExplicit = explicit.length > 0;
     const explicitClause = hasExplicit

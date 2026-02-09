@@ -11,9 +11,6 @@ type Payload = {
   year?: string;
   selectedModes?: string[];
   rotationKeys?: string[];
-  resourceValues?: string[];
-  disciplineValues?: string[];
-  systemValues?: string[];
   topicValues?: string[];
 };
 
@@ -29,7 +26,7 @@ export async function POST(req: Request) {
 
     const year = typeof body.year === "string" ? body.year : "Y4"; // Default to Y4 for backwards compatibility
 
-    // Expand tag values
+    // Expand tag values (aliases -> canonical keys)
     const rotValues = expandTagValues(TagType.ROTATION, body.rotationKeys ?? []);
     const topicValues = expandTagValues(TagType.TOPIC, body.topicValues ?? []);
     const includeTopicNotSelected = topicValues.includes("topic_not_selected");
@@ -49,27 +46,42 @@ export async function POST(req: Request) {
         )`
       : null;
 
-    const topicFilter =
-      includeTopicNotSelected || explicitTopics.length
-        ? Prisma.sql`${includeTopicNotSelected
-            ? Prisma.sql`NOT EXISTS (
-                SELECT 1 FROM "QuestionTag" qr
-                JOIN "Tag" tr ON tr.id = qr."tagId"
-                WHERE qr."questionId" = scope.id
-                  AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
-              )`
-            : Prisma.sql`FALSE`}${
-            includeTopicNotSelected && explicitTopics.length ? Prisma.sql` OR ` : Prisma.empty
-          }${explicitTopics.length
-            ? Prisma.sql`EXISTS (
-                SELECT 1 FROM "QuestionTag" qr
-                JOIN "Tag" tr ON tr.id = qr."tagId"
-                WHERE qr."questionId" = scope.id
-                  AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
-                  AND tr.value IN (${Prisma.join(explicitTopics.map((value) => Prisma.sql`${value}`))})
-              )`
-            : Prisma.empty}`
-        : null;
+    const topicFilter = (() => {
+      // Only "Not Selected" chosen -> do not filter by topic at all
+      if (includeTopicNotSelected && explicitTopics.length === 0) return null;
+
+      // "Not Selected" + explicit topics -> allow questions with NO topic OR one of the explicit topics
+      if (includeTopicNotSelected && explicitTopics.length > 0) {
+        return Prisma.sql`(
+          NOT EXISTS (
+            SELECT 1 FROM "QuestionTag" qr
+            JOIN "Tag" tr ON tr.id = qr."tagId"
+            WHERE qr."questionId" = scope.id
+              AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
+          )
+          OR EXISTS (
+            SELECT 1 FROM "QuestionTag" qr
+            JOIN "Tag" tr ON tr.id = qr."tagId"
+            WHERE qr."questionId" = scope.id
+              AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
+              AND tr.value IN (${Prisma.join(explicitTopics.map((value) => Prisma.sql`${value}`))})
+          )
+        )`;
+      }
+
+      // Explicit topics only
+      if (explicitTopics.length > 0) {
+        return Prisma.sql`EXISTS (
+          SELECT 1 FROM "QuestionTag" qr
+          JOIN "Tag" tr ON tr.id = qr."tagId"
+          WHERE qr."questionId" = scope.id
+            AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
+            AND tr.value IN (${Prisma.join(explicitTopics.map((value) => Prisma.sql`${value}`))})
+        )`;
+      }
+
+      return null;
+    })();
 
     const modeFilter = selectedModes.length
       ? Prisma.sql`WHERE mode_lookup.mode IN (${Prisma.join(selectedModes.map((value) => Prisma.sql`${value}`))})`
@@ -147,12 +159,6 @@ export async function POST(req: Request) {
         UNION ALL
         SELECT section, key, c FROM rotation_counts
         UNION ALL
-        SELECT section, key, c FROM resource_counts
-        UNION ALL
-        SELECT section, key, c FROM discipline_counts
-        UNION ALL
-        SELECT section, key, c FROM system_counts
-        UNION ALL
         SELECT section, key, c FROM topic_counts
         UNION ALL
         SELECT section, key, c FROM topic_missing;
@@ -170,9 +176,6 @@ export async function POST(req: Request) {
 
     const tagCounts = {
       rotations: {} as Record<string, number>,
-      resources: {} as Record<string, number>,
-      disciplines: {} as Record<string, number>,
-      systems: {} as Record<string, number>,
       topics: {} as Record<string, number>,
     };
 
@@ -186,12 +189,6 @@ export async function POST(req: Request) {
 
       if (row.section === "rotation") {
         tagCounts.rotations[row.key] = row.c;
-      } else if (row.section === "resource") {
-        tagCounts.resources[row.key] = row.c;
-      } else if (row.section === "discipline") {
-        tagCounts.disciplines[row.key] = row.c;
-      } else if (row.section === "system") {
-        tagCounts.systems[row.key] = row.c;
       } else if (row.section === "topic") {
         tagCounts.topics[row.key] = row.c;
       }

@@ -17,9 +17,6 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as Partial<{
       year: string;
       rotationKeys: string[];
-      resources: string[];
-      disciplines: string[];
-      systems: string[];
       topics: string[];
       count: number;
       mode: string;
@@ -118,9 +115,6 @@ export async function POST(req: Request) {
           userId,
           year,
           rotationKeys,
-          resourceValues,
-          disciplineValues,
-          systemValues,
           topicValues: [],
           types,
           take: take ?? 10,
