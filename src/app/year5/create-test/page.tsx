@@ -272,6 +272,12 @@ export default function CreateTest() {
       const target = `/year5/quiz/${data.id}`;
       try {
         router.push(target);
+        // Fallback: force navigation if router push silently fails
+        setTimeout(() => {
+          if (window.location.pathname !== target) {
+            window.location.href = target;
+          }
+        }, 400);
       } catch {
         // Fallback hard navigation if router is blocked by runtime errors/extensions
         window.location.href = target;

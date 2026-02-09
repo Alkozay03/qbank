@@ -107,10 +107,23 @@ export default function Sidebar({
         {items.map((it) => {
           const ActiveIcon = Icon[it.icon];
           const active = pathname === it.href;
+          const nav = () => {
+            try {
+              router.push(it.href);
+              // Fallback hard navigation if client router stalls
+              setTimeout(() => {
+                if (window.location.pathname !== it.href) {
+                  window.location.href = it.href;
+                }
+              }, 300);
+            } catch {
+              window.location.href = it.href;
+            }
+          };
           return (
             <button
               key={it.key}
-              onClick={() => router.push(it.href)}
+              onClick={nav}
               className={clsx(
                 "group w-full flex items-center justify-start rounded-xl text-left px-2 py-2.5 gap-2 transition-all duration-300 ease-out btn-hover",
                 active
@@ -145,7 +158,19 @@ export default function Sidebar({
         {/* Admin Settings (role-gated) - Only for ADMIN role, not MASTER_ADMIN */}
         {role === "ADMIN" && (
           <button
-            onClick={() => router.push(`/${currentYear}/admin`)}
+            onClick={() => {
+              const href = `/${currentYear}/admin`;
+              try {
+                router.push(href);
+                setTimeout(() => {
+                  if (window.location.pathname !== href) {
+                    window.location.href = href;
+                  }
+                }, 300);
+              } catch {
+                window.location.href = href;
+              }
+            }}
             className="group w-full flex items-center rounded-xl text-left text-primary px-2 py-2.5 gap-2 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:shadow-md"
             onMouseEnter={(e) => {
               e.currentTarget.style.boxShadow = getThemeGlow();
@@ -167,7 +192,19 @@ export default function Sidebar({
         {/* Master Admin Settings (only for WEBSITE_CREATOR and MASTER_ADMIN) */}
         {(role === "WEBSITE_CREATOR" || role === "MASTER_ADMIN") && (
           <button
-            onClick={() => router.push(`/${currentYear}/master-admin`)}
+            onClick={() => {
+              const href = `/${currentYear}/master-admin`;
+              try {
+                router.push(href);
+                setTimeout(() => {
+                  if (window.location.pathname !== href) {
+                    window.location.href = href;
+                  }
+                }, 300);
+              } catch {
+                window.location.href = href;
+              }
+            }}
             className="group w-full flex items-center rounded-xl text-left text-primary px-2 py-2.5 gap-2 transition-all duration-300 ease-out transform hover:scale-[1.02] hover:shadow-md"
             onMouseEnter={(e) => {
               e.currentTarget.style.boxShadow = getThemeGlow();

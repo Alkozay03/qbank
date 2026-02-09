@@ -286,6 +286,12 @@ export default function CreateTest() {
       const target = `/year4/quiz/${data.id}`;
       try {
         router.push(target);
+        // Fallback: force navigation if the router fails to update the URL
+        setTimeout(() => {
+          if (window.location.pathname !== target) {
+            window.location.href = target;
+          }
+        }, 400);
       } catch {
         window.location.href = target;
       }
