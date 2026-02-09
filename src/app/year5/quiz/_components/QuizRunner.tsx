@@ -150,7 +150,7 @@ const ZoomButtons = memo(function ZoomButtons({
 });
 
 type TagType = "SUBJECT" | "SYSTEM" | "TOPIC" | "ROTATION" | "RESOURCE" | "MODE";
-type DisplayTagType = Exclude<TagType, "MODE" | "TOPIC">;
+type DisplayTagType = Exclude<TagType, "MODE">;
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { 
   id: string; 
@@ -880,7 +880,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const clearCommentHighlight = useCallback(() => {
     highlightOverlaysRef.current.forEach((el) => el.remove());
     highlightOverlaysRef.current = [];
-    document.removeEventListener("click", clearCommentHighlight, { capture: true } as any);
+    document.removeEventListener("click", clearCommentHighlight, { capture: true });
   }, []);
 
   const highlightRangeWithOverlay = useCallback((range: Range) => {
@@ -901,7 +901,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       highlightOverlaysRef.current.push(overlay);
     });
     setTimeout(() => {
-      document.addEventListener("click", clearCommentHighlight, { capture: true } as any);
+      document.addEventListener("click", clearCommentHighlight, { capture: true });
     }, 0);
   }, [clearCommentHighlight]);
 
@@ -2037,12 +2037,12 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* MAIN CONTENT */}
       <main
         ref={mainRef}
-        onMouseUpCapture={(e) => {
-          applyHighlight(e);
+        onMouseUpCapture={() => {
+          applyHighlight();
           handleSelectionCapture();
         }}
-        onTouchEnd={(e) => {
-          onTouchEndHighlight(e);
+        onTouchEnd={() => {
+          onTouchEndHighlight();
           handleSelectionCapture();
         }}
         className={[

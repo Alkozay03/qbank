@@ -1,4 +1,12 @@
-export type TagCategory = "rotation" | "resource" | "discipline" | "system" | "mode" | "week" | "lecture";
+export type TagCategory =
+  | "rotation"
+  | "resource"
+  | "discipline"
+  | "system"
+  | "topic"
+  | "mode"
+  | "week"
+  | "lecture";
 
 export interface TagOption {
   key: string;
@@ -75,6 +83,27 @@ const systemOptions: TagOption[] = [
   { key: "rheum", label: "Rheumatology / Orthopedics & Sports", aliases: ["rheumatology", "orthopedics", "sports", "rheum"] },
 ];
 
+// Rotation-specific topics (currently General Surgery)
+// Keys include a rotation prefix to keep them unique when other rotations are added.
+const topicOptions: TagOption[] = [
+  { key: "gs_large_bowel_disease", label: "Large bowel disease", aliases: ["large bowel", "large bowel disease"] },
+  { key: "gs_diabetic_foot_pvd", label: "Diabetic foot and Peripheral Vascular Disease", aliases: ["diabetic foot", "pvd"] },
+  { key: "gs_abdominal_wall", label: "Abdominal wall" },
+  { key: "gs_hernias", label: "Hernias", aliases: ["hernia"] },
+  { key: "gs_breast_disease", label: "Breast disease", aliases: ["breast"] },
+  { key: "gs_pre_post_op", label: "Pre-operative & Post-operative", aliases: ["pre-op", "post-op", "pre operative", "post operative"] },
+  { key: "gs_thyroid_neck_endocrine", label: "Thyroid, neck, and other endocrine organs", aliases: ["thyroid", "neck", "endocrine"] },
+  { key: "gs_spleen_kidney", label: "Spleen and Kidney", aliases: ["spleen", "kidney"] },
+  { key: "gs_hepatobiliary_pancreatic", label: "Hepatobiliary and pancreatic disease", aliases: ["hbp", "hepatobiliary", "pancreatic"] },
+  { key: "gs_wound_healing", label: "Wound healing", aliases: ["wound"] },
+  { key: "gs_small_bowel", label: "Small Bowel diseases", aliases: ["small bowel"] },
+  { key: "gs_skin_soft_tissue_infection", label: "Skin & Soft tissue infection", aliases: ["skin infection", "soft tissue infection"] },
+  { key: "gs_stomach_esophagus", label: "Stomach and Esophagus", aliases: ["stomach", "esophagus"] },
+  { key: "gs_ethics_misc", label: "Ethics and Misc.", aliases: ["ethics", "misc"] },
+  { key: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma", aliases: ["emergency", "burns", "icu", "electrolytes", "trauma"] },
+  { key: "gs_emqs", label: "EMQs", aliases: ["emqs"] },
+];
+
 const modeOptions: TagOption[] = [
   { key: "unused", label: "Unused/Unanswered", hint: "Selects questions from a set of new/unseen questions", aliases: ["unused", "unanswered"] },
   { key: "incorrect", label: "Incorrect", hint: "Previously answered incorrectly" },
@@ -116,6 +145,7 @@ export const TAG_OPTIONS: Record<TagCategory, TagOption[]> = {
   resource: resourceOptions,
   discipline: disciplineOptions,
   system: systemOptions,
+  topic: topicOptions,
   mode: modeOptions,
   week: weekOptions,
   lecture: lectureOptions,

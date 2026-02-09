@@ -2,7 +2,7 @@
 
 import Shell from "@/components/Shell";
 import SimpleTooltip from "@/components/SimpleTooltip";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Option = { key: string; label: string; hint?: string };
@@ -78,6 +78,27 @@ const systems: Option[] = [
   { key: "rheum", label: "Rheumatology, Orthopedics & Sports" },
 ];
 
+const topicsByRotation: Record<string, Option[]> = {
+  gs: [
+    { key: "gs_large_bowel_disease", label: "Large bowel disease" },
+    { key: "gs_diabetic_foot_pvd", label: "Diabetic foot and Peripheral Vascular Disease" },
+    { key: "gs_abdominal_wall", label: "Abdominal wall" },
+    { key: "gs_hernias", label: "Hernias" },
+    { key: "gs_breast_disease", label: "Breast disease" },
+    { key: "gs_pre_post_op", label: "Pre-operative & Post-operative" },
+    { key: "gs_thyroid_neck_endocrine", label: "Thyroid, neck, and other endocrine organs" },
+    { key: "gs_spleen_kidney", label: "Spleen and Kidney" },
+    { key: "gs_hepatobiliary_pancreatic", label: "Hepatobiliary and pancreatic disease" },
+    { key: "gs_wound_healing", label: "Wound healing" },
+    { key: "gs_small_bowel", label: "Small Bowel diseases" },
+    { key: "gs_skin_soft_tissue_infection", label: "Skin & Soft tissue infection" },
+    { key: "gs_stomach_esophagus", label: "Stomach and Esophagus" },
+    { key: "gs_ethics_misc", label: "Ethics and Misc." },
+    { key: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma" },
+    { key: "gs_emqs", label: "EMQs" },
+  ],
+};
+
 export default function CreateTest() {
   const title = "Create Your Test";
   const router = useRouter();
@@ -87,6 +108,7 @@ export default function CreateTest() {
   const [selResources, setSelResources] = useState<string[]>([]);
   const [selDisciplines, setSelDisciplines] = useState<string[]>([]);
   const [selSystems, setSelSystems] = useState<string[]>([]);
+  const [selTopics, setSelTopics] = useState<string[]>([]);
   const [qCount, setQCount] = useState<number>(0);
   const [busy, setBusy] = useState(false);
   const [modeCounts, setModeCounts] = useState<{
@@ -102,7 +124,7 @@ export default function CreateTest() {
     resources: Record<string, number>;
     disciplines: Record<string, number>;
     systems: Record<string, number>;
-    topics?: Record<string, number>;
+    topics: Record<string, number>;
   } | null>(null);
 
   // Test type (Tutored vs Review)
@@ -113,6 +135,7 @@ export default function CreateTest() {
   const allowResources = testMode === "review" ? false : selRotations.length > 0;
   const allowDisciplines = testMode === "review" ? false : selResources.length > 0;
   const allowSystems = testMode === "review" ? false : selDisciplines.length > 0;
+  const allowTopics = testMode === "review" ? selRotations.length > 0 : selSystems.length > 0;
 
   // validation
   const valid =
@@ -138,6 +161,19 @@ export default function CreateTest() {
   function toggleAll(setter: (_v: string[]) => void, list: Option[], _checked: boolean) {
     setter(_checked ? list.map((o) => o.key) : []);
   }
+
+  const topicOptions = Array.from(
+    new Map(
+      selRotations
+        .flatMap((rot) => topicsByRotation[rot] ?? [])
+        .map((opt) => [opt.key, opt])
+    ).values()
+  );
+  const allowedTopicKeys = useMemo(() => new Set(topicOptions.map((o) => o.key)), [topicOptions]);
+
+  useEffect(() => {
+    setSelTopics((prev) => prev.filter((key) => allowedTopicKeys.has(key)));
+  }, [allowedTopicKeys]);
 
   // Get count for specific mode
   function getModeCount(modeKey: string): number {
@@ -166,20 +202,27 @@ export default function CreateTest() {
             rotationKeys: selRotations,
             resourceValues: selResources,
             disciplineValues: selDisciplines,
-            systemValues: selSystems 
+            systemValues: selSystems,
+            topicValues: selTopics,
           }),
         });
         if (!r.ok) return;
         const j = await r.json();
         // ONLY update tag counts, NOT mode counts (mode counts stay constant)
-        setCounts(j.tagCounts);
+        setCounts({
+          rotations: j.tagCounts?.rotations ?? {},
+          resources: j.tagCounts?.resources ?? {},
+          disciplines: j.tagCounts?.disciplines ?? {},
+          systems: j.tagCounts?.systems ?? {},
+          topics: j.tagCounts?.topics ?? {},
+        });
       } catch {
         // ignore
       }
     }, 500); // Increased from 250ms to 500ms to reduce API call frequency
     return () => { controller.abort(); clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selModes.join(","), selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(","), testMode]);
+  }, [selModes.join(","), selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(","), selTopics.join(","), testMode]);
 
   // Fetch initial mode counts ONCE on mount (and refresh when page becomes visible)
   useEffect(() => {
@@ -195,14 +238,21 @@ export default function CreateTest() {
             rotationKeys: [], 
             resourceValues: [], 
             disciplineValues: [], 
-            systemValues: [] 
+            systemValues: [],
+            topicValues: []
           }),
         });
         if (response.ok) {
           const data = await response.json();
           // Set mode counts ONCE - they never change after this
           setModeCounts(data.modeCounts);
-          setCounts(data.tagCounts);
+          setCounts({
+            rotations: data.tagCounts.rotations ?? {},
+            resources: data.tagCounts.resources ?? {},
+            disciplines: data.tagCounts.disciplines ?? {},
+            systems: data.tagCounts.systems ?? {},
+            topics: data.tagCounts.topics ?? {},
+          });
           lastFetchTime = Date.now();
         }
       } catch (error) {
@@ -235,6 +285,7 @@ export default function CreateTest() {
           ? {
               year: "Y4",
               rotationKeys: effectiveRot,
+              topics: selTopics,
               reviewMode: true,
             }
           : {
@@ -243,6 +294,7 @@ export default function CreateTest() {
               resources: effectiveRes,          // kept for future use
               disciplines: selDisciplines,      // kept for future use
               systems: selSystems,              // kept for future use
+              topics: selTopics,                // new topic filter
               count: qCount,
               types: effectiveModes,            // ["unused","incorrect","marked",...]
               mode: "RANDOM",
@@ -464,6 +516,35 @@ export default function CreateTest() {
                 </p>
               )}
             </Card>
+
+            {/* Topics (rotation-specific, after systems) */}
+            <Card locked={!allowTopics}>
+              <HeaderRow
+                title="Topics"
+                disabledAll={!allowTopics || topicOptions.length === 0}
+                withAll
+                onAll={(_checked) => toggleAll(setSelTopics, topicOptions, _checked)}
+              />
+              {topicOptions.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-600">
+                  Select General Surgery rotation to see available topics.
+                </p>
+              ) : (
+                <CheckGrid
+                  list={topicOptions}
+                  selected={selTopics}
+                  onToggle={(optKey) => toggle(setSelTopics, optKey)}
+                  disabled={!allowTopics}
+                  counts={counts}
+                  section="topics"
+                />
+              )}
+              {!allowTopics && (
+                <p className="mt-2 text-sm text-red-600">
+                  Select at least one system to choose topics.
+                </p>
+              )}
+            </Card>
           </>
         )}
 
@@ -592,7 +673,7 @@ function CheckGrid({
     resources: Record<string, number>;
     disciplines: Record<string, number>;
     systems: Record<string, number>;
-    topics?: Record<string, number>;
+    topics: Record<string, number>;
   } | null;
   section: "rotations" | "resources" | "disciplines" | "systems" | "topics";
 }) {

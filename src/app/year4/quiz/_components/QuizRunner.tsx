@@ -150,7 +150,7 @@ const ZoomButtons = memo(function ZoomButtons({
 });
 
 type TagType = "SUBJECT" | "SYSTEM" | "TOPIC" | "ROTATION" | "RESOURCE" | "MODE";
-type DisplayTagType = Exclude<TagType, "MODE" | "TOPIC">;
+type DisplayTagType = Exclude<TagType, "MODE">;
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { 
   id: string; 

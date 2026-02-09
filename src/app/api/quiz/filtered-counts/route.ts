@@ -14,6 +14,7 @@ type Payload = {
   resourceValues?: string[];
   disciplineValues?: string[];
   systemValues?: string[];
+  topicValues?: string[];
 };
 
 export async function POST(req: Request) {
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
     const resValues = expandTagValues(TagType.RESOURCE, body.resourceValues ?? []);
     const discValues = expandTagValues(TagType.SUBJECT, body.disciplineValues ?? []);
     const sysValues = expandTagValues(TagType.SYSTEM, body.systemValues ?? []);
+    const topicValues = expandTagValues(TagType.TOPIC, body.topicValues ?? []);
     const selectedModes = Array.isArray(body.selectedModes)
       ? body.selectedModes.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
@@ -75,6 +77,16 @@ export async function POST(req: Request) {
           WHERE qr."questionId" = scope.id
             AND tr.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
             AND tr.value IN (${Prisma.join(sysValues.map((value) => Prisma.sql`${value}`))})
+        )`
+      : null;
+
+    const topicFilter = topicValues.length
+      ? Prisma.sql`EXISTS (
+          SELECT 1 FROM "QuestionTag" qr
+          JOIN "Tag" tr ON tr.id = qr."tagId"
+          WHERE qr."questionId" = scope.id
+            AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
+            AND tr.value IN (${Prisma.join(topicValues.map((value) => Prisma.sql`${value}`))})
         )`
       : null;
 
@@ -138,6 +150,14 @@ export async function POST(req: Request) {
           FROM discipline_scope scope
           WHERE 1=1
           ${disciplineFilter ? Prisma.sql`AND ${disciplineFilter}` : Prisma.empty}
+          ${systemFilter ? Prisma.sql`AND ${systemFilter}` : Prisma.empty}
+        ),
+        topic_scope AS (
+          -- Cascade level: mode + rotation + resource + discipline + system selection
+          SELECT scope.id
+          FROM system_scope scope
+          WHERE 1=1
+          ${topicFilter ? Prisma.sql`AND ${topicFilter}` : Prisma.empty}
         ),
         rotation_counts AS (
           SELECT 'rotation'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
@@ -166,6 +186,13 @@ export async function POST(req: Request) {
           JOIN "QuestionTag" qt ON qt."questionId" = r.id
           JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
           GROUP BY t.value
+        ),
+        topic_counts AS (
+          SELECT 'topic'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
+          FROM topic_scope r
+          JOIN "QuestionTag" qt ON qt."questionId" = r.id
+          JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
+          GROUP BY t.value
         )
         SELECT 'mode' AS section, key, c FROM mode_counts
         UNION ALL
@@ -175,7 +202,9 @@ export async function POST(req: Request) {
         UNION ALL
         SELECT section, key, c FROM discipline_counts
         UNION ALL
-        SELECT section, key, c FROM system_counts;
+        SELECT section, key, c FROM system_counts
+        UNION ALL
+        SELECT section, key, c FROM topic_counts;
       `
     );
 
@@ -193,6 +222,7 @@ export async function POST(req: Request) {
       resources: {} as Record<string, number>,
       disciplines: {} as Record<string, number>,
       systems: {} as Record<string, number>,
+      topics: {} as Record<string, number>,
     };
 
     for (const row of rows) {
@@ -211,6 +241,8 @@ export async function POST(req: Request) {
         tagCounts.disciplines[row.key] = row.c;
       } else if (row.section === "system") {
         tagCounts.systems[row.key] = row.c;
+      } else if (row.section === "topic") {
+        tagCounts.topics[row.key] = row.c;
       }
     }
 

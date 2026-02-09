@@ -8,7 +8,7 @@ import QuizRunner from "../_components/QuizRunner";
 import { TagType } from "@prisma/client";
 import { canonicalizeTagValue, labelForTag } from "@/lib/tags/server";
 
-const DISPLAY_TAG_TYPES = ["SUBJECT", "SYSTEM", "ROTATION", "RESOURCE"] as const;
+const DISPLAY_TAG_TYPES = ["SUBJECT", "SYSTEM", "ROTATION", "RESOURCE", "TOPIC"] as const;
 type DisplayTagType = typeof DISPLAY_TAG_TYPES[number];
 
 type QuizStatus = "Active" | "Suspended" | "Ended";
@@ -96,13 +96,6 @@ export default async function QuizPage({
         if (!type) return { references, tags, seen };
         const rawValue = typeof tag.value === "string" ? tag.value.trim() : "";
         if (!rawValue) return { references, tags, seen };
-
-        if (type === TagType.TOPIC) {
-          if (!references.includes(rawValue)) {
-            references.push(rawValue);
-          }
-          return { references, tags, seen };
-        }
 
         if (type === TagType.MODE) {
           return { references, tags, seen };

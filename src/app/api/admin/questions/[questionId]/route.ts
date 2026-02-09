@@ -70,6 +70,7 @@ const CATEGORY_TO_TAGTYPE: Record<string, TagType> = {
   resource: TagType.RESOURCE,
   discipline: TagType.SUBJECT,
   system: TagType.SYSTEM,
+  topic: TagType.TOPIC,
   mode: TagType.MODE,
 };
 

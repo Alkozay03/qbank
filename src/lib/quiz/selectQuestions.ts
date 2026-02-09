@@ -37,6 +37,7 @@ export async function selectQuestions(opts: {
   resourceValues?: string[];
   disciplineValues?: string[];
   systemValues?: string[];
+  topicValues?: string[];
   types?: string[];
   take: number;
 }): Promise<string[]> {
@@ -46,6 +47,7 @@ export async function selectQuestions(opts: {
     resourceValues = [],
     disciplineValues = [],
     systemValues = [],
+    topicValues = [],
     types = [],
     take,
     userId,
@@ -72,6 +74,11 @@ export async function selectQuestions(opts: {
   const systemFilter = buildTagFilter(TagType.SYSTEM, systemValues);
   if (systemFilter) {
     whereClauses.push(systemFilter);
+  }
+
+  const topicFilter = buildTagFilter(TagType.TOPIC, topicValues);
+  if (topicFilter) {
+    whereClauses.push(topicFilter);
   }
 
   // Filter by year if provided (Year 5 vs Year 4)

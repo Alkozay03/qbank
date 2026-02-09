@@ -20,6 +20,7 @@ export async function POST(req: Request) {
       resources: string[];
       disciplines: string[];
       systems: string[];
+      topics: string[];
       count: number;
       mode: string;
       types: string[];
@@ -39,6 +40,9 @@ export async function POST(req: Request) {
       : [];
     const systemValues = Array.isArray(body.systems)
       ? body.systems.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    const topicValues = Array.isArray(body.topics)
+      ? body.topics.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
     const types = Array.isArray(body.types)
       ? body.types.filter((value): value is string => typeof value === "string" && value.length > 0)
@@ -67,14 +71,32 @@ export async function POST(req: Request) {
           QuestionOccurrence: {
             some: { year },
           },
-          QuestionTag: {
-            some: {
-              Tag: {
-                type: TagType.ROTATION,
-                value: { in: rotationKeys },
+          AND: [
+            {
+              QuestionTag: {
+                some: {
+                  Tag: {
+                    type: TagType.ROTATION,
+                    value: { in: rotationKeys },
+                  },
+                },
               },
             },
-          },
+            ...(topicValues.length
+              ? [
+                  {
+                    QuestionTag: {
+                      some: {
+                        Tag: {
+                          type: TagType.TOPIC,
+                          value: { in: topicValues },
+                        },
+                      },
+                    },
+                  },
+                ]
+              : []),
+          ],
         },
         select: { id: true },
       });
@@ -93,6 +115,7 @@ export async function POST(req: Request) {
         resourceValues,
         disciplineValues,
         systemValues,
+        topicValues,
         types,
         take: take ?? 10,
       });

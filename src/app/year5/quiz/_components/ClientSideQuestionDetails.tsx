@@ -11,7 +11,7 @@ const isDarkMode = () => {
 };
 
 type TagType = "SUBJECT" | "SYSTEM" | "TOPIC" | "ROTATION" | "RESOURCE" | "MODE";
-type DisplayTagType = Exclude<TagType, "MODE" | "TOPIC">;
+type DisplayTagType = Exclude<TagType, "MODE">;
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { id: string; text: string; isCorrect: boolean };
 
@@ -61,6 +61,7 @@ const TAG_LABELS: Record<DisplayTagType, string> = {
   SYSTEM: "System",
   ROTATION: "Rotation",
   RESOURCE: "Resource",
+  TOPIC: "Topic",
 };
 
 const DEFAULT_OBJECTIVE = "This section summarizes the key takeaway for rapid review.";

@@ -7,37 +7,22 @@ import { useState } from "react";
 
 
 interface TagSelectorProps {
-
   selectedTags: string[];
-
   onChange: (_tags: string[]) => void;
-
   className?: string;
-
   aiSuggestions?: string[];
-
   year?: "Y1" | "Y2" | "Y3" | "Y4" | "Y5"; // Year prop to determine mode and filter options
-
   mode?: "clerkship" | "preclerkship"; // Explicit mode override
-
 }
-
-
 
 type Option = { value: string; label: string };
 
-
-
 type OptionsByCategory = {
-
   rotation: Option[];
-
   resource: Option[];
-
   discipline: Option[];
-
   system: Option[];
-
+  topic?: Option[];
 };
 
 
@@ -238,6 +223,46 @@ const baseFilterOptions: Omit<OptionsByCategory, "rotation"> = {
 
 };
 
+// Topics scoped to rotations (currently General Surgery rotations)
+const topicOptionsByRotation: Record<string, Option[]> = {
+  gs: [
+    { value: "gs_large_bowel_disease", label: "Large bowel disease" },
+    { value: "gs_diabetic_foot_pvd", label: "Diabetic foot and Peripheral Vascular Disease" },
+    { value: "gs_abdominal_wall", label: "Abdominal wall" },
+    { value: "gs_hernias", label: "Hernias" },
+    { value: "gs_breast_disease", label: "Breast disease" },
+    { value: "gs_pre_post_op", label: "Pre-operative & Post-operative" },
+    { value: "gs_thyroid_neck_endocrine", label: "Thyroid, neck, and other endocrine organs" },
+    { value: "gs_spleen_kidney", label: "Spleen and Kidney" },
+    { value: "gs_hepatobiliary_pancreatic", label: "Hepatobiliary and pancreatic disease" },
+    { value: "gs_wound_healing", label: "Wound healing" },
+    { value: "gs_small_bowel", label: "Small Bowel diseases" },
+    { value: "gs_skin_soft_tissue_infection", label: "Skin & Soft tissue infection" },
+    { value: "gs_stomach_esophagus", label: "Stomach and Esophagus" },
+    { value: "gs_ethics_misc", label: "Ethics and Misc." },
+    { value: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma" },
+    { value: "gs_emqs", label: "EMQs" },
+  ],
+  gs2: [
+    { value: "gs_large_bowel_disease", label: "Large bowel disease" },
+    { value: "gs_diabetic_foot_pvd", label: "Diabetic foot and Peripheral Vascular Disease" },
+    { value: "gs_abdominal_wall", label: "Abdominal wall" },
+    { value: "gs_hernias", label: "Hernias" },
+    { value: "gs_breast_disease", label: "Breast disease" },
+    { value: "gs_pre_post_op", label: "Pre-operative & Post-operative" },
+    { value: "gs_thyroid_neck_endocrine", label: "Thyroid, neck, and other endocrine organs" },
+    { value: "gs_spleen_kidney", label: "Spleen and Kidney" },
+    { value: "gs_hepatobiliary_pancreatic", label: "Hepatobiliary and pancreatic disease" },
+    { value: "gs_wound_healing", label: "Wound healing" },
+    { value: "gs_small_bowel", label: "Small Bowel diseases" },
+    { value: "gs_skin_soft_tissue_infection", label: "Skin & Soft tissue infection" },
+    { value: "gs_stomach_esophagus", label: "Stomach and Esophagus" },
+    { value: "gs_ethics_misc", label: "Ethics and Misc." },
+    { value: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma" },
+    { value: "gs_emqs", label: "EMQs" },
+  ],
+};
+
 
 
 type Category = string; // Can be rotation, week, lecture, resource, discipline, or system
@@ -255,6 +280,14 @@ const allOptionsForLookup: Record<string, Option[]> = {
   lecture: lectureOptions,
 
   ...baseFilterOptions,
+
+  topic: Array.from(
+    new Map(
+      Object.values(topicOptionsByRotation)
+        .flat()
+        .map((opt) => [opt.value, opt])
+    ).values()
+  ),
 
 };
 
@@ -382,41 +415,35 @@ export default function TagSelector({ selectedTags, onChange, className = "", ai
 
 
 
-  // Build filterOptions based on mode and year
-
-  const filterOptions: Record<string, Option[]> = isPreclerkship
-
-    ? {
-
-        week: weekOptions,
-
-        lecture: lectureOptions,
-
-        discipline: preclerkshipDisciplineOptions,
-
-        system: year === "Y2" ? year2SystemOptions : year1And3SystemOptions,
-
-        // PreClerkship: No rotation or resource tags
-
-      }
-
-    : {
-
-        rotation: year === "Y5" ? allRotationOptions.Y5 : allRotationOptions.Y4,
-
-        ...baseFilterOptions,
-
-      };
-
-
-
   const safeSelectedTags = Array.isArray(selectedTags) ? selectedTags : [];
-
-
 
   const getSelectedForCategory = (category: Category) =>
 
     safeSelectedTags.filter((tag) => tag.startsWith(`${category}:`)).map((tag) => tag.split(":")[1]);
+
+  const selectedRotations = getSelectedForCategory("rotation");
+  const topicOptions = Array.from(
+    new Map(
+      selectedRotations
+        .flatMap((rot) => topicOptionsByRotation[rot] ?? [])
+        .map((opt) => [opt.value, opt])
+    ).values()
+  );
+
+  // Build filterOptions based on mode and year
+  const filterOptions: Record<string, Option[]> = isPreclerkship
+    ? {
+        week: weekOptions,
+        lecture: lectureOptions,
+        discipline: preclerkshipDisciplineOptions,
+        system: year === "Y2" ? year2SystemOptions : year1And3SystemOptions,
+        // PreClerkship: No rotation or resource tags
+      }
+    : {
+        rotation: year === "Y5" ? allRotationOptions.Y5 : allRotationOptions.Y4,
+        ...baseFilterOptions,
+        topic: topicOptions,
+      };
 
 
 

@@ -15,14 +15,17 @@ export const CATEGORY_TO_TAG_TYPE: Record<TagCategory, TagType> = {
   resource: TagType.RESOURCE,
   discipline: TagType.SUBJECT,
   system: TagType.SYSTEM,
+  topic: TagType.TOPIC,
   mode: TagType.MODE,
+  week: TagType.MODE, // week/lecture are not persisted via TagType; keep compatibility (unused)
+  lecture: TagType.MODE,
 };
 
 export function canonicalizeTagValue(type: TagType, rawValue: string): string {
   const trimmed = rawValue.trim();
   if (!trimmed) return "";
   const category = TAG_TYPE_TO_CATEGORY[type];
-  if (!category || category === "topic") {
+  if (!category) {
     return trimmed;
   }
   return normalizeTagKey(category, trimmed) ?? trimmed;
@@ -30,7 +33,7 @@ export function canonicalizeTagValue(type: TagType, rawValue: string): string {
 
 export function labelForTag(type: TagType, value: string): string {
   const category = TAG_TYPE_TO_CATEGORY[type];
-  if (!category || category === "topic") {
+  if (!category) {
     return value;
   }
   return getTagLabel(category, value) ?? value;
@@ -38,7 +41,7 @@ export function labelForTag(type: TagType, value: string): string {
 
 export function listKeysForType(type: TagType): string[] {
   const category = TAG_TYPE_TO_CATEGORY[type];
-  if (!category || category === "topic") return [];
+  if (!category) return [];
   return TAG_OPTIONS[category].map((option) => option.key);
 }
 
