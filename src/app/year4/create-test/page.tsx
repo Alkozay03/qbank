@@ -283,7 +283,12 @@ export default function CreateTest() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create quiz");
-      router.push(`/year4/quiz/${data.id}`);
+      const target = `/year4/quiz/${data.id}`;
+      try {
+        router.push(target);
+      } catch {
+        window.location.href = target;
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Error creating quiz";
       alert(msg);

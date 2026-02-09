@@ -269,7 +269,13 @@ export default function CreateTest() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create quiz");
-      router.push(`/year5/quiz/${data.id}`);  // Changed from year4 to year5
+      const target = `/year5/quiz/${data.id}`;
+      try {
+        router.push(target);
+      } catch {
+        // Fallback hard navigation if router is blocked by runtime errors/extensions
+        window.location.href = target;
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Error creating quiz";
       alert(msg);
