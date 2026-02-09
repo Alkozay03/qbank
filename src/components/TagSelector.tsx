@@ -17,14 +17,6 @@ interface TagSelectorProps {
 
 type Option = { value: string; label: string };
 
-type OptionsByCategory = {
-  rotation: Option[];
-  resource: Option[];
-  discipline: Option[];
-  system: Option[];
-  topic?: Option[];
-};
-
 
 
 // All rotation options - will be filtered based on year (for clerkship Y4/Y5)
@@ -114,114 +106,6 @@ const lectureOptions: Option[] = [
 ];
 
 
-
-const baseFilterOptions: Omit<OptionsByCategory, "rotation"> = {
-
-  resource: [
-
-    { value: "uworld_s1", label: "UWorld - Step 1" },
-
-    { value: "uworld_s2", label: "UWorld - Step 2" },
-
-    { value: "amboss", label: "Amboss" },
-
-    { value: "beyond", label: "Boards & Beyond" },
-
-    { value: "previouses", label: "Previouses" },
-
-  ],
-
-  discipline: [
-
-    { value: "anatomy", label: "Anatomy" },
-
-    { value: "behavioral", label: "Behavioral Science" },
-
-    { value: "biochem", label: "Biochemistry" },
-
-    { value: "biostat", label: "Biostatistics" },
-
-    { value: "development", label: "Development, Growth, Milestones & Vaccination" },
-
-    { value: "embryology", label: "Embryology" },
-
-    { value: "genetics", label: "Genetics" },
-
-    { value: "histology", label: "Histology" },
-
-    { value: "immunology", label: "Immunology" },
-
-    { value: "micro", label: "Microbiology" },
-
-    { value: "neonatology", label: "Neonatology" },
-
-    { value: "path", label: "Pathology" },
-
-    { value: "pathophys", label: "Pathophysiology" },
-
-    { value: "pharm", label: "Pharmacology" },
-
-    { value: "physio", label: "Physiology" },
-
-  ],
-
-  system: [
-
-    { value: "bio_general", label: "Biochemistry (General Principles)" },
-
-    { value: "gen_general", label: "Genetics (General Principles)" },
-
-    { value: "micro_general", label: "Microbiology (General Principles)" },
-
-    { value: "path_general", label: "Pathology (General Principles)" },
-
-    { value: "pharm_general", label: "Pharmacology (General Principles)" },
-
-    { value: "biostat_epi", label: "Biostatistics & Epidemiology" },
-
-    { value: "poison_env", label: "Poisoning & Environmental Exposure" },
-
-    { value: "psych", label: "Psychiatric / Behavioral & Substance Use Disorder" },
-
-    { value: "social", label: "Social Sciences (Ethics / Legal / Professional)" },
-
-    { value: "misc", label: "Miscellaneous (Multisystem)" },
-
-    { value: "allergy_immuno", label: "Allergy & Immunology" },
-
-    { value: "cardio", label: "Cardiovascular System" },
-
-    { value: "derm", label: "Dermatology" },
-
-    { value: "ent", label: "Ear, Nose & Throat (ENT)" },
-
-    { value: "endocrine", label: "Endocrine, Diabetes & Metabolism" },
-
-    { value: "female_repro", label: "Female Reproductive System & Breast" },
-
-    { value: "gi", label: "Gastrointestinal & Nutrition" },
-
-    { value: "heme_onc", label: "Hematology & Oncology" },
-
-    { value: "id", label: "Infectious Diseases" },
-
-    { value: "male_repro", label: "Male Reproductive System" },
-
-    { value: "neuro", label: "Nervous System" },
-
-    { value: "ophtho", label: "Ophthalmology" },
-
-    { value: "pregnancy", label: "Pregnancy, Childbirth & Puerperium" },
-
-    { value: "pulm", label: "Pulmonary & Critical Care" },
-
-    { value: "renal", label: "Renal, Urinary Systems & Electrolytes" },
-
-    { value: "rheum", label: "Rheumatology / Orthopedics & Sports" },
-
-  ],
-
-};
 
 // Topics scoped to rotations (currently General Surgery rotations)
 const topicOptionsByRotation: Record<string, Option[]> = {
@@ -333,15 +217,9 @@ type Category = string; // Can be rotation, week, lecture, resource, discipline,
 // All options combined for lookup purposes (used in formatTagDisplay)
 
 const allOptionsForLookup: Record<string, Option[]> = {
-
   rotation: [...allRotationOptions.Y4, ...allRotationOptions.Y5],
-
   week: weekOptions,
-
   lecture: lectureOptions,
-
-  ...baseFilterOptions,
-
   topic: Array.from(
     new Map(
       Object.values(topicOptionsByRotation)
@@ -349,7 +227,6 @@ const allOptionsForLookup: Record<string, Option[]> = {
         .map((opt) => [opt.value, opt])
     ).values()
   ),
-
 };
 
 
@@ -502,7 +379,6 @@ export default function TagSelector({ selectedTags, onChange, className = "", ai
       }
     : {
         rotation: year === "Y5" ? allRotationOptions.Y5 : allRotationOptions.Y4,
-        ...baseFilterOptions,
         topic: topicOptions,
       };
 
