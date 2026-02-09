@@ -198,11 +198,19 @@ export default function CreateTest() {
     ).values()
   );
   const allowedTopicKeys = useMemo(() => new Set(topicOptions.map((o) => o.key)), [topicOptions]);
+  const displayTopicOptions = topicOptions.filter((o) => o.key !== "topic_not_selected");
 
   // Keep topic selections in sync with available topics for chosen rotations
   useEffect(() => {
     setSelTopics((prev) => prev.filter((key) => allowedTopicKeys.has(key)));
   }, [allowedTopicKeys]);
+
+  // Auto-include hidden "Not Selected" topic if supported
+  useEffect(() => {
+    if (allowedTopicKeys.has("topic_not_selected") && !selTopics.includes("topic_not_selected")) {
+      setSelTopics((prev) => [...prev, "topic_not_selected"]);
+    }
+  }, [allowedTopicKeys, selTopics]);
 
   // Get count for specific mode
   function getModeCount(modeKey: string): number {
@@ -554,15 +562,15 @@ export default function CreateTest() {
                 title="Topics"
                 disabledAll={!allowTopics || topicOptions.length === 0}
                 withAll
-                onAll={(_checked) => toggleAll(setSelTopics, topicOptions, _checked)}
+                onAll={(_checked) => toggleAll(setSelTopics, displayTopicOptions, _checked)}
               />
               {topicOptions.length === 0 ? (
                 <p className="mt-2 text-sm text-slate-600">
-                  Select General Surgery rotation to see available topics.
+                  Select a rotation that supports topics to see available options.
                 </p>
               ) : (
                 <CheckGrid
-                  list={topicOptions}
+                  list={displayTopicOptions}
                   selected={selTopics}
                   onToggle={(optKey) => toggle(setSelTopics, optKey)}
                   disabled={!allowTopics}

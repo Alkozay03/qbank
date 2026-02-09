@@ -146,6 +146,9 @@ const topicOptions: TagOption[] = [
   { key: "im_infectious_diseases", label: "Infectious Diseases", aliases: ["infectious disease", "id"] },
   { key: "im_neurology", label: "Neurology", aliases: ["neurology"] },
   { key: "im_endocrinology_others", label: "Endocrinology & Others", aliases: ["endocrinology", "endocrine"] },
+
+  // Generic fallback for unclassified topics (per user request)
+  { key: "topic_not_selected", label: "Not Selected", aliases: ["not selected", "unassigned", "unspecified"] },
 ];
 
 const modeOptions: TagOption[] = [

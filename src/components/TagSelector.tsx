@@ -242,6 +242,7 @@ const topicOptionsByRotation: Record<string, Option[]> = {
     { value: "gs_ethics_misc", label: "Ethics and Misc." },
     { value: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma" },
     { value: "gs_emqs", label: "EMQs" },
+    { value: "topic_not_selected", label: "Not Selected" },
   ],
   gs2: [
     { value: "gs_large_bowel_disease", label: "Large bowel disease" },
@@ -260,6 +261,7 @@ const topicOptionsByRotation: Record<string, Option[]> = {
     { value: "gs_ethics_misc", label: "Ethics and Misc." },
     { value: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma" },
     { value: "gs_emqs", label: "EMQs" },
+    { value: "topic_not_selected", label: "Not Selected" },
   ],
   obgyn: [
     { value: "obgyn_antenatal_care_complications", label: "Antenatal Care & Common Complications" },
@@ -277,6 +279,7 @@ const topicOptionsByRotation: Record<string, Option[]> = {
     { value: "obgyn_preterm_labor_prom", label: "Preterm Labor & PROM" },
     { value: "obgyn_hyperemesis_gravidarum", label: "Hyperemesis Gravidarum" },
     { value: "obgyn_miscellaneous", label: "Miscellaneous & Others" },
+    { value: "topic_not_selected", label: "Not Selected" },
   ],
   peds: [
     { value: "peds_development_growth_vaccines", label: "Development, growth, milestones, vaccines" },
@@ -293,6 +296,7 @@ const topicOptionsByRotation: Record<string, Option[]> = {
     { value: "peds_neurology", label: "Neurology" },
     { value: "peds_psychiatry", label: "Psychiatry" },
     { value: "peds_miscellaneous", label: "Miscellaneous" },
+    { value: "topic_not_selected", label: "Not Selected" },
   ],
   im: [
     { value: "im_cardiology", label: "Cardiology" },
@@ -304,6 +308,7 @@ const topicOptionsByRotation: Record<string, Option[]> = {
     { value: "im_infectious_diseases", label: "Infectious Diseases" },
     { value: "im_neurology", label: "Neurology" },
     { value: "im_endocrinology_others", label: "Endocrinology & Others" },
+    { value: "topic_not_selected", label: "Not Selected" },
   ],
   im2: [
     { value: "im_cardiology", label: "Cardiology" },
@@ -315,6 +320,7 @@ const topicOptionsByRotation: Record<string, Option[]> = {
     { value: "im_infectious_diseases", label: "Infectious Diseases" },
     { value: "im_neurology", label: "Neurology" },
     { value: "im_endocrinology_others", label: "Endocrinology & Others" },
+    { value: "topic_not_selected", label: "Not Selected" },
   ],
 };
 

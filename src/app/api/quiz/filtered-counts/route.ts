@@ -35,6 +35,8 @@ export async function POST(req: Request) {
     const discValues = expandTagValues(TagType.SUBJECT, body.disciplineValues ?? []);
     const sysValues = expandTagValues(TagType.SYSTEM, body.systemValues ?? []);
     const topicValues = expandTagValues(TagType.TOPIC, body.topicValues ?? []);
+    const includeTopicNotSelected = topicValues.includes("topic_not_selected");
+    const explicitTopics = topicValues.filter((v) => v !== "topic_not_selected");
     const selectedModes = Array.isArray(body.selectedModes)
       ? body.selectedModes.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
@@ -80,15 +82,27 @@ export async function POST(req: Request) {
         )`
       : null;
 
-    const topicFilter = topicValues.length
-      ? Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qr
-          JOIN "Tag" tr ON tr.id = qr."tagId"
-          WHERE qr."questionId" = scope.id
-            AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
-            AND tr.value IN (${Prisma.join(topicValues.map((value) => Prisma.sql`${value}`))})
-        )`
-      : null;
+    const topicFilter =
+      includeTopicNotSelected || explicitTopics.length
+        ? Prisma.sql`${includeTopicNotSelected
+            ? Prisma.sql`NOT EXISTS (
+                SELECT 1 FROM "QuestionTag" qr
+                JOIN "Tag" tr ON tr.id = qr."tagId"
+                WHERE qr."questionId" = scope.id
+                  AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
+              )`
+            : Prisma.sql`FALSE`}${
+            includeTopicNotSelected && explicitTopics.length ? Prisma.sql` OR ` : Prisma.empty
+          }${explicitTopics.length
+            ? Prisma.sql`EXISTS (
+                SELECT 1 FROM "QuestionTag" qr
+                JOIN "Tag" tr ON tr.id = qr."tagId"
+                WHERE qr."questionId" = scope.id
+                  AND tr.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
+                  AND tr.value IN (${Prisma.join(explicitTopics.map((value) => Prisma.sql`${value}`))})
+              )`
+            : Prisma.empty}`
+        : null;
 
     const modeFilter = selectedModes.length
       ? Prisma.sql`WHERE mode_lookup.mode IN (${Prisma.join(selectedModes.map((value) => Prisma.sql`${value}`))})`
@@ -193,6 +207,16 @@ export async function POST(req: Request) {
           JOIN "QuestionTag" qt ON qt."questionId" = r.id
           JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
           GROUP BY t.value
+        ),
+        topic_missing AS (
+          SELECT 'topic'::text AS section, ${Prisma.sql`'topic_not_selected'`} AS key, COUNT(DISTINCT r.id)::int AS c
+          FROM topic_scope r
+          WHERE NOT EXISTS (
+            SELECT 1 FROM "QuestionTag" qt
+            JOIN "Tag" t ON t.id = qt."tagId"
+            WHERE qt."questionId" = r.id
+              AND t.type = ${Prisma.raw(`'${TagType.TOPIC}'::"TagType"`)}
+          )
         )
         SELECT 'mode' AS section, key, c FROM mode_counts
         UNION ALL
@@ -204,7 +228,9 @@ export async function POST(req: Request) {
         UNION ALL
         SELECT section, key, c FROM system_counts
         UNION ALL
-        SELECT section, key, c FROM topic_counts;
+        SELECT section, key, c FROM topic_counts
+        UNION ALL
+        SELECT section, key, c FROM topic_missing;
       `
     );
 

@@ -5,25 +5,53 @@ import { expandTagValues } from "@/lib/tags/server";
 
 function buildTagFilter(type: TagType, rawValues: string[]): Prisma.QuestionWhereInput | null {
   const variants = expandTagValues(type, rawValues);
-  if (!variants.length) {
-    return null;
+  if (!variants.length) return null;
+
+  const includeNotSelected = type === TagType.TOPIC && variants.includes("topic_not_selected");
+  const explicit = variants
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0 && v !== "topic_not_selected");
+
+  if (type === TagType.TOPIC && includeNotSelected) {
+    const hasExplicit = explicit.length > 0;
+    const explicitClause = hasExplicit
+      ? {
+          QuestionTag: {
+            some: {
+              Tag: {
+                type,
+                value: { in: explicit, mode: "insensitive" as const },
+              },
+            },
+          },
+        }
+      : null;
+
+    return {
+      OR: [
+        ...(explicitClause ? [explicitClause] : []),
+        {
+          NOT: {
+            QuestionTag: {
+              some: {
+                Tag: { type: TagType.TOPIC },
+              },
+            },
+          },
+        },
+      ],
+    };
   }
 
-  const uniqueValues = Array.from(new Set(variants.map((value) => value.trim()).filter(Boolean)));
-  if (!uniqueValues.length) {
-    return null;
-  }
-
-  const orClauses = uniqueValues.map((value) => ({
-    value: { equals: value, mode: "insensitive" as const },
-  }));
+  const uniqueValues = Array.from(new Set(explicit.map((value) => value.trim()).filter(Boolean)));
+  if (!uniqueValues.length) return null;
 
   return {
     QuestionTag: {
       some: {
         Tag: {
           type,
-          ...(orClauses.length ? { OR: orClauses } : {}),
+          value: { in: uniqueValues, mode: "insensitive" as const },
         },
       },
     },
