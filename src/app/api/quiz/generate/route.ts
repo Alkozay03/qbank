@@ -110,13 +110,26 @@ export async function POST(req: Request) {
         take: take ?? 10,
       });
 
+      // If mode filter is too restrictive, retry without it
+      if (ids.length === 0 && types.length > 0) {
+        ids = await selectQuestions({
+          userId,
+          year,
+          rotationKeys,
+          topicValues,
+          types: [],
+          take: take ?? 10,
+        });
+      }
+
+      // If topic filter is too restrictive, retry without it
       if (ids.length === 0 && topicValues.length > 0) {
         ids = await selectQuestions({
           userId,
           year,
           rotationKeys,
           topicValues: [],
-          types,
+          types: [],
           take: take ?? 10,
         });
       }
