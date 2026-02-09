@@ -31,9 +31,6 @@ export async function POST(req: Request) {
 
     // Expand tag values
     const rotValues = expandTagValues(TagType.ROTATION, body.rotationKeys ?? []);
-    const resValues = expandTagValues(TagType.RESOURCE, body.resourceValues ?? []);
-    const discValues = expandTagValues(TagType.SUBJECT, body.disciplineValues ?? []);
-    const sysValues = expandTagValues(TagType.SYSTEM, body.systemValues ?? []);
     const topicValues = expandTagValues(TagType.TOPIC, body.topicValues ?? []);
     const includeTopicNotSelected = topicValues.includes("topic_not_selected");
     const explicitTopics = topicValues.filter((v) => v !== "topic_not_selected");
@@ -49,36 +46,6 @@ export async function POST(req: Request) {
           WHERE qr."questionId" = scope.id
             AND tr.type = ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)}
             AND tr.value IN (${Prisma.join(rotValues.map((value) => Prisma.sql`${value}`))})
-        )`
-      : null;
-
-    const resourceFilter = resValues.length
-      ? Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qr
-          JOIN "Tag" tr ON tr.id = qr."tagId"
-          WHERE qr."questionId" = scope.id
-            AND tr.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
-            AND tr.value IN (${Prisma.join(resValues.map((value) => Prisma.sql`${value}`))})
-        )`
-      : null;
-
-    const disciplineFilter = discValues.length
-      ? Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qr
-          JOIN "Tag" tr ON tr.id = qr."tagId"
-          WHERE qr."questionId" = scope.id
-            AND tr.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
-            AND tr.value IN (${Prisma.join(discValues.map((value) => Prisma.sql`${value}`))})
-        )`
-      : null;
-
-    const systemFilter = sysValues.length
-      ? Prisma.sql`EXISTS (
-          SELECT 1 FROM "QuestionTag" qr
-          JOIN "Tag" tr ON tr.id = qr."tagId"
-          WHERE qr."questionId" = scope.id
-            AND tr.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
-            AND tr.value IN (${Prisma.join(sysValues.map((value) => Prisma.sql`${value}`))})
         )`
       : null;
 
@@ -144,33 +111,12 @@ export async function POST(req: Request) {
           -- Cascade level: mode only (no rotation filter)
           SELECT id FROM mode_filtered
         ),
-        resource_scope AS (
+        topic_scope AS (
           -- Cascade level: mode + rotation selection
           SELECT scope.id
           FROM rotation_scope scope
           WHERE 1=1
           ${rotationFilter ? Prisma.sql`AND ${rotationFilter}` : Prisma.empty}
-        ),
-        discipline_scope AS (
-          -- Cascade level: mode + rotation + resource selection
-          SELECT scope.id
-          FROM resource_scope scope
-          WHERE 1=1
-          ${resourceFilter ? Prisma.sql`AND ${resourceFilter}` : Prisma.empty}
-        ),
-        system_scope AS (
-          -- Cascade level: mode + rotation + resource + discipline selection
-          SELECT scope.id
-          FROM discipline_scope scope
-          WHERE 1=1
-          ${disciplineFilter ? Prisma.sql`AND ${disciplineFilter}` : Prisma.empty}
-          ${systemFilter ? Prisma.sql`AND ${systemFilter}` : Prisma.empty}
-        ),
-        topic_scope AS (
-          -- Cascade level: mode + rotation + resource + discipline + system selection
-          SELECT scope.id
-          FROM system_scope scope
-          WHERE 1=1
           ${topicFilter ? Prisma.sql`AND ${topicFilter}` : Prisma.empty}
         ),
         rotation_counts AS (
@@ -178,27 +124,6 @@ export async function POST(req: Request) {
           FROM rotation_scope r
           JOIN "QuestionTag" qt ON qt."questionId" = r.id
           JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.ROTATION}'::"TagType"`)}
-          GROUP BY t.value
-        ),
-        resource_counts AS (
-          SELECT 'resource'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
-          FROM resource_scope r
-          JOIN "QuestionTag" qt ON qt."questionId" = r.id
-          JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.RESOURCE}'::"TagType"`)}
-          GROUP BY t.value
-        ),
-        discipline_counts AS (
-          SELECT 'discipline'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
-          FROM discipline_scope r
-          JOIN "QuestionTag" qt ON qt."questionId" = r.id
-          JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.SUBJECT}'::"TagType"`)}
-          GROUP BY t.value
-        ),
-        system_counts AS (
-          SELECT 'system'::text AS section, t.value AS key, COUNT(DISTINCT r.id)::int AS c
-          FROM system_scope r
-          JOIN "QuestionTag" qt ON qt."questionId" = r.id
-          JOIN "Tag" t ON t.id = qt."tagId" AND t.type = ${Prisma.raw(`'${TagType.SYSTEM}'::"TagType"`)}
           GROUP BY t.value
         ),
         topic_counts AS (

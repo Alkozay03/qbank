@@ -62,9 +62,6 @@ export async function selectQuestions(opts: {
   userId: string;
   year?: string;
   rotationKeys: string[];
-  resourceValues?: string[];
-  disciplineValues?: string[];
-  systemValues?: string[];
   topicValues?: string[];
   types?: string[];
   take: number;
@@ -72,9 +69,6 @@ export async function selectQuestions(opts: {
   const {
     rotationKeys,
     year,
-    resourceValues = [],
-    disciplineValues = [],
-    systemValues = [],
     topicValues = [],
     types = [],
     take,
@@ -87,21 +81,6 @@ export async function selectQuestions(opts: {
   const rotationFilter = buildTagFilter(TagType.ROTATION, rotationKeys);
   if (rotationFilter) {
     whereClauses.push(rotationFilter);
-  }
-
-  const resourceFilter = buildTagFilter(TagType.RESOURCE, resourceValues);
-  if (resourceFilter) {
-    whereClauses.push(resourceFilter);
-  }
-
-  const disciplineFilter = buildTagFilter(TagType.SUBJECT, disciplineValues);
-  if (disciplineFilter) {
-    whereClauses.push(disciplineFilter);
-  }
-
-  const systemFilter = buildTagFilter(TagType.SYSTEM, systemValues);
-  if (systemFilter) {
-    whereClauses.push(systemFilter);
   }
 
   const topicFilter = buildTagFilter(TagType.TOPIC, topicValues);

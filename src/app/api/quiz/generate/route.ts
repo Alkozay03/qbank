@@ -32,15 +32,6 @@ export async function POST(req: Request) {
     const rotationKeys = Array.isArray(body.rotationKeys)
       ? body.rotationKeys.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
-    const resourceValues = Array.isArray(body.resources)
-      ? body.resources.filter((value): value is string => typeof value === "string" && value.length > 0)
-      : [];
-    const disciplineValues = Array.isArray(body.disciplines)
-      ? body.disciplines.filter((value): value is string => typeof value === "string" && value.length > 0)
-      : [];
-    const systemValues = Array.isArray(body.systems)
-      ? body.systems.filter((value): value is string => typeof value === "string" && value.length > 0)
-      : [];
     const topicValues = Array.isArray(body.topics)
       ? body.topics.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
@@ -117,9 +108,6 @@ export async function POST(req: Request) {
         userId,
         year,
         rotationKeys,
-        resourceValues,
-        disciplineValues,
-        systemValues,
         topicValues,
         types,
         take: take ?? 10,
