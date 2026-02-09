@@ -23,61 +23,6 @@ const rotations: Option[] = [
   { key: "im2", label: "Internal Medicine 2" },
 ];
 
-const resources: Option[] = [
-  { key: "uworld_s1", label: "UWorld - Step 1" },
-  { key: "uworld_s2", label: "UWorld - Step 2" },
-  { key: "amboss", label: "Amboss" },
-  { key: "beyond", label: "Boards & beyond" },
-  { key: "previouses", label: "Previouses" },
-];
-
-const disciplines: Option[] = [
-  { key: "anatomy", label: "Anatomy" },
-  { key: "behavioral", label: "Behavioral science" },
-  { key: "biochem", label: "Biochemistry" },
-  { key: "biostat", label: "Biostatistics" },
-  { key: "development", label: "Development, Growth, Milestones & Vaccines" },
-  { key: "embryology", label: "Embryology" },
-  { key: "genetics", label: "Genetics" },
-  { key: "histology", label: "Histology" },
-  { key: "immunology", label: "Immunology" },
-  { key: "micro", label: "Microbiology" },
-  { key: "neonatology", label: "Neonatology" },
-  { key: "path", label: "Pathology" },
-  { key: "pathophys", label: "Pathophysiology" },
-  { key: "pharm", label: "Pharmacology" },
-  { key: "physio", label: "Physiology" },
-];
-
-const systems: Option[] = [
-  { key: "bio_general", label: "Biochemistry (General Principles)" },
-  { key: "gen_general", label: "Genetics (General Principles)" },
-  { key: "micro_general", label: "Microbiology (General Principles)" },
-  { key: "path_general", label: "Pathology (General Principles)" },
-  { key: "pharm_general", label: "Pharmacology (General Principles)" },
-  { key: "biostat_epi", label: "Biostatistics & Epidemiology" },
-  { key: "poison_env", label: "Poisoning & Environmental Exposure" },
-  { key: "psych", label: "Psychiatric/Behavioral & Substance Use Disorder" },
-  { key: "social", label: "Social Sciences (Ethics/Legal/Professional)" },
-  { key: "misc", label: "Miscellaneous (Multisystem)" },
-  { key: "allergy_immuno", label: "Allergy & Immunology" },
-  { key: "cardio", label: "Cardiovascular System" },
-  { key: "derm", label: "Dermatology" },
-  { key: "ent", label: "Ear, Nose & Throat (ENT)" },
-  { key: "endocrine", label: "Endocrine, Diabetes & Metabolism" },
-  { key: "female_repro", label: "Female Reproductive System & Breast" },
-  { key: "gi", label: "Gastrointestinal & Nutrition" },
-  { key: "heme_onc", label: "Hematology & Oncology" },
-  { key: "id", label: "Infectious Diseases" },
-  { key: "male_repro", label: "Male Reproductive System" },
-  { key: "neuro", label: "Nervous System" },
-  { key: "ophtho", label: "Ophthalmology" },
-  { key: "pregnancy", label: "Pregnancy, Childbirth & Puerperium" },
-  { key: "pulm", label: "Pulmonary & Critical Care" },
-  { key: "renal", label: "Renal, Urinary Systems & Electrolytes" },
-  { key: "rheum", label: "Rheumatology, Orthopedics & Sports" },
-];
-
 const topicsByRotation: Record<string, Option[]> = {
   gs2: [
     { key: "gs_large_bowel_disease", label: "Large bowel disease" },
@@ -133,9 +78,6 @@ export default function CreateTest() {
 
   const [selModes, setSelModes] = useState<string[]>([]);
   const [selRotations, setSelRotations] = useState<string[]>([]);
-  const [selResources, setSelResources] = useState<string[]>([]);
-  const [selDisciplines, setSelDisciplines] = useState<string[]>([]);
-  const [selSystems, setSelSystems] = useState<string[]>([]);
   const [selTopics, setSelTopics] = useState<string[]>([]);
   const [qCount, setQCount] = useState<number>(0);
   const [busy, setBusy] = useState(false);
@@ -149,9 +91,6 @@ export default function CreateTest() {
   }>({ unused: 0, incorrect: 0, correct: 0, omitted: 0, marked: 0, used: 0 });
   const [counts, setCounts] = useState<{
     rotations: Record<string, number>;
-    resources: Record<string, number>;
-    disciplines: Record<string, number>;
-    systems: Record<string, number>;
     topics: Record<string, number>;
   } | null>(null);
 
@@ -160,24 +99,19 @@ export default function CreateTest() {
 
   // Progressive disclosure locks
   const allowRotations = testMode === "review" ? true : selModes.length > 0;
-  const allowResources = testMode === "review" ? false : selRotations.length > 0;
-  const allowDisciplines = testMode === "review" ? false : selResources.length > 0;
-  const allowSystems = testMode === "review" ? false : selDisciplines.length > 0;
-  const allowTopics = testMode === "review" ? selRotations.length > 0 : selSystems.length > 0;
+  const allowTopics = selRotations.length > 0;
 
   // validation
   const valid =
     testMode === "review"
       ? selRotations.length > 0
-      : selDisciplines.length > 0 &&
-        selSystems.length > 0 &&
+      : selRotations.length > 0 &&
         qCount >= 1 &&
         qCount <= 100;
 
   // effective selections
   const effectiveModes = selModes.length ? selModes : ["unused"];
   const effectiveRot = selRotations.length ? selRotations : rotations.map((o) => o.key);
-  const effectiveRes = selResources.length ? selResources : resources.map((o) => o.key);
 
   // toggle helpers
   function toggle(setter: React.Dispatch<React.SetStateAction<string[]>>, key: string) {
@@ -238,29 +172,23 @@ export default function CreateTest() {
             year: "Y5",  // Year 5 specific
             selectedModes: selModes,
             rotationKeys: selRotations,
-            resourceValues: selResources,
-            disciplineValues: selDisciplines,
-            systemValues: selSystems,
             topicValues: selTopics,
           }),
         });
         if (!r.ok) return;
         const j = await r.json();
         // ONLY update tag counts, NOT mode counts (mode counts stay constant)
-        setCounts({
-          rotations: j.tagCounts?.rotations ?? {},
-          resources: j.tagCounts?.resources ?? {},
-          disciplines: j.tagCounts?.disciplines ?? {},
-          systems: j.tagCounts?.systems ?? {},
-          topics: j.tagCounts?.topics ?? {},
-        });
+          setCounts({
+            rotations: j.tagCounts?.rotations ?? {},
+            topics: j.tagCounts?.topics ?? {},
+          });
       } catch {
         // ignore
       }
     }, 500); // Increased from 250ms to 500ms to reduce API call frequency
     return () => { controller.abort(); clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selModes.join(","), selRotations.join(","), selResources.join(","), selDisciplines.join(","), selSystems.join(","), selTopics.join(","), testMode]);
+  }, [selModes.join(","), selRotations.join(","), selTopics.join(","), testMode]);
 
   // Fetch initial mode counts ONCE on mount (and refresh when page becomes visible)
   useEffect(() => {
@@ -275,9 +203,6 @@ export default function CreateTest() {
             year: "Y5",  // Year 5 specific
             selectedModes: [],
             rotationKeys: [], 
-            resourceValues: [], 
-            disciplineValues: [], 
-            systemValues: [],
             topicValues: []
           }),
         });
@@ -287,9 +212,6 @@ export default function CreateTest() {
           setModeCounts(data.modeCounts);
           setCounts({
             rotations: data.tagCounts.rotations ?? {},
-            resources: data.tagCounts.resources ?? {},
-            disciplines: data.tagCounts.disciplines ?? {},
-            systems: data.tagCounts.systems ?? {},
             topics: data.tagCounts.topics ?? {},
           });
           lastFetchTime = Date.now();
@@ -330,9 +252,6 @@ export default function CreateTest() {
           : {
               year: "Y5",  // Changed from Y4 to Y5
               rotationKeys: effectiveRot,       // ["im","gs",...]
-              resources: effectiveRes,          // kept for future use
-              disciplines: selDisciplines,      // kept for future use
-              systems: selSystems,              // kept for future use
               topics: selTopics,                // new topic filter
               count: qCount,
               types: effectiveModes,            // ["unused","incorrect","marked",...]
@@ -485,107 +404,34 @@ export default function CreateTest() {
           )}
         </Card>
 
-        {testMode !== "review" && (
-          <>
-            {/* Resources */}
-            <Card locked={!allowResources}>
-              <HeaderRow
-                title="Resources"
-                withAll
-                disabledAll={!allowResources}
-                onAll={(_checked) => toggleAll(setSelResources, resources, _checked)}
-              />
-              <CheckGrid
-                list={resources}
-                selected={selResources}
-                onToggle={(optKey) => toggle(setSelResources, optKey)}
-                disabled={!allowResources}
-                counts={counts}
-                section="resources"
-              />
-              {!allowResources && (
-                <p className="mt-2 text-sm text-red-600">
-                  Select at least one rotation to choose resources.
-                </p>
-              )}
-            </Card>
-
-            {/* Disciplines */}
-            <Card locked={!allowDisciplines}>
-              <HeaderRow
-                title="Discipline"
-                withAll
-                disabledAll={!allowDisciplines}
-                onAll={(_checked) => toggleAll(setSelDisciplines, disciplines, _checked)}
-              />
-              <CheckGrid
-                list={disciplines}
-                selected={selDisciplines}
-                onToggle={(optKey) => toggle(setSelDisciplines, optKey)}
-                disabled={!allowDisciplines}
-                counts={counts}
-                section="disciplines"
-              />
-              {!allowDisciplines && (
-                <p className="mt-2 text-sm text-red-600">
-                  Select at least one resource to choose disciplines.
-                </p>
-              )}
-            </Card>
-
-            {/* Systems */}
-            <Card locked={!allowSystems}>
-              <HeaderRow
-                title="System"
-                withAll
-                disabledAll={!allowSystems}
-                onAll={(_checked) => toggleAll(setSelSystems, systems, _checked)}
-              />
-              <CheckGrid
-                list={systems}
-                selected={selSystems}
-                onToggle={(optKey) => toggle(setSelSystems, optKey)}
-                disabled={!allowSystems}
-                counts={counts}
-                section="systems"
-              />
-              {!allowSystems && (
-                <p className="mt-2 text-sm text-red-600">
-                  Select at least one discipline to choose systems.
-                </p>
-              )}
-            </Card>
-
-            {/* Topics (rotation-specific, after systems) */}
-            <Card locked={!allowTopics}>
-              <HeaderRow
-                title="Topics"
-                disabledAll={!allowTopics || topicOptions.length === 0}
-                withAll
-                onAll={(_checked) => toggleAll(setSelTopics, displayTopicOptions, _checked)}
-              />
-              {topicOptions.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-600">
-                  Select a rotation that supports topics to see available options.
-                </p>
-              ) : (
-                <CheckGrid
-                  list={displayTopicOptions}
-                  selected={selTopics}
-                  onToggle={(optKey) => toggle(setSelTopics, optKey)}
-                  disabled={!allowTopics}
-                  counts={counts}
-                  section="topics"
-                />
-              )}
-              {!allowTopics && (
-                <p className="mt-2 text-sm text-red-600">
-                  Select at least one system to choose topics.
-                </p>
-              )}
-            </Card>
-          </>
-        )}
+        {/* Topics */}
+        <Card locked={!allowTopics}>
+          <HeaderRow
+            title="Topics"
+            disabledAll={!allowTopics || topicOptions.length === 0}
+            withAll
+            onAll={(_checked) => toggleAll(setSelTopics, displayTopicOptions, _checked)}
+          />
+          {topicOptions.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-600">
+              Select a rotation that supports topics to see available options.
+            </p>
+          ) : (
+            <CheckGrid
+              list={displayTopicOptions}
+              selected={selTopics}
+              onToggle={(optKey) => toggle(setSelTopics, optKey)}
+              disabled={!allowTopics}
+              counts={counts}
+              section="topics"
+            />
+          )}
+          {!allowTopics && (
+            <p className="mt-2 text-sm text-red-600">
+              Select at least one rotation to choose topics.
+            </p>
+          )}
+        </Card>
 
         {/* Count + Create */}
         {testMode === "review" ? (
@@ -709,12 +555,9 @@ function CheckGrid({
   disabled?: boolean;
   counts?: {
     rotations: Record<string, number>;
-    resources: Record<string, number>;
-    disciplines: Record<string, number>;
-    systems: Record<string, number>;
     topics: Record<string, number>;
   } | null;
-  section: "rotations" | "resources" | "disciplines" | "systems" | "topics";
+  section: "rotations" | "topics";
 }) {
   return (
     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
