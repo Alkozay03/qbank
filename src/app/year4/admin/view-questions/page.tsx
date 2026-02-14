@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction, type KeyboardEvent, type ReactNode } from "react";
 
 import { useRouter } from "next/navigation";
 import { getTagLabel, type TagCategory } from "@/lib/tags/catalog";
@@ -121,8 +121,11 @@ type QuestionRow = {
   correctAnswer: string;
 
   rotation: string | null;
+  topic?: string | null;
 
   tags: string[];
+  answers?: { label: string; text: string; isCorrect: boolean; correctOptionIds?: string[] }[];
+  questionType?: string;
 
   createdAt?: string;
   updatedAt: string;
@@ -209,6 +212,10 @@ export default function ViewQuestionsPage() {
 
     setter((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]));
 
+  };
+
+  const toggleAll = (setter: Dispatch<SetStateAction<string[]>>, list: Option[], checked: boolean) => {
+    setter(checked ? list.map((o) => o.key) : []);
   };
 
 
@@ -503,6 +510,7 @@ export default function ViewQuestionsPage() {
               selected={selRotations}
 
               onToggle={(key) => toggle(setSelRotations, key)}
+              onSelectAll={(checked) => toggleAll(setSelRotations, rotations, checked)}
 
             />
 
@@ -515,6 +523,7 @@ export default function ViewQuestionsPage() {
               selected={selTopics}
 
               onToggle={(key) => toggle(setSelTopics, key)}
+              onSelectAll={(checked) => toggleAll(setSelTopics, topicOptions.filter((t) => t.key !== "topic_not_selected"), checked)}
               helper="Topics follow selected rotations; untagged questions are included when 'Not Selected' is present."
 
             />
@@ -627,7 +636,7 @@ export default function ViewQuestionsPage() {
                       .filter((label): label is string => Boolean(label));
 
                     return (
-                      <>
+                      <Fragment key={question.id}>
                         <tr key={question.id} className="border-b border-sky-100 hover:bg-sky-50/50 transition-colors">
 
                           <td className="px-3 py-3 align-top">
@@ -657,10 +666,12 @@ export default function ViewQuestionsPage() {
                                   return next;
                                 })
                               }
-                              className="text-slate-500 hover:text-[#0284c7] transition-colors"
+                              className={`h-8 w-8 flex items-center justify-center rounded-full border transition-all ${
+                                isExpanded ? "border-[#0284c7] bg-[#0284c7]/10 text-[#0284c7]" : "border-slate-300 text-slate-500 hover:border-[#0284c7] hover:text-[#0284c7]"
+                              }`}
                               aria-label="Toggle details"
                             >
-                              {isExpanded ? "v" : ">"}
+                              {isExpanded ? "▼" : "▶"}
                             </button>
                           </td>
 
@@ -740,7 +751,7 @@ export default function ViewQuestionsPage() {
                         {isExpanded && (
                           <tr className="bg-sky-50/40">
                             <td colSpan={8} className="px-12 py-4">
-                              <div className="space-y-2 text-sm text-slate-700">
+                              <div className="space-y-3 text-sm text-slate-700">
                                 <div>
                                   <span className="font-semibold text-[#0284c7]">Question:</span>{" "}
                                   <span>{question.questionText}</span>
@@ -749,6 +760,24 @@ export default function ViewQuestionsPage() {
                                   <span className="font-semibold text-[#0284c7]">Correct Answer:</span>{" "}
                                   <span>{question.correctAnswer}</span>
                                 </div>
+                                {question.answers && question.answers.length > 0 && (
+                                  <div className="space-y-1">
+                                    <div className="font-semibold text-[#0284c7]">Answers</div>
+                                    <div className="grid sm:grid-cols-2 gap-2">
+                                      {question.answers.map((a) => (
+                                        <div
+                                          key={a.label}
+                                          className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${a.isCorrect ? "border-emerald-500 bg-emerald-50" : "border-sky-100 bg-white"}`}
+                                        >
+                                          <span className={`text-xs font-bold ${a.isCorrect ? "text-emerald-700" : "text-slate-600"}`}>
+                                            {a.label}
+                                          </span>
+                                          <span className="text-slate-700">{a.text}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                                 {displayTags.length > 0 && (
                                   <div className="flex flex-wrap gap-2">
                                     {displayTags.map((label) => (
@@ -768,7 +797,7 @@ export default function ViewQuestionsPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
 
@@ -793,13 +822,27 @@ export default function ViewQuestionsPage() {
 
 
 
-function FilterSection({ title, options, selected, onToggle, helper }: { title: string; options: Option[]; selected: string[]; onToggle: (_key: string) => void; helper?: string }) {
+function FilterSection({
+  title,
+  options,
+  selected,
+  onToggle,
+  onSelectAll,
+  helper,
+}: {
+  title: string;
+  options: Option[];
+  selected: string[];
+  onToggle: (_key: string) => void;
+  onSelectAll?: (_checked: boolean) => void;
+  helper?: string;
+}) {
 
   return (
 
     <div>
 
-      <HeaderRow title={title} />
+      <HeaderRow title={title} onSelectAll={onSelectAll} />
 
       {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
 
@@ -813,13 +856,24 @@ function FilterSection({ title, options, selected, onToggle, helper }: { title: 
 
 
 
-function HeaderRow({ title }: { title: string }) {
+function HeaderRow({ title, onSelectAll }: { title: string; onSelectAll?: (_checked: boolean) => void }) {
 
   return (
 
     <div className="flex items-center justify-between">
 
       <div className="text-lg font-semibold text-[#0284c7]">{title}</div>
+
+      {onSelectAll && (
+        <label className="flex items-center gap-2 text-sm text-[#0284c7]">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            onChange={(e) => onSelectAll(e.target.checked)}
+          />
+          Select All
+        </label>
+      )}
 
     </div>
 

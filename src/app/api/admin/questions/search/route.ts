@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const take = Math.min(Math.max(Number(body?.limit) || 50, 1), 200);
+    // Allow full result set; callers can paginate client-side if needed
+    const take: number | undefined = undefined;
 
     const whereFilters: Prisma.QuestionWhereInput[] = [];
 
@@ -307,6 +308,14 @@ export async function POST(request: NextRequest) {
       }
       const tags = Array.from(tagsSet);
 
+      const answers =
+        question.Choice?.map((choice, idx) => ({
+          label: answerLabels[idx] ?? String(idx + 1),
+          text: choice.text ?? "",
+          isCorrect: choice.isCorrect ?? false,
+          correctOptionIds: choice.correctOptionIds ?? [],
+        })) ?? [];
+
       const categoryMap = new Map<string, string>();
       for (const qt of question.QuestionTag) {
         const tag = qt.Tag;
@@ -324,13 +333,12 @@ export async function POST(request: NextRequest) {
         questionType,
         correctAnswer,
         rotation: categoryMap.get("rotation") ?? null,
-        resource: categoryMap.get("resource") ?? null,
-        discipline: categoryMap.get("discipline") ?? null,
-        system: categoryMap.get("system") ?? null,
         updatedAt: question.updatedAt,
         createdAt: question.createdAt,
         tags,
         isAnswerConfirmed: question.isAnswerConfirmed,
+        answers,
+        questionType,
       };
     });
 
