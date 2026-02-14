@@ -1,6 +1,6 @@
 "use client";
 // Force recompile - comment workflow fix
-import { useState, useRef, useCallback, useEffect, KeyboardEvent, ChangeEvent, DragEvent, ClipboardEvent, Suspense } from "react";
+import { useState, useRef, useCallback, useEffect, KeyboardEvent, ChangeEvent, DragEvent, ClipboardEvent, Suspense, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import RichTextEditor from "@/components/RichTextEditor";
 import TagSelector from "@/components/TagSelector";
@@ -244,6 +244,8 @@ const TAG_TYPE_TO_CATEGORY: Record<string, string> = {
   TOPIC: 'topic',
 };
 
+const toHTML = (s?: string | null) => (s ?? "").replace(/\n/g, "<br/>");
+
 interface MultipleReferencesEditorProps {
   references: string;
   onChange: (_references: string) => void;
@@ -358,8 +360,9 @@ function BulkQuestionManagerContent() {
     questions: [],
     editingIndex: null
   });
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  const openQuestionForEditing = useCallback((question: ExtractedQuestion) => {
+  const openQuestionForEditing = useCallback((question: ExtractedQuestion, opts?: { activateEditor?: boolean }) => {
     const normalizedTags = normalizeTagValues(question.tags);
     const normalisedOccurrences = normalizeOccurrencesForState(question.occurrences);
     const normalisedQuestion: ExtractedQuestion = {
@@ -373,7 +376,12 @@ function BulkQuestionManagerContent() {
       const nextQuestions = existingIndex > -1
         ? prev.questions.map((q, idx) => (idx === existingIndex ? normalisedQuestion : q))
         : [normalisedQuestion, ...prev.questions];
-      const nextEditingIndex = existingIndex > -1 ? existingIndex : 0;
+      const nextEditingIndex =
+        opts?.activateEditor === false
+          ? prev.editingIndex
+          : existingIndex > -1
+            ? existingIndex
+            : 0;
       const nextStatus = prev.status === 'idle' ? 'ready' : prev.status;
       return {
         ...prev,
@@ -465,7 +473,7 @@ function BulkQuestionManagerContent() {
     }
   }, [createEmptyQuestion, openQuestionForEditing]);
 
-  const fetchExistingQuestion = useCallback(async (rawId: string) => {
+  const fetchExistingQuestion = useCallback(async (rawId: string, opts?: { activateEditor?: boolean }) => {
     const trimmed = rawId.trim();
     if (!trimmed) {
       setSearchStatus('error');
@@ -572,7 +580,7 @@ function BulkQuestionManagerContent() {
         source: 'existing',
       };
 
-      openQuestionForEditing(normalizedQuestion);
+      openQuestionForEditing(normalizedQuestion, opts);
       lastFetchedQuestionId.current = trimmed;
       fetchedIds.current.add(trimmed);
       setSearchStatus('success');
@@ -585,7 +593,7 @@ function BulkQuestionManagerContent() {
   }, [openQuestionForEditing]);
 
   const handleSearchExistingQuestion = useCallback(async () => {
-    await fetchExistingQuestion(searchInput);
+    await fetchExistingQuestion(searchInput, { activateEditor: true });
   }, [fetchExistingQuestion, searchInput]);
 
   const handleSearchInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
@@ -613,7 +621,7 @@ function BulkQuestionManagerContent() {
 
     parsedIds.forEach((id) => {
       if (!fetchedIds.current.has(id)) {
-        fetchExistingQuestion(id);
+        fetchExistingQuestion(id, { activateEditor: false });
       }
     });
 
@@ -1221,7 +1229,7 @@ ${formattedList}`);
                 <tbody>
                   {state.questions.map((question, index) => (
                     <tr key={question.id} className="border-b border-sky-100 hover:bg-sky-50 transition-colors duration-200">
-                      <td className="px-4 py-3 text-sm font-medium text-[#0ea5e9]">{index + 1}</td>
+                     <td className="px-4 py-3 text-sm font-medium text-[#0ea5e9]">{index + 1}</td>
                       <td className="px-4 py-3 text-sm text-slate-800 max-w-xs">
                         {(() => {
                           const isEMQ = question.questionType === 'EMQ' || 
@@ -1234,9 +1242,19 @@ ${formattedList}`);
                             : displayText;
                           
                           return (
-                            <div className="truncate" title={displayText}>
-                              {isEMQ && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mr-2">EMQ</span>}
-                              {previewText}
+                            <div className="flex items-start gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditQuestion(index)}
+                                className="h-8 w-8 flex items-center justify-center rounded-full border border-slate-300 text-slate-500 hover:border-[#0284c7] hover:text-[#0284c7] transition-colors"
+                                title="Expand details"
+                              >
+                                ▶
+                              </button>
+                              <div className="truncate" title={displayText}>
+                                {isEMQ && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mr-2">EMQ</span>}
+                                {previewText}
+                              </div>
                             </div>
                           );
                         })()}
@@ -1394,6 +1412,22 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
   const occurrences = Array.isArray(editedQuestion.occurrences) ? editedQuestion.occurrences : [];
   // Filter out Y4/Y5 internal categorization from display - year buttons already show this
   const displayOccurrences = occurrences.filter(occ => !occ?.year?.match(/^Y[45]$/i));
+  // Anchor selection state
+  const [pendingAnchor, setPendingAnchor] = useState<{
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null>(null);
+  const [selectionAnchor, setSelectionAnchor] = useState<{
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null>(null);
+  const [showSelectionBubble, setShowSelectionBubble] = useState(false);
+  const [bubblePos, setBubblePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const highlightOverlaysRef = useRef<HTMLDivElement[]>([]);
 
   const getImageFileFromDataTransfer = useCallback((data: DataTransfer | null) => {
     if (!data) return null;
@@ -1413,6 +1447,119 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
 
     return null;
   }, []);
+
+  const clearCommentHighlight = useCallback(() => {
+    highlightOverlaysRef.current.forEach((el) => el.remove());
+    highlightOverlaysRef.current = [];
+    document.removeEventListener("click", clearCommentHighlight as any, { capture: true } as any);
+  }, []);
+
+  const highlightRangeWithOverlay = useCallback((range: Range) => {
+    clearCommentHighlight();
+    const rects = Array.from(range.getClientRects());
+    rects.forEach((rect) => {
+      const overlay = document.createElement("div");
+      overlay.style.position = "absolute";
+      overlay.style.left = `${rect.left + window.scrollX}px`;
+      overlay.style.top = `${rect.top + window.scrollY}px`;
+      overlay.style.width = `${rect.width}px`;
+      overlay.style.height = `${rect.height}px`;
+      overlay.style.background = "rgba(14, 165, 233, 0.25)";
+      overlay.style.borderRadius = "4px";
+      overlay.style.pointerEvents = "none";
+      overlay.style.zIndex = "2000";
+      document.body.appendChild(overlay);
+      highlightOverlaysRef.current.push(overlay);
+    });
+    setTimeout(() => {
+      document.addEventListener("click", clearCommentHighlight as any, { capture: true } as any);
+    }, 0);
+  }, [clearCommentHighlight]);
+
+  const buildRangeFromOffsets = useCallback((container: HTMLElement, start: number, end: number) => {
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+    let current = walker.nextNode();
+    let acc = 0;
+    let startNode: Node | null = null;
+    let endNode: Node | null = null;
+    let startOffset = 0;
+    let endOffset = 0;
+    while (current) {
+      const len = current.textContent?.length ?? 0;
+      if (!startNode && acc + len >= start) {
+        startNode = current;
+        startOffset = start - acc;
+      }
+      if (!endNode && acc + len >= end) {
+        endNode = current;
+        endOffset = end - acc;
+        break;
+      }
+      acc += len;
+      current = walker.nextNode();
+    }
+    if (!startNode || !endNode) return null;
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    return range;
+  }, []);
+
+  const focusAnchor = useCallback((anchor: { selectableId: string; start: number; end: number; snippet: string }) => {
+    const target = document.querySelector<HTMLElement>(`[data-selectable-id=\"${anchor.selectableId}\"]`);
+    if (!target) return;
+    const range = buildRangeFromOffsets(target, anchor.start, anchor.end);
+    if (!range) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    highlightRangeWithOverlay(range);
+  }, [buildRangeFromOffsets, highlightRangeWithOverlay]);
+
+  const handleSelectionCapture = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) {
+      setShowSelectionBubble(false);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const containerNode = range.commonAncestorContainer;
+    const el =
+      containerNode instanceof HTMLElement
+        ? containerNode.closest("[data-selectable-id]")
+        : containerNode.parentElement?.closest("[data-selectable-id]");
+    if (!el || !(el instanceof HTMLElement) || !el.dataset.selectableId) {
+      setShowSelectionBubble(false);
+      return;
+    }
+    const selectableId = el.dataset.selectableId;
+    const textContent = el.textContent ?? "";
+    if (!textContent.trim()) {
+      setShowSelectionBubble(false);
+      return;
+    }
+    const rangeBefore = document.createRange();
+    rangeBefore.selectNodeContents(el);
+    rangeBefore.setEnd(range.startContainer, range.startOffset);
+    const start = rangeBefore.toString().length;
+
+    const rangeBeforeEnd = document.createRange();
+    rangeBeforeEnd.selectNodeContents(el);
+    rangeBeforeEnd.setEnd(range.endContainer, range.endOffset);
+    const end = rangeBeforeEnd.toString().length;
+
+    const snippet = sel.toString().trim().slice(0, 400);
+    if (!snippet) {
+      setShowSelectionBubble(false);
+      return;
+    }
+
+    const rect = range.getBoundingClientRect();
+    setBubblePos({ x: rect.left + rect.width / 2 + window.scrollX, y: rect.top + window.scrollY - 8 });
+    setPendingAnchor({ selectableId, start, end, snippet });
+    setShowSelectionBubble(true);
+  }, []);
+
+  useEffect(() => () => clearCommentHighlight(), [clearCommentHighlight]);
 
   useEffect(() => {
     setEditedQuestion({
@@ -2859,16 +3006,155 @@ function QuestionEditModal({ question, questionIndex, onSave, onClose }: Questio
                   </div>
                 </div>
                 
-                <AdminQuestionComments key={stableQuestionId} questionId={stableQuestionId} />
+                {/* Anchorable preview (all text except tags) */}
+                <div
+                  className="mb-4 rounded-2xl border border-sky-200 bg-white p-4 shadow-sm"
+                  onMouseUpCapture={handleSelectionCapture}
+                  onTouchEnd={handleSelectionCapture}
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="text-base font-semibold text-sky-700">Rendered Preview (select text to anchor)</h4>
+                    <span className="text-[11px] text-slate-500">Anchors work on text; tags are excluded.</span>
+                  </div>
+                  <div className="space-y-3 text-sm leading-relaxed text-slate-800">
+                    <div>
+                      <div className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-1">Stem</div>
+                      <div
+                        data-selectable-id="stem"
+                        className="rounded-lg border border-sky-100 bg-sky-50/50 p-2"
+                        dangerouslySetInnerHTML={{ __html: toHTML(editedQuestion.questionText) || "<em>No stem</em>" }}
+                      />
+                    </div>
+                    {editedQuestion.questionType !== "EMQ" && (
+                      <div>
+                        <div className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-1">Options</div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {[
+                            { label: "A", text: editedQuestion.optionA },
+                            { label: "B", text: editedQuestion.optionB },
+                            { label: "C", text: editedQuestion.optionC },
+                            { label: "D", text: editedQuestion.optionD },
+                            { label: "E", text: editedQuestion.optionE },
+                          ]
+                            .filter((opt) => opt.text && opt.text.trim().length)
+                            .map((opt) => (
+                              <div
+                                key={opt.label}
+                                data-selectable-id={`option-${opt.label}`}
+                                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+                                dangerouslySetInnerHTML={{ __html: toHTML(opt.text) }}
+                              />
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    {editedQuestion.questionType === "EMQ" && (
+                      <>
+                        <div>
+                          <div className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-1">EMQ Theme</div>
+                          <div
+                            data-selectable-id="emq-theme"
+                            className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+                            dangerouslySetInnerHTML={{ __html: toHTML(editedQuestion.emqTheme || editedQuestion.questionText) }}
+                          />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-1">EMQ Options</div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {(editedQuestion.emqOptions ?? []).map((opt, idx) => (
+                              <div
+                                key={opt.id || idx}
+                                data-selectable-id={`emq-option-${opt.id ?? idx}`}
+                                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+                                dangerouslySetInnerHTML={{ __html: toHTML(opt.text) }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-1">EMQ Stems</div>
+                          <div className="space-y-2">
+                            {(editedQuestion.emqStems ?? []).map((stem, idx) => (
+                              <div
+                                key={stem.id || idx}
+                                data-selectable-id={`emq-stem-${stem.id ?? idx}`}
+                                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+                                dangerouslySetInnerHTML={{ __html: toHTML(stem.text) }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <div className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-1">Explanation</div>
+                      <div
+                        data-selectable-id="explanation"
+                        className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+                        dangerouslySetInnerHTML={{ __html: toHTML(editedQuestion.explanation) || "<em>No explanation</em>" }}
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-1">Educational Objective</div>
+                      <div
+                        data-selectable-id="objective"
+                        className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+                        dangerouslySetInnerHTML={{ __html: toHTML(editedQuestion.educationalObjective) || "<em>No objective</em>" }}
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-1">References</div>
+                      <div
+                        data-selectable-id="references"
+                        className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5"
+                        dangerouslySetInnerHTML={{ __html: toHTML(editedQuestion.references) || "<em>No references</em>" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <AdminQuestionComments
+                  key={stableQuestionId}
+                  questionId={stableQuestionId}
+                  selectionAnchor={selectionAnchor}
+                  onAnchorConsumed={() => setSelectionAnchor(null)}
+                  onAnchorFocus={focusAnchor}
+                />
               </>
             ) : stableQuestionId ? (
               /* Has ID but not marked as saved (editing existing) */
-              <AdminQuestionComments key={stableQuestionId} questionId={stableQuestionId} />
+              <AdminQuestionComments
+                key={stableQuestionId}
+                questionId={stableQuestionId}
+                selectionAnchor={selectionAnchor}
+                onAnchorConsumed={() => setSelectionAnchor(null)}
+                onAnchorFocus={focusAnchor}
+              />
             ) : null}
           </div>
 
           {saveError && (
             <p className="text-sm text-red-600">{saveError}</p>
+          )}
+
+          {showSelectionBubble && (
+            <div
+              className="fixed z-[3000]"
+              style={{ left: bubblePos.x, top: bubblePos.y, transform: "translate(-50%, -100%)" }}
+            >
+              <button
+                type="button"
+                className="rounded-full bg-white px-3 py-1 text-xs font-semibold shadow-md border border-sky-200 text-sky-700"
+                onClick={() => {
+                  setShowSelectionBubble(false);
+                  if (pendingAnchor) {
+                    setSelectionAnchor(pendingAnchor);
+                  }
+                }}
+              >
+                Attach to comments
+              </button>
+            </div>
           )}
 
           {/* Action Buttons */}

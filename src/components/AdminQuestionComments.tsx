@@ -20,13 +20,25 @@ export type AdminQuestionComment = {
   replyCount?: number;
   hasVoted?: boolean;
   replies?: AdminQuestionComment[];
+  anchorSelectableId?: string | null;
+  anchorStart?: number | null;
+  anchorEnd?: number | null;
+  anchorSnippet?: string | null;
 };
 
 interface Props {
   questionId: string;
+  selectionAnchor?: {
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null;
+  onAnchorConsumed?: () => void;
+  onAnchorFocus?: (anchor: { selectableId: string; start: number; end: number; snippet: string }) => void;
 }
 
-export default function AdminQuestionComments({ questionId }: Props) {
+export default function AdminQuestionComments({ questionId, selectionAnchor, onAnchorConsumed, onAnchorFocus }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [comments, setComments] = useState<AdminQuestionComment[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +68,18 @@ export default function AdminQuestionComments({ questionId }: Props) {
   const [isReplyUploading, setIsReplyUploading] = useState(false);
   const [isReplySubmitting, setIsReplySubmitting] = useState(false);
   const replyFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [attachedAnchor, setAttachedAnchor] = useState<{
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null>(null);
+  const [replyAttachedAnchor, setReplyAttachedAnchor] = useState<{
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null>(null);
 
   const absoluteFormatter = useMemo(
     () =>
@@ -158,6 +182,10 @@ export default function AdminQuestionComments({ questionId }: Props) {
             upvoteCount: comment.upvoteCount ?? 0,
             replyCount: comment.replyCount ?? 0,
             hasVoted: comment.hasVoted ?? false,
+            anchorSelectableId: comment.anchorSelectableId ?? null,
+            anchorStart: comment.anchorStart ?? null,
+            anchorEnd: comment.anchorEnd ?? null,
+            anchorSnippet: comment.anchorSnippet ?? null,
           }))
         : [];
       setComments(items);
@@ -173,6 +201,17 @@ export default function AdminQuestionComments({ questionId }: Props) {
       /* handled in loadComments */
     });
   }, [loadComments]);
+
+  // Bring in selection anchor from parent (top-level or reply)
+  useEffect(() => {
+    if (!selectionAnchor) return;
+    if (replyingTo) {
+      setReplyAttachedAnchor(selectionAnchor);
+    } else {
+      setAttachedAnchor(selectionAnchor);
+    }
+    onAnchorConsumed?.();
+  }, [selectionAnchor, onAnchorConsumed, replyingTo]);
 
   useEffect(() => {
     if (!previewImageUrl) return;
@@ -284,6 +323,10 @@ export default function AdminQuestionComments({ questionId }: Props) {
           imageUrl: draftImageUrl,
           authorName: draftName.trim() || "Admin Team",
           origin: "editor",
+          anchorSelectableId: attachedAnchor?.selectableId ?? null,
+          anchorStart: attachedAnchor?.start ?? null,
+          anchorEnd: attachedAnchor?.end ?? null,
+          anchorSnippet: attachedAnchor?.snippet ?? null,
         }),
       });
 
@@ -300,11 +343,16 @@ export default function AdminQuestionComments({ questionId }: Props) {
         ...payload.comment,
         authorName: payload.comment.authorName ?? fallbackAuthorName,
         origin: payload.comment.origin ?? "editor",
+        anchorSelectableId: payload.comment.anchorSelectableId ?? attachedAnchor?.selectableId ?? null,
+        anchorStart: payload.comment.anchorStart ?? attachedAnchor?.start ?? null,
+        anchorEnd: payload.comment.anchorEnd ?? attachedAnchor?.end ?? null,
+        anchorSnippet: payload.comment.anchorSnippet ?? attachedAnchor?.snippet ?? null,
       };
 
       setComments((prev) => [saved, ...prev]);
       setDraftBody("");
       setDraftImageUrl(null);
+      setAttachedAnchor(null);
     } catch (err) {
       setDraftError(err instanceof Error && err.message ? err.message : "Unable to post comment");
     } finally {
@@ -474,6 +522,10 @@ export default function AdminQuestionComments({ questionId }: Props) {
         ...payload.comment,
         authorName: payload.comment.authorName ?? "Admin Team",
         origin: "editor",
+        anchorSelectableId: payload.comment.anchorSelectableId ?? replyAttachedAnchor?.selectableId ?? null,
+        anchorStart: payload.comment.anchorStart ?? replyAttachedAnchor?.start ?? null,
+        anchorEnd: payload.comment.anchorEnd ?? replyAttachedAnchor?.end ?? null,
+        anchorSnippet: payload.comment.anchorSnippet ?? replyAttachedAnchor?.snippet ?? null,
       };
 
       setComments((prev) =>
@@ -495,12 +547,13 @@ export default function AdminQuestionComments({ questionId }: Props) {
       });
 
       cancelReply();
+      setReplyAttachedAnchor(null);
     } catch (err) {
       setReplyError(err instanceof Error && err.message ? err.message : "Unable to post reply");
     } finally {
       setIsReplySubmitting(false);
     }
-  }, [replyingTo, replyDraftBody, replyDraftImageUrl, replyDraftName, questionId, cancelReply]);
+  }, [replyingTo, replyDraftBody, replyDraftImageUrl, replyDraftName, questionId, cancelReply, replyAttachedAnchor]);
 
   const commentCount = comments.length;
   const uploadLimitMb = Math.round(COMMENT_IMAGE_MAX_BYTES / (1024 * 1024));
@@ -621,6 +674,31 @@ export default function AdminQuestionComments({ questionId }: Props) {
                 ) : null}
               </div>
 
+              {comment.anchorSnippet ? (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (comment.anchorSelectableId && typeof comment.anchorStart === "number" && typeof comment.anchorEnd === "number") {
+                        onAnchorFocus?.({
+                          selectableId: comment.anchorSelectableId,
+                          start: comment.anchorStart,
+                          end: comment.anchorEnd ?? comment.anchorStart + comment.anchorSnippet.length,
+                          snippet: comment.anchorSnippet
+                        });
+                      }
+                    }}
+                    className="rounded-full border px-3 py-1 font-semibold transition"
+                    style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', backgroundColor: 'rgba(var(--color-primary-rgb,14,165,233),0.08)' }}
+                  >
+                    View referenced text
+                  </button>
+                  <span className="line-clamp-2 text-neutral-600" style={{ maxWidth: '260px' }}>
+                    “{comment.anchorSnippet}”
+                  </span>
+                </div>
+              ) : null}
+
               {comment.body ? (
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-neutral-900">
                   {comment.body}
@@ -704,6 +782,21 @@ export default function AdminQuestionComments({ questionId }: Props) {
                       className="w-full rounded-lg border border-[#E6F0F7] px-2 py-1.5 text-xs"
                       placeholder="Write your reply..."
                     />
+                    {replyAttachedAnchor ? (
+                      <div className="mt-2 rounded-lg border border-dashed border-[#2F6F8F] bg-sky-50/60 px-2.5 py-1.5 text-[11px] text-[#0f172a]">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-[#0284c7]">Attached selection</span>
+                          <button
+                            type="button"
+                            className="text-[10px] font-semibold text-red-600"
+                            onClick={() => setReplyAttachedAnchor(null)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <p className="mt-1 line-clamp-3">{replyAttachedAnchor.snippet}</p>
+                      </div>
+                    ) : null}
                     {replyDraftImageUrl && (
                       <div className="mt-2 flex items-center gap-2 text-xs text-[#2F6F8F]">
                         <span>Image attached</span>
@@ -817,6 +910,34 @@ export default function AdminQuestionComments({ questionId }: Props) {
                             </button>
                           )}
                         </div>
+                        {reply.anchorSnippet ? (
+                          <div className="mt-1 flex items-center gap-2 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (reply.anchorSelectableId && typeof reply.anchorStart === "number" && typeof reply.anchorEnd === "number") {
+                                  onAnchorFocus?.({
+                                    selectableId: reply.anchorSelectableId,
+                                    start: reply.anchorStart,
+                                    end: reply.anchorEnd ?? reply.anchorStart + reply.anchorSnippet.length,
+                                    snippet: reply.anchorSnippet
+                                  });
+                                }
+                              }}
+                              className="rounded-full border px-2.5 py-0.5 font-semibold transition"
+                              style={{
+                                borderColor: 'var(--color-primary)',
+                                color: 'var(--color-primary)',
+                                backgroundColor: 'rgba(var(--color-primary-rgb,14,165,233),0.08)'
+                              }}
+                            >
+                              View referenced text
+                            </button>
+                            <span className="line-clamp-2 text-neutral-600" style={{ maxWidth: '240px' }}>
+                              “{reply.anchorSnippet}”
+                            </span>
+                          </div>
+                        ) : null}
                         {reply.body && (
                           <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-neutral-900">
                             {reply.body}
@@ -886,6 +1007,22 @@ export default function AdminQuestionComments({ questionId }: Props) {
             />
           </div>
         </div>
+
+        {attachedAnchor ? (
+          <div className="mt-3 rounded-xl border border-dashed border-[#2F6F8F] bg-[#F3F9FC] px-3 py-2 text-xs text-[#0f172a]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold text-[#0284c7]">Attached selection</span>
+              <button
+                type="button"
+                className="text-[11px] font-semibold text-red-600"
+                onClick={() => setAttachedAnchor(null)}
+              >
+                Remove
+              </button>
+            </div>
+            <p className="mt-1 line-clamp-3">{attachedAnchor.snippet}</p>
+          </div>
+        ) : null}
 
         {draftImageUrl ? (
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#BFD7E6] bg-white/70 p-3 text-sm text-[#2F6F8F]">

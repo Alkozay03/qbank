@@ -78,6 +78,12 @@ export default function QuestionDiscussion({ questionId, selectionAnchor, onAnch
   const [isReplyUploading, setIsReplyUploading] = useState(false);
   const [isReplySubmitting, setIsReplySubmitting] = useState(false);
   const replyFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [replyAttachedAnchor, setReplyAttachedAnchor] = useState<{
+    selectableId: string;
+    start: number;
+    end: number;
+    snippet: string;
+  } | null>(null);
   const [attachedAnchor, setAttachedAnchor] = useState<{
     selectableId: string;
     start: number;
@@ -236,13 +242,17 @@ export default function QuestionDiscussion({ questionId, selectionAnchor, onAnch
 
   useEffect(() => {
     if (!selectionAnchor) return;
-    setAttachedAnchor(selectionAnchor);
+    if (replyingTo) {
+      setReplyAttachedAnchor(selectionAnchor);
+    } else {
+      setAttachedAnchor(selectionAnchor);
+      setTimeout(() => {
+        const el = document.getElementById("comment-composer");
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+    }
     onAnchorConsumed?.();
-    setTimeout(() => {
-      const el = document.getElementById("comment-composer");
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
-  }, [selectionAnchor, onAnchorConsumed]);
+  }, [selectionAnchor, onAnchorConsumed, replyingTo]);
 
   const triggerUpload = useCallback(() => {
     fileInputRef.current?.click();
@@ -541,6 +551,10 @@ export default function QuestionDiscussion({ questionId, selectionAnchor, onAnch
           imageUrl: replyDraftImageUrl || "",
           authorName: replyDraftName.trim() || "Study Partner",
           parentId: replyingTo,
+          anchorSelectableId: replyAttachedAnchor?.selectableId ?? null,
+          anchorStart: replyAttachedAnchor?.start ?? null,
+          anchorEnd: replyAttachedAnchor?.end ?? null,
+          anchorSnippet: replyAttachedAnchor?.snippet ?? null,
         }),
       });
 
@@ -557,6 +571,10 @@ export default function QuestionDiscussion({ questionId, selectionAnchor, onAnch
         ...payload.comment,
         authorName: payload.comment.authorName ?? "Study Partner",
         origin: payload.comment.origin ?? "runner",
+        anchorSelectableId: payload.comment.anchorSelectableId ?? replyAttachedAnchor?.selectableId ?? null,
+        anchorStart: payload.comment.anchorStart ?? replyAttachedAnchor?.start ?? null,
+        anchorEnd: payload.comment.anchorEnd ?? replyAttachedAnchor?.end ?? null,
+        anchorSnippet: payload.comment.anchorSnippet ?? replyAttachedAnchor?.snippet ?? null,
       };
 
       // Add reply to parent comment
@@ -580,12 +598,13 @@ export default function QuestionDiscussion({ questionId, selectionAnchor, onAnch
       });
 
       cancelReply();
+      setReplyAttachedAnchor(null);
     } catch (err) {
       setReplyError(err instanceof Error && err.message ? err.message : "Unable to post reply");
     } finally {
       setIsReplySubmitting(false);
     }
-  }, [replyingTo, replyDraftBody, replyDraftImageUrl, replyDraftName, questionId, cancelReply]);
+  }, [replyingTo, replyDraftBody, replyDraftImageUrl, replyDraftName, questionId, cancelReply, replyAttachedAnchor]);
 
   const commentCount = comments.length;
   const uploadLimitMb = Math.round(COMMENT_IMAGE_MAX_BYTES / (1024 * 1024));
@@ -935,6 +954,28 @@ export default function QuestionDiscussion({ questionId, selectionAnchor, onAnch
                       }}
                       placeholder="Write your reply..."
                     />
+                    {replyAttachedAnchor ? (
+                      <div
+                        className="mt-2 rounded-lg border border-dashed px-2.5 py-1.5 text-[11px]"
+                        style={{
+                          borderColor: 'var(--color-primary)',
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(var(--color-primary-rgb,14,165,233),0.08)',
+                          color: isDark ? '#e5e7eb' : '#0f172a'
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold" style={{ color: 'var(--color-primary)' }}>Attached selection</span>
+                          <button
+                            type="button"
+                            className="text-[10px] font-semibold text-red-600"
+                            onClick={() => setReplyAttachedAnchor(null)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <p className="mt-1 line-clamp-3">{replyAttachedAnchor.snippet}</p>
+                      </div>
+                    ) : null}
                     {replyDraftImageUrl && (
                       <div className="mt-2 flex items-center gap-2 text-xs">
                         <span style={{ color: 'var(--color-primary)' }}>Image attached</span>
@@ -1064,6 +1105,34 @@ export default function QuestionDiscussion({ questionId, selectionAnchor, onAnch
                             </button>
                           )}
                         </div>
+                        {reply.anchorSnippet ? (
+                          <div className="mt-1 flex items-center gap-2 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (reply.anchorSelectableId && typeof reply.anchorStart === "number" && typeof reply.anchorEnd === "number") {
+                                  onAnchorFocus?.({
+                                    selectableId: reply.anchorSelectableId,
+                                    start: reply.anchorStart,
+                                    end: reply.anchorEnd ?? reply.anchorStart + reply.anchorSnippet.length,
+                                    snippet: reply.anchorSnippet
+                                  });
+                                }
+                              }}
+                              className="rounded-full border px-2.5 py-0.5 font-semibold transition"
+                              style={{
+                                borderColor: 'var(--color-primary)',
+                                color: 'var(--color-primary)',
+                                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(var(--color-primary-rgb,14,165,233),0.08)'
+                              }}
+                            >
+                              View referenced text
+                            </button>
+                            <span className="line-clamp-2 text-neutral-600" style={{ maxWidth: '240px' }}>
+                              “{reply.anchorSnippet}”
+                            </span>
+                          </div>
+                        ) : null}
                         {reply.body && (
                           <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed" style={{ color: isDark ? '#d1d5db' : 'var(--color-primary)', opacity: 0.8 }}>
                             {reply.body}
