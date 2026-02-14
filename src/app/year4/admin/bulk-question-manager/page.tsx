@@ -326,6 +326,7 @@ function BulkQuestionManagerContent() {
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastFetchedQuestionId = useRef<string | null>(null);
+  const fetchedIds = useRef<Set<string>>(new Set());
 
   const [searchInput, setSearchInput] = useState("");
   const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
@@ -471,6 +472,11 @@ function BulkQuestionManagerContent() {
       setSearchMessage('Enter a question ID to search.');
       return;
     }
+    if (fetchedIds.current.has(trimmed)) {
+      setSearchStatus('success');
+      setSearchMessage(`Question ${trimmed} already loaded.`);
+      return;
+    }
 
     setSearchStatus('loading');
     setSearchMessage('Searching for question...');
@@ -568,6 +574,7 @@ function BulkQuestionManagerContent() {
 
       openQuestionForEditing(normalizedQuestion);
       lastFetchedQuestionId.current = trimmed;
+      fetchedIds.current.add(trimmed);
       setSearchStatus('success');
       setSearchMessage(`Question ${trimmed} ready for editing.`);
     } catch (error) {
@@ -589,10 +596,30 @@ function BulkQuestionManagerContent() {
   }, [handleSearchExistingQuestion]);
 
   useEffect(() => {
-    const paramId = searchParams?.get('questionId');
-    if (paramId && paramId !== lastFetchedQuestionId.current) {
-      setSearchInput(paramId);
-      fetchExistingQuestion(paramId);
+    const idsParam = searchParams?.get('questionIds');
+    const singleParam = searchParams?.get('questionId');
+
+    const parsedIds = new Set<string>();
+    if (idsParam) {
+      idsParam.split(',').forEach((raw) => {
+        const trimmed = raw.trim();
+        if (trimmed) parsedIds.add(trimmed);
+      });
+    }
+    if (singleParam) {
+      const trimmed = singleParam.trim();
+      if (trimmed) parsedIds.add(trimmed);
+    }
+
+    parsedIds.forEach((id) => {
+      if (!fetchedIds.current.has(id)) {
+        fetchExistingQuestion(id);
+      }
+    });
+
+    const firstId = parsedIds.values().next().value as string | undefined;
+    if (firstId) {
+      setSearchInput(firstId);
     }
   }, [fetchExistingQuestion, searchParams]);
   const handleFileUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {

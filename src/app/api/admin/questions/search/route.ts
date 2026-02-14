@@ -68,6 +68,10 @@ export async function POST(request: NextRequest) {
       normaliseList(Array.isArray(body?.systems) ? body.systems : []),
       TagType.SYSTEM
     );
+    const topicValues = canonicalise(
+      normaliseList(Array.isArray(body?.topics) ? body.topics : []),
+      TagType.TOPIC
+    );
 
     const questionIdRaw = typeof body?.questionId === "string" ? body.questionId.trim() : "";
     const keywordRaw = typeof body?.keywords === "string" ? body.keywords.trim() : "";
@@ -151,6 +155,50 @@ export async function POST(request: NextRequest) {
           },
         },
       });
+    }
+
+    if (topicValues.length) {
+      const includeNotSelected = topicValues.includes("topic_not_selected");
+      const explicitTopics = topicValues.filter((v) => v !== "topic_not_selected");
+
+      if (includeNotSelected && explicitTopics.length === 0) {
+        // Only "Not Selected" -> do not filter by topic
+      } else if (includeNotSelected && explicitTopics.length > 0) {
+        whereFilters.push({
+          OR: [
+            {
+              QuestionTag: {
+                some: {
+                  Tag: {
+                    type: TagType.TOPIC,
+                    value: { in: explicitTopics },
+                  },
+                },
+              },
+            },
+            {
+              NOT: {
+                QuestionTag: {
+                  some: {
+                    Tag: { type: TagType.TOPIC },
+                  },
+                },
+              },
+            },
+          ],
+        });
+      } else if (explicitTopics.length > 0) {
+        whereFilters.push({
+          QuestionTag: {
+            some: {
+              Tag: {
+                type: TagType.TOPIC,
+                value: { in: explicitTopics },
+              },
+            },
+          },
+        });
+      }
     }
 
     if (keywordTerms.length) {
@@ -252,7 +300,7 @@ export async function POST(request: NextRequest) {
         const tag = qt.Tag;
         const typeKey = tag.type as TagType;
         const category = TAG_TYPE_TO_CATEGORY[typeKey];
-        if (!category || category === "topic" || category === "mode") continue;
+        if (!category || category === "mode") continue;
         const canonical = canonicalizeTagValue(typeKey, tag.value);
         if (!canonical) continue;
         tagsSet.add(`${category}:${canonical}`);

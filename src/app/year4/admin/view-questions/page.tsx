@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction, type KeyboardEvent, type ReactNode } from "react";
 
 import { useRouter } from "next/navigation";
 import { getTagLabel, type TagCategory } from "@/lib/tags/catalog";
@@ -9,7 +9,7 @@ import { getTagLabel, type TagCategory } from "@/lib/tags/catalog";
 
 type Option = { key: string; label: string };
 
-const DISPLAYABLE_TAG_CATEGORIES: ReadonlyArray<TagCategory> = ["rotation", "resource", "discipline", "system"];
+const DISPLAYABLE_TAG_CATEGORIES: ReadonlyArray<TagCategory> = ["rotation", "topic", "resource", "discipline", "system"];
 const displayableCategorySet = new Set(DISPLAYABLE_TAG_CATEGORIES);
 
 function resolveTagLabel(raw: string): string | null {
@@ -37,113 +37,74 @@ const rotations: Option[] = [
 
 
 
-const resources: Option[] = [
-
-  { key: "uworld_s1", label: "UWorld - Step 1" },
-
-  { key: "uworld_s2", label: "UWorld - Step 2" },
-
-  { key: "amboss", label: "Amboss" },
-
-  { key: "beyond", label: "Boards & beyond" },
-
-  { key: "previouses", label: "Previouses" },
-
-];
-
-
-
-const disciplines: Option[] = [
-
-  { key: "anatomy", label: "Anatomy" },
-
-  { key: "behavioral", label: "Behavioral science" },
-
-  { key: "biochem", label: "Biochemistry" },
-
-  { key: "biostat", label: "Biostatistics" },
-
-  { key: "development", label: "Development, Growth, Milestones & Vaccines" },
-
-  { key: "embryology", label: "Embryology" },
-
-  { key: "genetics", label: "Genetics" },
-
-  { key: "histology", label: "Histology" },
-
-  { key: "immunology", label: "Immunology" },
-
-  { key: "micro", label: "Microbiology" },
-
-  { key: "neonatology", label: "Neonatology" },
-
-  { key: "path", label: "Pathology" },
-
-  { key: "pathophys", label: "Pathophysiology" },
-
-  { key: "pharm", label: "Pharmacology" },
-
-  { key: "physio", label: "Physiology" },
-
-];
-
-
-
-const systems: Option[] = [
-
-  { key: "bio_general", label: "Biochemistry (General Principles)" },
-
-  { key: "gen_general", label: "Genetics (General Principles)" },
-
-  { key: "micro_general", label: "Microbiology (General Principles)" },
-
-  { key: "path_general", label: "Pathology (General Principles)" },
-
-  { key: "pharm_general", label: "Pharmacology (General Principles)" },
-
-  { key: "biostat_epi", label: "Biostatistics & Epidemiology" },
-
-  { key: "poison_env", label: "Poisoning & Environmental Exposure" },
-
-  { key: "psych", label: "Psychiatric/Behavioral & Substance Use Disorder" },
-
-  { key: "social", label: "Social Sciences (Ethics/Legal/Professional)" },
-
-  { key: "misc", label: "Miscellaneous (Multisystem)" },
-
-  { key: "allergy_immuno", label: "Allergy & Immunology" },
-
-  { key: "cardio", label: "Cardiovascular System" },
-
-  { key: "derm", label: "Dermatology" },
-
-  { key: "ent", label: "Ear, Nose & Throat (ENT)" },
-
-  { key: "endocrine", label: "Endocrine, Diabetes & Metabolism" },
-
-  { key: "female_repro", label: "Female Reproductive System & Breast" },
-
-  { key: "gi", label: "Gastrointestinal & Nutrition" },
-
-  { key: "heme_onc", label: "Hematology & Oncology" },
-
-  { key: "id", label: "Infectious Diseases" },
-
-  { key: "male_repro", label: "Male Reproductive System" },
-
-  { key: "neuro", label: "Nervous System" },
-
-  { key: "ophtho", label: "Ophthalmology" },
-
-  { key: "pregnancy", label: "Pregnancy, Childbirth & Puerperium" },
-
-  { key: "pulm", label: "Pulmonary & Critical Care" },
-
-  { key: "renal", label: "Renal, Urinary Systems & Electrolytes" },
-
-  { key: "rheum", label: "Rheumatology/Orthopedics & Sports" },
-
-];
+const topicsByRotation: Record<string, Option[]> = {
+  gs: [
+    { key: "gs_large_bowel_disease", label: "Large bowel disease" },
+    { key: "gs_diabetic_foot_pvd", label: "Diabetic foot and Peripheral Vascular Disease" },
+    { key: "gs_abdominal_wall", label: "Abdominal wall" },
+    { key: "gs_hernias", label: "Hernias" },
+    { key: "gs_breast_disease", label: "Breast disease" },
+    { key: "gs_pre_post_op", label: "Pre-operative & Post-operative" },
+    { key: "gs_thyroid_neck_endocrine", label: "Thyroid, neck, and other endocrine organs" },
+    { key: "gs_spleen_kidney", label: "Spleen and Kidney" },
+    { key: "gs_hepatobiliary_pancreatic", label: "Hepatobiliary and pancreatic disease" },
+    { key: "gs_wound_healing", label: "Wound healing" },
+    { key: "gs_small_bowel", label: "Small Bowel diseases" },
+    { key: "gs_skin_soft_tissue_infection", label: "Skin & Soft tissue infection" },
+    { key: "gs_stomach_esophagus", label: "Stomach and Esophagus" },
+    { key: "gs_ethics_misc", label: "Ethics and Misc." },
+    { key: "gs_emergency_burns_icu_trauma", label: "Emergency, Burns, ICU, Electrolytes & Trauma" },
+    { key: "gs_emqs", label: "EMQs" },
+    { key: "topic_not_selected", label: "Not Selected" },
+  ],
+  obgyn: [
+    { key: "obgyn_antenatal_care_complications", label: "Antenatal Care & Common Complications" },
+    { key: "obgyn_early_pregnancy_complications", label: "Early Pregnancy Complications" },
+    { key: "obgyn_fetal_growth_surveillance", label: "Fetal Growth & Surveillance" },
+    { key: "obgyn_normal_abnormal_labor", label: "Normal & Abnormal Labor" },
+    { key: "obgyn_obstetric_emergencies", label: "Obstetric Emergencies" },
+    { key: "obgyn_postpartum_care", label: "Postpartum Care" },
+    { key: "obgyn_menstrual_hormonal_disorders", label: "Menstrual & Hormonal Disorders" },
+    { key: "obgyn_uterine_ovarian_pathologies", label: "Uterine & Ovarian Pathologies" },
+    { key: "obgyn_gynecologic_malignancies", label: "Gynecologic Malignancies" },
+    { key: "obgyn_infertility_contraception", label: "Infertility & Contraception" },
+    { key: "obgyn_pelvic_floor_infections", label: "Pelvic Floor Disorders & Genital Infections" },
+    { key: "obgyn_multiple_pregnancy_malpresentation", label: "Multiple Pregnancy & Malpresentation" },
+    { key: "obgyn_preterm_labor_prom", label: "Preterm Labor & PROM" },
+    { key: "obgyn_hyperemesis_gravidarum", label: "Hyperemesis Gravidarum" },
+    { key: "obgyn_miscellaneous", label: "Miscellaneous & Others" },
+    { key: "topic_not_selected", label: "Not Selected" },
+  ],
+  peds: [
+    { key: "peds_development_growth_vaccines", label: "Development, growth, milestones, vaccines" },
+    { key: "peds_neonatology", label: "Neonatology" },
+    { key: "peds_gastroenterology", label: "Gastroenterology" },
+    { key: "peds_pulmonology", label: "Pulmonology / Respiratory" },
+    { key: "peds_infectious_disease", label: "Infectious Disease" },
+    { key: "peds_cardiology", label: "Cardiology" },
+    { key: "peds_haematology", label: "Haematology" },
+    { key: "peds_endocrinology", label: "Endocrinology" },
+    { key: "peds_msk_derma_rheum", label: "MSK, Derma & Rheumatology" },
+    { key: "peds_genetics_metabolic", label: "Genetics / Metabolic" },
+    { key: "peds_urology_nephrology", label: "Urology / Nephrology" },
+    { key: "peds_neurology", label: "Neurology" },
+    { key: "peds_psychiatry", label: "Psychiatry" },
+    { key: "peds_miscellaneous", label: "Miscellaneous" },
+    { key: "topic_not_selected", label: "Not Selected" },
+  ],
+  im: [
+    { key: "im_cardiology", label: "Cardiology" },
+    { key: "im_pulmonology", label: "Pulmonology" },
+    { key: "im_msk_connective_rheum", label: "Musculoskeletal, Connective Tissues & Rheumatology" },
+    { key: "im_gastroenterology", label: "Gastroenterology" },
+    { key: "im_hematology_oncology", label: "Hematology & Oncology" },
+    { key: "im_nephrology", label: "Nephrology" },
+    { key: "im_infectious_diseases", label: "Infectious Diseases" },
+    { key: "im_neurology", label: "Neurology" },
+    { key: "im_endocrinology_others", label: "Endocrinology & Others" },
+    { key: "topic_not_selected", label: "Not Selected" },
+  ],
+};
 
 
 
@@ -161,18 +122,10 @@ type QuestionRow = {
 
   rotation: string | null;
 
-  resource: string | null;
-
-  discipline: string | null;
-
-  system: string | null;
-
   tags: string[];
 
   createdAt?: string;
   updatedAt: string;
-
-  isAnswerConfirmed: boolean;
 
 };
 
@@ -183,12 +136,7 @@ export default function ViewQuestionsPage() {
   const router = useRouter();
 
   const [selRotations, setSelRotations] = useState<string[]>([]);
-
-  const [selResources, setSelResources] = useState<string[]>([]);
-
-  const [selDisciplines, setSelDisciplines] = useState<string[]>([]);
-
-  const [selSystems, setSelSystems] = useState<string[]>([]);
+  const [selTopics, setSelTopics] = useState<string[]>([]);
 
   const [questionIdQuery, setQuestionIdQuery] = useState("");
 
@@ -201,6 +149,18 @@ export default function ViewQuestionsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [userRole, setUserRole] = useState<"ADMIN" | "MASTER_ADMIN" | "WEBSITE_CREATOR" | null>(null);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const topicOptions = useMemo(() => {
+    const merged = selRotations
+      .flatMap((rot) => topicsByRotation[rot] ?? [])
+      .reduce((map, opt) => map.set(opt.key, opt), new Map<string, Option>());
+    return Array.from(merged.values());
+  }, [selRotations]);
+
+  const allowedTopicKeys = useMemo(() => new Set(topicOptions.map((o) => o.key)), [topicOptions]);
 
 
 
@@ -233,6 +193,18 @@ export default function ViewQuestionsPage() {
     }
   }, []);
 
+  // keep topic selections valid for chosen rotations
+  useEffect(() => {
+    setSelTopics((prev) => prev.filter((key) => allowedTopicKeys.has(key)));
+  }, [allowedTopicKeys]);
+
+  // auto-include "Not Selected" placeholder when applicable
+  useEffect(() => {
+    if (allowedTopicKeys.has("topic_not_selected") && !selTopics.includes("topic_not_selected")) {
+      setSelTopics((prev) => [...prev, "topic_not_selected"]);
+    }
+  }, [allowedTopicKeys, selTopics]);
+
   const toggle = (setter: Dispatch<SetStateAction<string[]>>, key: string) => {
 
     setter((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]));
@@ -245,16 +217,14 @@ export default function ViewQuestionsPage() {
 
     setSelRotations([]);
 
-    setSelResources([]);
-
-    setSelDisciplines([]);
-
-    setSelSystems([]);
+    setSelTopics([]);
 
     setQuestionIdQuery("");
 
     setKeywordQuery("");
 
+    setSelectedIds(new Set());
+    setExpandedIds(new Set());
   };
 
 
@@ -286,12 +256,7 @@ export default function ViewQuestionsPage() {
           keywords: keywordPayload || undefined,
 
           rotations: selRotations,
-
-          resources: selResources,
-
-          disciplines: selDisciplines,
-
-          systems: selSystems,
+          topics: selTopics,
 
         }),
 
@@ -321,6 +286,8 @@ export default function ViewQuestionsPage() {
         : [];
 
       setQuestions(normalized);
+      setSelectedIds(new Set());
+      setExpandedIds(new Set());
 
     } catch (err) {
 
@@ -334,7 +301,7 @@ export default function ViewQuestionsPage() {
 
     }
 
-  }, [keywordQuery, questionIdQuery, selDisciplines, selResources, selRotations, selSystems]);
+  }, [keywordQuery, questionIdQuery, selRotations, selTopics]);
 
 
 
@@ -383,88 +350,6 @@ export default function ViewQuestionsPage() {
     } catch (err) {
       console.error('Error deleting question:', err);
       alert(err instanceof Error ? err.message : 'Failed to delete question');
-    }
-  };
-
-  const handleConfirmationToggle = async (questionId: string, newStatus: boolean) => {
-    try {
-      // If confirming the answer (true), prompt for vote management
-      let voteAction: 'keep' | 'archive' | 'delete' | null = null;
-      
-      if (newStatus === true) {
-        // Check if there are any votes for this question
-        const votesCheckResponse = await fetch(`/api/questions/${questionId}/votes`);
-        if (votesCheckResponse.ok) {
-          const votesData = await votesCheckResponse.json();
-          const hasVotes = votesData.currentVotes?.totalVotes > 0 || votesData.historicalVotes?.length > 0;
-          
-          if (hasVotes) {
-            // Show prompt for vote management
-            const choice = prompt(
-              `⚠️ This question has student votes.\n\nWhat would you like to do with the votes?\n\n` +
-              `Type one of the following:\n` +
-              `• "keep" - Keep votes visible (students can still see them)\n` +
-              `• "archive" - Archive votes (hide from students, keep data for admins)\n` +
-              `• "delete" - Permanently delete all votes\n` +
-              `• "cancel" - Cancel confirmation\n\n` +
-              `Your choice:`,
-              "archive"
-            );
-            
-            if (!choice || choice.toLowerCase() === 'cancel') {
-              return; // User cancelled
-            }
-            
-            const normalizedChoice = choice.toLowerCase().trim();
-            if (normalizedChoice === 'keep' || normalizedChoice === 'archive' || normalizedChoice === 'delete') {
-              voteAction = normalizedChoice;
-            } else {
-              alert('Invalid choice. Please enter "keep", "archive", "delete", or "cancel".');
-              return;
-            }
-          }
-        }
-      }
-
-      // Update the question confirmation status
-      const response = await fetch(`/api/admin/questions/${questionId}/confirm`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isAnswerConfirmed: newStatus }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update confirmation status');
-      }
-
-      // If vote action is archive or delete, handle it
-      if (voteAction === 'archive') {
-        const archiveResponse = await fetch(`/api/admin/questions/${questionId}/votes/archive`, {
-          method: 'POST',
-        });
-        if (!archiveResponse.ok) {
-          console.error('Failed to archive votes');
-          alert('Answer confirmed, but failed to archive votes.');
-        }
-      } else if (voteAction === 'delete') {
-        const deleteResponse = await fetch(`/api/admin/questions/${questionId}/votes/delete`, {
-          method: 'DELETE',
-        });
-        if (!deleteResponse.ok) {
-          console.error('Failed to delete votes');
-          alert('Answer confirmed, but failed to delete votes.');
-        }
-      }
-
-      // Update local state
-      setQuestions(prev =>
-        prev.map(q =>
-          q.id === questionId ? { ...q, isAnswerConfirmed: newStatus } : q
-        )
-      );
-    } catch (err) {
-      console.error('Error updating confirmation status:', err);
-      alert('Failed to update confirmation status');
     }
   };
 
@@ -623,37 +508,14 @@ export default function ViewQuestionsPage() {
 
             <FilterSection
 
-              title="Resources"
+              title="Topics"
 
-              options={resources}
+              options={topicOptions.filter((t) => t.key !== "topic_not_selected")}
 
-              selected={selResources}
+              selected={selTopics}
 
-              onToggle={(key) => toggle(setSelResources, key)}
-
-            />
-
-            <FilterSection
-
-              title="Disciplines"
-
-              options={disciplines}
-
-              selected={selDisciplines}
-
-              onToggle={(key) => toggle(setSelDisciplines, key)}
-
-            />
-
-            <FilterSection
-
-              title="Systems"
-
-              options={systems}
-
-              selected={selSystems}
-
-              onToggle={(key) => toggle(setSelSystems, key)}
+              onToggle={(key) => toggle(setSelTopics, key)}
+              helper="Topics follow selected rotations; untagged questions are included when 'Not Selected' is present."
 
             />
 
@@ -669,19 +531,33 @@ export default function ViewQuestionsPage() {
 
             </div>
 
-            <button
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => {
+                  if (selectedIds.size === 0) return;
+                  const ids = Array.from(selectedIds);
+                  router.push(`/year4/admin/bulk-question-manager?questionIds=${encodeURIComponent(ids.join(","))}`);
+                }}
+                disabled={loading || selectedIds.size === 0}
+                className="px-5 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {selectedIds.size > 0 ? `Edit ${selectedIds.size} Selected` : "Edit Selected"}
+              </button>
 
-              onClick={loadQuestions}
+              <button
 
-              disabled={loading}
+                onClick={loadQuestions}
 
-              className="px-6 py-3 bg-[#0ea5e9] text-white rounded-lg font-medium hover:bg-[#0284c7] transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
 
-            >
+                className="px-6 py-3 bg-[#0ea5e9] text-white rounded-lg font-medium hover:bg-[#0284c7] transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
 
-              {loading ? 'Loading...' : 'Load Questions'}
+              >
 
-            </button>
+                {loading ? 'Loading...' : 'Load Questions'}
+
+              </button>
+            </div>
 
           </div>
 
@@ -716,142 +592,185 @@ export default function ViewQuestionsPage() {
                 <thead className="bg-sky-50">
 
                   <tr>
-
+                    <th className="px-3 py-3 w-10 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size > 0 && selectedIds.size === questions.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(new Set(questions.map((q) => q.id)));
+                          } else {
+                            setSelectedIds(new Set());
+                          }
+                        }}
+                        className="h-4 w-4"
+                      />
+                    </th>
+                    <th className="px-3 py-3 w-8 text-left"></th>
                     <th className="px-4 py-3 text-left font-medium text-[#0284c7]">ID</th>
-
                     <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Question</th>
-
                     <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Correct Answer</th>
-
                     <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Tags</th>
-
                     <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Updated</th>
-
-                    <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Confirmation</th>
-
                     <th className="px-4 py-3 text-left font-medium text-[#0284c7]">Actions</th>
-
                   </tr>
 
                 </thead>
 
                 <tbody>
 
-                  {questions.map((question) => (
-                    <tr key={question.id} className="border-b border-sky-100 hover:bg-sky-50/50 transition-colors">
+                  {questions.map((question) => {
+                    const isSelected = selectedIds.has(question.id);
+                    const isExpanded = expandedIds.has(question.id);
+                    const displayTags = (question.tags ?? [])
+                      .map((tag) => resolveTagLabel(tag))
+                      .filter((label): label is string => Boolean(label));
 
-                      <td className="px-4 py-3 text-xs text-slate-600">
+                    return (
+                      <>
+                        <tr key={question.id} className="border-b border-sky-100 hover:bg-sky-50/50 transition-colors">
 
-                        {question.customId ?? question.id}
+                          <td className="px-3 py-3 align-top">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(question.id)) next.delete(question.id);
+                                  else next.add(question.id);
+                                  return next;
+                                });
+                              }}
+                              className="h-4 w-4"
+                            />
+                          </td>
 
-                      </td>
+                          <td className="px-3 py-3 align-top">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(question.id)) next.delete(question.id);
+                                  else next.add(question.id);
+                                  return next;
+                                })
+                              }
+                              className="text-slate-500 hover:text-[#0284c7] transition-colors"
+                              aria-label="Toggle details"
+                            >
+                              {isExpanded ? "v" : ">"}
+                            </button>
+                          </td>
 
-                      <td className="px-4 py-3 max-w-xl text-slate-700">
+                          <td className="px-4 py-3 text-xs text-slate-600 align-top">
 
-                        <div className="line-clamp-3" title={question.questionText}>
+                            {question.customId ?? question.id}
 
-                          {question.questionText}
+                          </td>
 
-                        </div>
+                          <td className="px-4 py-3 max-w-xl text-slate-700 align-top">
 
-                      </td>
+                            <div className="line-clamp-3" title={question.questionText}>
 
-                      <td className="px-4 py-3 font-medium text-[#0284c7]">{question.correctAnswer}</td>
+                              {question.questionText}
 
-                      <td className="px-4 py-3">
+                            </div>
 
-                        <div className="flex flex-wrap gap-1">
+                          </td>
 
-                          {(() => {
-                            const displayTags = (question.tags ?? [])
-                              .map((tag) => resolveTagLabel(tag))
-                              .filter((label): label is string => Boolean(label));
+                          <td className="px-4 py-3 font-medium text-[#0284c7] align-top">{question.correctAnswer}</td>
 
-                            if (displayTags.length === 0) {
-                              return <span className="text-xs text-slate-400">No tags</span>;
-                            }
+                          <td className="px-4 py-3 align-top">
 
-                            const shown = displayTags.slice(0, 3);
+                            <div className="flex flex-wrap gap-1">
 
-                            return (
-                              <>
-                                {shown.map((label) => (
-                                  <span
-                                    key={label}
-                                    className="inline-block px-2 py-1 bg-sky-100 text-[#0284c7] rounded-full text-[11px]"
-                                  >
-                                    {label}
-                                  </span>
-                                ))}
-                                {displayTags.length > shown.length ? (
-                                  <span className="text-xs text-slate-400">+{displayTags.length - shown.length}</span>
-                                ) : null}
-                              </>
-                            );
-                          })()}
+                              {displayTags.length === 0 ? (
+                                <span className="text-xs text-slate-400">No tags</span>
+                              ) : (
+                                <>
+                                  {displayTags.slice(0, 3).map((label) => (
+                                    <span
+                                      key={label}
+                                      className="inline-block px-2 py-1 bg-sky-100 text-[#0284c7] rounded-full text-[11px]"
+                                    >
+                                      {label}
+                                    </span>
+                                  ))}
+                                  {displayTags.length > 3 ? (
+                                    <span className="text-xs text-slate-400">+{displayTags.length - 3}</span>
+                                  ) : null}
+                                </>
+                              )}
 
-                        </div>
+                            </div>
 
-                      </td>
+                          </td>
 
-                      <td className="px-4 py-3 text-xs text-slate-500">
-                        {new Date(question.createdAt ?? question.updatedAt).toLocaleDateString()}
-                      </td>
+                          <td className="px-4 py-3 text-xs text-slate-500 align-top">
+                            {new Date(question.createdAt ?? question.updatedAt).toLocaleDateString()}
+                          </td>
 
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleConfirmationToggle(question.id, true)}
-                            className={`px-2 py-1 text-xs rounded transition-all ${
-                              question.isAnswerConfirmed
-                                ? 'bg-green-500 text-white font-semibold'
-                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                            }`}
-                            title="Mark as confirmed"
-                          >
-                            ✓ Confirmed
-                          </button>
-                          <button
-                            onClick={() => handleConfirmationToggle(question.id, false)}
-                            className={`px-2 py-1 text-xs rounded transition-all ${
-                              !question.isAnswerConfirmed
-                                ? 'bg-red-500 text-white font-semibold'
-                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                            }`}
-                            title="Mark as unconfirmed"
-                          >
-                            ⚠ Unconfirmed
-                          </button>
-                        </div>
-                      </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex gap-2">
+                              <button
 
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2">
-                          <button
+                                onClick={() => handleEdit(question.id, question.customId)}
 
-                            onClick={() => handleEdit(question.id, question.customId)}
+                                className="px-3 py-1 text-xs bg-[#0ea5e9] text-white rounded hover:bg-[#0284c7] transition-all btn-hover"
 
-                            className="px-3 py-1 text-xs bg-[#0ea5e9] text-white rounded hover:bg-[#0284c7] transition-all btn-hover"
+                              >
 
-                          >
+                                Edit
 
-                            Edit
+                              </button>
 
-                          </button>
+                              <button
+                                onClick={() => handleDelete(question.id, question.questionText)}
+                                className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-all btn-hover"
+                              >
+                                Delete
+                              </button>
+                            </div>
 
-                          <button
-                            onClick={() => handleDelete(question.id, question.questionText)}
-                            className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-all btn-hover"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                          </td>
 
-                      </td>
-
-                    </tr>
-
-                  ))}
+                        </tr>
+                        {isExpanded && (
+                          <tr className="bg-sky-50/40">
+                            <td colSpan={8} className="px-12 py-4">
+                              <div className="space-y-2 text-sm text-slate-700">
+                                <div>
+                                  <span className="font-semibold text-[#0284c7]">Question:</span>{" "}
+                                  <span>{question.questionText}</span>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-[#0284c7]">Correct Answer:</span>{" "}
+                                  <span>{question.correctAnswer}</span>
+                                </div>
+                                {displayTags.length > 0 && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {displayTags.map((label) => (
+                                      <span
+                                        key={label}
+                                        className="inline-block px-2 py-1 bg-sky-100 text-[#0284c7] rounded-full text-[11px]"
+                                      >
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="text-xs text-slate-500">
+                                  Updated: {new Date(question.createdAt ?? question.updatedAt).toLocaleString()}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
 
                 </tbody>
 
@@ -874,13 +793,15 @@ export default function ViewQuestionsPage() {
 
 
 
-function FilterSection({ title, options, selected, onToggle }: { title: string; options: Option[]; selected: string[]; onToggle: (_key: string) => void }) {
+function FilterSection({ title, options, selected, onToggle, helper }: { title: string; options: Option[]; selected: string[]; onToggle: (_key: string) => void; helper?: string }) {
 
   return (
 
     <div>
 
       <HeaderRow title={title} />
+
+      {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
 
       <CheckGrid list={options} selected={selected} onToggle={onToggle} />
 
