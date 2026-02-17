@@ -1659,7 +1659,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   }}
                   title={`Question ID: ${currentItem.question.id}`}
                 >
-                  ID: {currentItem.question.id.substring(0, 6)}
+                  ID: {currentItem.question.id}
                 </div>
               )}
             </div>
