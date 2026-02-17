@@ -8,7 +8,7 @@ import QuizRunner from "../_components/QuizRunner";
 import { TagType } from "@prisma/client";
 import { canonicalizeTagValue, labelForTag } from "@/lib/tags/server";
 
-const DISPLAY_TAG_TYPES = ["SUBJECT", "SYSTEM", "ROTATION", "RESOURCE", "TOPIC"] as const;
+const DISPLAY_TAG_TYPES = ["SUBJECT", "SYSTEM", "ROTATION", "RESOURCE"] as const;
 type DisplayTagType = typeof DISPLAY_TAG_TYPES[number];
 
 type QuizStatus = "Active" | "Suspended" | "Ended";
