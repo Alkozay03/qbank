@@ -114,6 +114,23 @@ export async function POST(req: Request) {
         take: take ?? 10,
       });
 
+      // If we got some but not enough, widen by dropping mode filter first
+      const target = take ?? 10;
+      if (types.length > 0 && ids.length < target) {
+        const more = await selectQuestions({
+          userId,
+          year,
+          rotationKeys,
+          topicValues: topicValuesWithFallback,
+          types: [],
+          take: target - ids.length,
+        });
+        if (more.length) {
+          const merged = Array.from(new Set([...ids, ...more]));
+          ids = merged.slice(0, target);
+        }
+      }
+
       // If mode filter is too restrictive, retry without it
       if (ids.length === 0 && types.length > 0) {
         ids = await selectQuestions({
@@ -139,18 +156,41 @@ export async function POST(req: Request) {
       }
 
       // Backfill with untagged topics to hit the requested count (temporary safety net)
-      const target = take ?? 10;
       if (ids.length < target) {
         const backfill = await selectQuestions({
           userId,
           year,
           rotationKeys,
           topicValues: [], // no topic filter -> includes untagged + tagged
-          types,
+          types: [], // also drop mode filter for the backfill
           take: target - ids.length,
         });
         if (backfill.length) {
           const merged = Array.from(new Set([...ids, ...backfill]));
+          ids = merged.slice(0, target);
+        }
+      }
+
+      // Final backfill: rotation-only (ignores year/topic/mode) to reach target
+      if (ids.length < target) {
+        const extra = await prisma.question.findMany({
+          where: {
+            id: { notIn: ids },
+            QuestionTag: {
+              some: {
+                Tag: {
+                  type: TagType.ROTATION,
+                  value: { in: rotationKeys },
+                },
+              },
+            },
+          },
+          select: { id: true },
+          take: target - ids.length,
+          orderBy: { createdAt: "desc" },
+        });
+        if (extra.length) {
+          const merged = Array.from(new Set([...ids, ...extra.map((r) => r.id)]));
           ids = merged.slice(0, target);
         }
       }
