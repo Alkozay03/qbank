@@ -117,6 +117,13 @@ export default function CreateTest() {
   // Test type (Tutored vs Review)
   const [testMode, setTestMode] = useState<"tutored" | "review">("tutored");
 
+  // Clear topics when switching to review (review ignores topics)
+  useEffect(() => {
+    if (testMode === "review") {
+      setSelTopics([]);
+    }
+  }, [testMode]);
+
   // Progressive disclosure locks
   const allowRotations = testMode === "review" ? true : selModes.length > 0;
   const allowTopics = selRotations.length > 0;
@@ -263,7 +270,7 @@ export default function CreateTest() {
           ? {
               year: "Y4",
               rotationKeys: effectiveRot,
-              topics: selTopics,
+              topics: [],
               reviewMode: true,
             }
           : {
@@ -432,34 +439,38 @@ export default function CreateTest() {
           )}
         </Card>
 
-        {/* Topics */}
-        <Card locked={!allowTopics}>
-          <HeaderRow
-            title="Topics"
-            disabledAll={!allowTopics || topicOptions.length === 0}
-            withAll
-            onAll={(_checked) => toggleAll(setSelTopics, displayTopicOptions, _checked)}
-          />
-          {topicOptions.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-600">
-              Select a rotation that supports topics to see available options.
-            </p>
-          ) : (
-            <CheckGrid
-              list={displayTopicOptions}
-              selected={selTopics}
-              onToggle={(optKey) => toggle(setSelTopics, optKey)}
-              disabled={!allowTopics}
-              counts={counts}
-              section="topics"
-            />
-          )}
-          {!allowTopics && (
-            <p className="mt-2 text-sm text-red-600">
-              Select at least one rotation to choose topics.
-            </p>
-          )}
-        </Card>
+        {testMode !== "review" && (
+          <>
+            {/* Topics */}
+            <Card locked={!allowTopics}>
+              <HeaderRow
+                title="Topics"
+                disabledAll={!allowTopics || topicOptions.length === 0}
+                withAll
+                onAll={(_checked) => toggleAll(setSelTopics, displayTopicOptions, _checked)}
+              />
+              {topicOptions.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-600">
+                  Select a rotation that supports topics to see available options.
+                </p>
+              ) : (
+                <CheckGrid
+                  list={displayTopicOptions}
+                  selected={selTopics}
+                  onToggle={(optKey) => toggle(setSelTopics, optKey)}
+                  disabled={!allowTopics}
+                  counts={counts}
+                  section="topics"
+                />
+              )}
+              {!allowTopics && (
+                <p className="mt-2 text-sm text-red-600">
+                  Select at least one rotation to choose topics.
+                </p>
+              )}
+            </Card>
+          </>
+        )}
 
         {/* Count + Create */}
         {testMode === "review" ? (
