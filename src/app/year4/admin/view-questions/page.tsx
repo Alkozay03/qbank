@@ -456,25 +456,17 @@ export default function ViewQuestionsPage() {
 
                 <label className="block text-sm font-medium text-[#0284c7]">Question ID(s)</label>
 
-                <input
-
-                  type="text"
-
+                <textarea
+                  rows={3}
                   value={questionIdQuery}
-
                   onChange={(event) => setQuestionIdQuery(event.target.value)}
-
                   onKeyDown={handleSearchKey}
-
-                  placeholder="e.g. 142 or ck6dke4dwn (comma or space separated for multiple)"
-
-                  className="mt-1 w-full rounded-lg border border-sky-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
-
+                  placeholder={"e.g.\n142\nck6dke4dwn\nabc123456"}
+                  className="mt-1 w-full rounded-lg border border-sky-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none resize-y"
                   autoComplete="off"
-
                 />
 
-                <p className="mt-2 text-xs text-slate-500">Paste multiple IDs separated by spaces or commas; supports numeric internal IDs and full database IDs.</p>
+                <p className="mt-2 text-xs text-slate-500">Enter one ID per line (spaces or commas also work); supports numeric internal IDs and full database IDs.</p>
 
               </div>
 
