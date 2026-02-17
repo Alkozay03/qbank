@@ -41,7 +41,10 @@ export async function DELETE(
 
     // Allow deletion if user owns the comment OR if user is admin/master admin
     const isOwner = comment.createdById === user.id;
-    const isAdmin = user.role === "ADMIN" || user.role === "MASTER_ADMIN";
+    const isAdmin =
+      user.role === "ADMIN" ||
+      user.role === "MASTER_ADMIN" ||
+      user.role === "WEBSITE_CREATOR";
     
     console.error("Delete comment debug:", {
       userEmail: session.user.email,

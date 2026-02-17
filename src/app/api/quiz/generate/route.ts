@@ -40,6 +40,7 @@ export async function POST(req: Request) {
       reviewMode || topicValues.includes("topic_not_selected")
         ? topicValues
         : [...topicValues, "topic_not_selected"];
+    const reviewTopics = reviewMode ? [] : topicValues;
 
     const rawCount = Number(body.count);
     const requestedCount = Number.isFinite(rawCount) ? rawCount : 10;
@@ -93,8 +94,8 @@ export async function POST(req: Request) {
       });
 
     if (reviewMode) {
-      let rows = await fetchReviewRows(topicValues);
-      if (rows.length === 0 && topicValues.length > 0) {
+      let rows = await fetchReviewRows(reviewTopics);
+      if (rows.length === 0 && reviewTopics.length > 0) {
         rows = await fetchReviewRows([]);
       }
 
