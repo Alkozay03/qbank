@@ -244,6 +244,10 @@ export default function ViewQuestionsPage() {
 
     try {
 
+      const idList = questionIdQuery
+        .split(/[\s,]+/)
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
       const idPayload = questionIdQuery.trim();
 
       const keywordPayload = keywordQuery.trim();
@@ -258,7 +262,8 @@ export default function ViewQuestionsPage() {
 
           year: 'Y4',
 
-          questionId: idPayload || undefined,
+          questionIds: idList.length ? idList : undefined,
+          questionId: idList.length ? undefined : (idPayload || undefined),
 
           keywords: keywordPayload || undefined,
 
@@ -449,7 +454,7 @@ export default function ViewQuestionsPage() {
 
               <div>
 
-                <label className="block text-sm font-medium text-[#0284c7]">Question ID</label>
+                <label className="block text-sm font-medium text-[#0284c7]">Question ID(s)</label>
 
                 <input
 
@@ -461,7 +466,7 @@ export default function ViewQuestionsPage() {
 
                   onKeyDown={handleSearchKey}
 
-                  placeholder="e.g. 142 or ck6dke4dwn"
+                  placeholder="e.g. 142 or ck6dke4dwn (comma or space separated for multiple)"
 
                   className="mt-1 w-full rounded-lg border border-sky-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
 
@@ -469,7 +474,7 @@ export default function ViewQuestionsPage() {
 
                 />
 
-                <p className="mt-2 text-xs text-slate-500">Search by internal numeric ID or the full database identifier.</p>
+                <p className="mt-2 text-xs text-slate-500">Paste multiple IDs separated by spaces or commas; supports numeric internal IDs and full database IDs.</p>
 
               </div>
 

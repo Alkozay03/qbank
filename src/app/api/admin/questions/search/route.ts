@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
     );
 
     const questionIdRaw = typeof body?.questionId === "string" ? body.questionId.trim() : "";
+    const questionIdList = normaliseList(Array.isArray(body?.questionIds) ? body.questionIds : []);
     const keywordRaw = typeof body?.keywords === "string" ? body.keywords.trim() : "";
 
     const keywordTerms: string[] = [];
@@ -92,18 +93,25 @@ export async function POST(request: NextRequest) {
 
     const whereFilters: Prisma.QuestionWhereInput[] = [];
 
-    if (questionIdRaw) {
-      const orFilters: Prisma.QuestionWhereInput[] = [{ id: questionIdRaw }];
+    const idValues = questionIdList.length ? questionIdList : (questionIdRaw ? [questionIdRaw] : []);
+    if (idValues.length) {
+      const orFilters: Prisma.QuestionWhereInput[] = [];
+      const cappedIds = idValues.slice(0, 200);
 
-      const digitsOnly = questionIdRaw.replace(/[^0-9]/g, "");
-      if (digitsOnly) {
-        const numericId = Number(digitsOnly);
-        if (Number.isInteger(numericId)) {
-          orFilters.push({ customId: numericId });
+      cappedIds.forEach((idVal) => {
+        orFilters.push({ id: idVal });
+        const digitsOnly = idVal.replace(/[^0-9]/g, "");
+        if (digitsOnly) {
+          const numericId = Number(digitsOnly);
+          if (Number.isInteger(numericId)) {
+            orFilters.push({ customId: numericId });
+          }
         }
-      }
+      });
 
-      whereFilters.push({ OR: orFilters });
+      if (orFilters.length) {
+        whereFilters.push({ OR: orFilters });
+      }
     }
 
     if (rotationValues.length) {
