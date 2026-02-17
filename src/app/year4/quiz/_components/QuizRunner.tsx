@@ -602,6 +602,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [showCalc, setShowCalc] = useState(false);
   const [showLabs, setShowLabs] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showFullId, setShowFullId] = useState(false);
 
   // Confirmations
   const [confirmSuspend, setConfirmSuspend] = useState(false);
@@ -1651,15 +1652,27 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
             >
               <div>Question {curIndex + 1} of {total}</div>
               {currentItem?.question.id && (
-                <div 
-                  className="text-xs font-mono mt-0.5"
-                  style={{
-                    color: isDark ? '#ffffff' : 'var(--color-primary)',
-                    opacity: isDark ? 0.7 : 0.6
-                  }}
-                  title={`Question ID: ${currentItem.question.id}`}
-                >
-                  ID: {currentItem.question.id}
+                <div className="mt-0.5 flex items-center gap-2">
+                  <div
+                    className="text-xs font-mono"
+                    style={{
+                      color: isDark ? '#ffffff' : 'var(--color-primary)',
+                      opacity: isDark ? 0.7 : 0.7
+                    }}
+                    title={`Question ID: ${currentItem.question.id}`}
+                  >
+                    ID: {showFullId ? currentItem.question.id : `${currentItem.question.id.substring(0, 6)}…`}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFullId((v) => !v)}
+                    className="text-[11px] font-semibold underline decoration-dotted underline-offset-2"
+                    style={{
+                      color: isDark ? '#9ca3af' : '#6b7280'
+                    }}
+                  >
+                    {showFullId ? 'Hide ID' : 'Show ID'}
+                  </button>
                 </div>
               )}
             </div>
