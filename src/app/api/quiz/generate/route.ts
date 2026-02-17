@@ -36,6 +36,10 @@ export async function POST(req: Request) {
       ? body.types.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
     const reviewMode = body.reviewMode === true;
+    const topicValuesWithFallback =
+      reviewMode || topicValues.includes("topic_not_selected")
+        ? topicValues
+        : [...topicValues, "topic_not_selected"];
 
     const rawCount = Number(body.count);
     const requestedCount = Number.isFinite(rawCount) ? rawCount : 10;
@@ -105,34 +109,34 @@ export async function POST(req: Request) {
         userId,
         year,
         rotationKeys,
-        topicValues,
+        topicValues: topicValuesWithFallback,
         types,
         take: take ?? 10,
       });
 
       // If mode filter is too restrictive, retry without it
       if (ids.length === 0 && types.length > 0) {
-        ids = await selectQuestions({
-          userId,
-          year,
-          rotationKeys,
-          topicValues,
-          types: [],
-          take: take ?? 10,
-        });
-      }
+      ids = await selectQuestions({
+        userId,
+        year,
+        rotationKeys,
+        topicValues: topicValuesWithFallback,
+        types: [],
+        take: take ?? 10,
+      });
+    }
 
       // If topic filter is too restrictive, retry without it
       if (ids.length === 0 && topicValues.length > 0) {
-        ids = await selectQuestions({
-          userId,
-          year,
-          rotationKeys,
-          topicValues: [],
-          types: [],
-          take: take ?? 10,
-        });
-      }
+      ids = await selectQuestions({
+        userId,
+        year,
+        rotationKeys,
+        topicValues: [],
+        types: [],
+        take: take ?? 10,
+      });
+    }
     }
 
     if (ids.length === 0) {

@@ -7,10 +7,14 @@ function buildTagFilter(type: TagType, rawValues: string[]): Prisma.QuestionWher
   const variants = expandTagValues(type, rawValues);
   if (!variants.length) return null;
 
-  const includeNotSelected = type === TagType.TOPIC && variants.includes("topic_not_selected");
   const explicit = variants
     .map((v) => v.trim())
     .filter((v) => v.length > 0 && v !== "topic_not_selected");
+
+  // Temporary behavior: when filtering by Topic, always include untagged questions alongside explicit topics.
+  // This mirrors the hidden "Not Selected" option even if the client omits it.
+  const includeNotSelected =
+    type === TagType.TOPIC && (variants.includes("topic_not_selected") || explicit.length > 0);
 
   if (type === TagType.TOPIC && includeNotSelected && explicit.length === 0) {
     // Only "Not Selected" chosen: do not filter by topic at all

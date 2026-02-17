@@ -621,6 +621,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   // Answers
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [crossed, setCrossed] = useState<Record<string, boolean>>({});
+  const [showAllReviewChoices, setShowAllReviewChoices] = useState(false);
   
   // EMQ answers: per item map of stemId -> optionId
   const [emqAnswers, setEmqAnswers] = useState<Record<string, string>>({});
@@ -639,6 +640,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       : currentItem?.question.questionType === "EMQ"
         ? hasResponses
         : Boolean(firstChoiceId);
+  useEffect(() => {
+    setShowAllReviewChoices(false);
+  }, [currentItem?.id, isReviewMode]);
 
   const questionImages = useMemo(() => {
     const urls: string[] = [];
@@ -649,10 +653,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   const displayChoices = useMemo(() => {
     const all = currentItem?.question.choices ?? [];
-    if (!isReviewMode) return all;
+    if (!isReviewMode || currentItem?.question.questionType !== "MCQ") return all;
+    if (showAllReviewChoices) return all;
     const correctOnly = all.filter((c) => c.isCorrect);
     return correctOnly.length > 0 ? correctOnly : all;
-  }, [currentItem, isReviewMode]);
+  }, [currentItem, isReviewMode, showAllReviewChoices]);
 
   const displayEmqOptions = useMemo(() => {
     const opts = (currentItem?.question.emqOptions as EMQOption[]) ?? [];
@@ -664,6 +669,13 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const filtered = opts.filter((opt) => correctIds.has(opt.id));
     return filtered.length > 0 ? filtered : opts;
   }, [currentItem, isReviewMode]);
+
+  const allChoices = currentItem?.question.choices ?? [];
+  const canToggleReviewChoices =
+    isReviewMode &&
+    currentItem?.question.questionType === "MCQ" &&
+    allChoices.some((c) => !c.isCorrect);
+  const hiddenChoiceCount = Math.max(allChoices.length - displayChoices.length, 0);
 
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [discussionPlacement, setDiscussionPlacement] = useState<"bottom" | "side">("bottom");
@@ -839,6 +851,35 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
           );
         })}
           </div>
+
+          {canToggleReviewChoices && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => setShowAllReviewChoices((prev) => !prev)}
+                className="rounded-xl border px-4 py-2 text-sm font-semibold text-primary transition-all duration-200"
+                style={{
+                  borderColor: 'var(--color-primary)',
+                  backgroundColor: isDark ? '#0b1221' : '#ffffff',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 10px 20px rgba(0, 0, 0, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                {showAllReviewChoices ? "Hide other answers" : "Reveal other answers"}
+              </button>
+              {!showAllReviewChoices && hiddenChoiceCount > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {hiddenChoiceCount} other {hiddenChoiceCount === 1 ? "answer" : "answers"} hidden in review.
+                </p>
+              )}
+            </div>
+          )}
 
                 {!isAnswered && status === "Active" && (
                   <div className="mt-3 flex justify-end">
