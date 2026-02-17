@@ -101,9 +101,9 @@ export async function POST(request: NextRequest) {
       cappedIds.forEach((idVal) => {
         orFilters.push({ id: idVal });
         const digitsOnly = idVal.replace(/[^0-9]/g, "");
-        if (digitsOnly) {
+        if (digitsOnly && digitsOnly.length <= 9) {
           const numericId = Number(digitsOnly);
-          if (Number.isInteger(numericId)) {
+          if (Number.isInteger(numericId) && numericId >= -2147483648 && numericId <= 2147483647) {
             orFilters.push({ customId: numericId });
           }
         }
