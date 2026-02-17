@@ -141,7 +141,7 @@ export default function ViewQuestionsPage() {
   const [selRotations, setSelRotations] = useState<string[]>([]);
   const [selTopics, setSelTopics] = useState<string[]>([]);
 
-  const [questionIdQuery, setQuestionIdQuery] = useState("");
+  const [questionIdInputs, setQuestionIdInputs] = useState<string[]>([""]);
 
   const [keywordQuery, setKeywordQuery] = useState("");
 
@@ -226,7 +226,7 @@ export default function ViewQuestionsPage() {
 
     setSelTopics([]);
 
-    setQuestionIdQuery("");
+    setQuestionIdInputs([""]);
 
     setKeywordQuery("");
 
@@ -244,11 +244,9 @@ export default function ViewQuestionsPage() {
 
     try {
 
-      const idList = questionIdQuery
-        .split(/[\s,]+/)
+      const idList = questionIdInputs
         .map((v) => v.trim())
         .filter((v) => v.length > 0);
-      const idPayload = questionIdQuery.trim();
 
       const keywordPayload = keywordQuery.trim();
 
@@ -263,7 +261,6 @@ export default function ViewQuestionsPage() {
           year: 'Y4',
 
           questionIds: idList.length ? idList : undefined,
-          questionId: idList.length ? undefined : (idPayload || undefined),
 
           keywords: keywordPayload || undefined,
 
@@ -313,11 +310,11 @@ export default function ViewQuestionsPage() {
 
     }
 
-  }, [keywordQuery, questionIdQuery, selRotations, selTopics]);
+  }, [keywordQuery, questionIdInputs, selRotations, selTopics]);
 
 
 
-  const handleSearchKey = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+  const handleSearchKey = useCallback((event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 
     if (event.key === 'Enter') {
 
@@ -456,17 +453,47 @@ export default function ViewQuestionsPage() {
 
                 <label className="block text-sm font-medium text-[#0284c7]">Question ID(s)</label>
 
-                <textarea
-                  rows={3}
-                  value={questionIdQuery}
-                  onChange={(event) => setQuestionIdQuery(event.target.value)}
-                  onKeyDown={handleSearchKey}
-                  placeholder={"e.g.\n142\nck6dke4dwn\nabc123456"}
-                  className="mt-1 w-full rounded-lg border border-sky-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none resize-y"
-                  autoComplete="off"
-                />
+                <div className="mt-2 space-y-2">
+                  {questionIdInputs.map((val, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={val}
+                        onChange={(e) => {
+                          const next = [...questionIdInputs];
+                          next[idx] = e.target.value;
+                          setQuestionIdInputs(next);
+                        }}
+                        onKeyDown={handleSearchKey}
+                        placeholder="e.g. ck6dke4dwn"
+                        className="w-full rounded-lg border border-sky-200 px-3 py-2 text-sm focus:border-sky-400 focus:ring-2 focus:ring-sky-200 outline-none"
+                        autoComplete="off"
+                      />
+                      {questionIdInputs.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = questionIdInputs.filter((_, i) => i !== idx);
+                            setQuestionIdInputs(next.length ? next : [""]);
+                          }}
+                          className="text-xs text-rose-500 hover:text-rose-600"
+                          aria-label="Remove ID"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setQuestionIdInputs((prev) => [...prev, ""])}
+                    className="text-xs font-semibold text-[#0284c7] hover:text-[#0ea5e9]"
+                  >
+                    + Add another ID
+                  </button>
+                </div>
 
-                <p className="mt-2 text-xs text-slate-500">Enter one ID per line (spaces or commas also work); supports numeric internal IDs and full database IDs.</p>
+                <p className="mt-2 text-xs text-slate-500">One ID per field; supports numeric internal IDs and full database IDs.</p>
 
               </div>
 
