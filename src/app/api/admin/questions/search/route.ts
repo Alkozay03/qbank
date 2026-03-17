@@ -4,6 +4,8 @@ import { prisma } from "@/server/db";
 import { TagType, Prisma } from "@prisma/client";
 import { TAG_TYPE_TO_CATEGORY, canonicalizeTagValue } from "@/lib/tags/server";
 
+const ADMIN_ROLES = new Set(["ADMIN", "Admin", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
+
 function normaliseList(values: unknown[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
       select: { role: true },
     });
 
-    if (!user || (user.role !== "Admin" && user.role !== "MASTER_ADMIN" && user.role !== "WEBSITE_CREATOR")) {
+    if (!user?.role || !ADMIN_ROLES.has(user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -79,11 +81,11 @@ export async function POST(request: NextRequest) {
 
     const keywordTerms: string[] = [];
     if (keywordRaw) {
-  const parts = keywordRaw.split(/\s+/u).filter(Boolean);
-  parts.forEach((part: string) => {
+      const parts = keywordRaw.split(/[\s,]+/u).filter(Boolean);
+      parts.forEach((part: string) => {
         if (!keywordTerms.includes(part)) keywordTerms.push(part);
       });
-      if (!keywordTerms.includes(keywordRaw)) {
+      if (parts.length > 1 && !keywordTerms.includes(keywordRaw)) {
         keywordTerms.push(keywordRaw);
       }
     }
@@ -212,13 +214,13 @@ export async function POST(request: NextRequest) {
 
     if (keywordTerms.length) {
       whereFilters.push({
-        AND: keywordTerms.map((term) => ({
+        OR: keywordTerms.map((term) => ({
           OR: [
             { text: { contains: term, mode: "insensitive" } },
             { explanation: { contains: term, mode: "insensitive" } },
             { objective: { contains: term, mode: "insensitive" } },
             {
-              answers: {
+              Choice: {
                 some: { text: { contains: term, mode: "insensitive" } },
               },
             },
@@ -346,7 +348,6 @@ export async function POST(request: NextRequest) {
         tags,
         isAnswerConfirmed: question.isAnswerConfirmed,
         answers,
-        questionType,
       };
     });
 
