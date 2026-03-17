@@ -372,16 +372,6 @@ const normalizeInsertedMark = (markEl: HTMLElement) => {
   return mergeWithNeighbors(markEl);
 };
 
-const normalizeSectionHighlights = (sectionEl: Element) => {
-  const nested = Array.from(
-    sectionEl.querySelectorAll('mark[data-qa="highlight"] mark[data-qa="highlight"]')
-  ) as HTMLElement[];
-  nested.forEach((n) => unwrap(n));
-
-  const marks = Array.from(sectionEl.querySelectorAll('mark[data-qa="highlight"]')) as HTMLElement[];
-  marks.forEach((m) => mergeWithNeighbors(m));
-};
-
 // Add CSS rule for dark mode answer choices to ensure parent and daughter containers match
 // Helper function to convert newlines to HTML breaks
 function toHTML(s: string) { return s.replace(/\n/g, "<br/>"); }
@@ -1041,6 +1031,13 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     setShowSelectionBubble(true);
   }, [highlightEnabled, isAnswered]);
 
+  const shouldPauseTimerTick = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    if (!highlightEnabled || isAnswered) return false;
+    const sel = window.getSelection?.();
+    return Boolean(sel && sel.rangeCount > 0 && !sel.isCollapsed);
+  }, [highlightEnabled, isAnswered]);
+
   // Initialize persisted sections for current item
   useEffect(() => {
     if (!currentItem) return;
@@ -1075,8 +1072,14 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   useEffect(() => {
     const run = status === "Active" && currentItem && !isAnswered;
     if (run) {
-      tickRef.current = window.setInterval(() => setBlockSeconds((s) => s + 1), 1000) as unknown as number;
-      qTickRef.current = window.setInterval(() => setQuestionSeconds((s) => s + 1), 1000) as unknown as number;
+      tickRef.current = window.setInterval(() => {
+        if (shouldPauseTimerTick()) return;
+        setBlockSeconds((s) => s + 1);
+      }, 1000) as unknown as number;
+      qTickRef.current = window.setInterval(() => {
+        if (shouldPauseTimerTick()) return;
+        setQuestionSeconds((s) => s + 1);
+      }, 1000) as unknown as number;
     }
     return () => {
       if (tickRef.current) window.clearInterval(tickRef.current);
@@ -1084,7 +1087,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       tickRef.current = null;
       qTickRef.current = null;
     };
-  }, [curIndex, status, isAnswered, currentItem]);
+  }, [curIndex, status, isAnswered, currentItem, shouldPauseTimerTick]);
 
   // Reset per-question state
   useEffect(() => {
@@ -1473,20 +1476,24 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         }
       }
     } catch {
-      // Fallback to insertHTML for complex selections
-      const escapedText = selectedText.replace(/[<>&]/g, (c) => {
-        const escapeMap: Record<string, string> = { '<': '&lt;', '>': '&gt;', '&': '&amp;' };
-        return escapeMap[c] || c;
-      });
-      document.execCommand(
-        "insertHTML",
-        false,
-        `<mark data-qa="highlight" style="background:${highlightColor};padding:0;margin:0;border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;">${escapedText}</mark>`
-      );
-      sel.removeAllRanges();
-
-      sectionInfo = findSection(sectionSourceNode);
-      if (sectionInfo) normalizeSectionHighlights(sectionInfo.el);
+      // Selection can become stale during long drags; retry with a fresh range.
+      try {
+        const liveSel = window.getSelection?.();
+        if (!liveSel || liveSel.rangeCount === 0) return;
+        const freshRange = liveSel.getRangeAt(0);
+        if (freshRange.collapsed) return;
+        const freshFrag = freshRange.extractContents();
+        if (!freshFrag.textContent?.trim()) return;
+        mark.appendChild(freshFrag);
+        freshRange.insertNode(mark);
+        liveSel.removeAllRanges();
+        if (mark.isConnected) {
+          normalizeInsertedMark(mark);
+          sectionInfo = findSection(mark) ?? findSection(sectionSourceNode);
+        }
+      } catch {
+        return;
+      }
     }
 
     if (!sectionInfo) sectionInfo = findSection(sectionSourceNode);
