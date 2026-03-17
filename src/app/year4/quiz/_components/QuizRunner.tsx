@@ -376,6 +376,20 @@ const normalizeInsertedMark = (markEl: HTMLElement) => {
 // Helper function to convert newlines to HTML breaks
 function toHTML(s: string) { return s.replace(/\n/g, "<br/>"); }
 
+// Many imported stems are hard-wrapped by source tools (including mid-word line breaks).
+// Normalize those wraps so the stem reflows naturally and highlights remain stable.
+function normalizeStemText(raw: string): string {
+  const normalizedLineEndings = raw.replace(/\r\n?/g, "\n");
+  const mergedWordBreaks = normalizedLineEndings.replace(/([A-Za-z0-9])\n([a-z])/g, "$1$2");
+  const condensedBreakRuns = mergedWordBreaks.replace(/\n{3,}/g, "\n\n");
+  const unwrappedSingleBreaks = condensedBreakRuns.replace(/([^\n])\n(?!\n)/g, "$1 ");
+  return unwrappedSingleBreaks.replace(/[ \t]{2,}/g, " ");
+}
+
+function toStemHTML(raw: string) {
+  return toHTML(normalizeStemText(raw));
+}
+
 // BarIconBtn component - moved outside QuizRunner to fix React Fast Refresh
 function BarIconBtn({
   title,
@@ -739,7 +753,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                   currentItem, 
                   sectionHTMLByItem, 
                   'stem', 
-                  () => toHTML(currentItem?.question.stem ?? "")
+                  () => toStemHTML(currentItem?.question.stem ?? "")
                 )
               }}
             />
@@ -1046,7 +1060,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       return {
         ...prev,
         [currentItem.id]: {
-          stem: toHTML(currentItem.question.stem ?? ""),
+          stem: toStemHTML(currentItem.question.stem ?? ""),
           explanation:
             toHTML(currentItem.question.explanation ?? "") ||
             `<div class='text-sm' style='color: ${isDark ? 'var(--color-text-primary)' : '#64748b'}'>No explanation provided.</div>`,
