@@ -683,6 +683,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [showSelectionBubble, setShowSelectionBubble] = useState(false);
   const [bubblePos, setBubblePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const highlightOverlaysRef = useRef<HTMLDivElement[]>([]);
+  const selectionProcessTimerRef = useRef<number | null>(null);
   const renderQuestionSection = () => (
     <>
       {currentItem?.question.questionType === 'EMQ' ? (
@@ -946,6 +947,11 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
 
   const handleSelectionCapture = useCallback(() => {
     if (typeof window === "undefined") return;
+    if (highlightEnabled || !isAnswered) {
+      setShowSelectionBubble(false);
+      setPendingAnchor(null);
+      return;
+    }
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) {
       setShowSelectionBubble(false);
@@ -987,7 +993,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     setBubblePos({ x: rect.left + rect.width / 2 + window.scrollX, y: rect.top + window.scrollY - 8 });
     setPendingAnchor({ selectableId, start, end, snippet });
     setShowSelectionBubble(true);
-  }, []);
+  }, [highlightEnabled, isAnswered]);
 
   // Initialize persisted sections for current item
   useEffect(() => {
@@ -1382,7 +1388,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     const range = sel.getRangeAt(0);
     if (range.collapsed) return;
 
-    if (!findSection(range.commonAncestorContainer)) return;
+    const sectionSourceNode = range.commonAncestorContainer;
+    if (!findSection(sectionSourceNode)) return;
 
     // Store selection text before manipulating the DOM
     const selectedText = sel.toString();
@@ -1404,20 +1411,18 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
     let sectionInfo: { el: Element; key: keyof SectionHTML } | null = null;
 
     try {
-      // Clone the range to avoid mutation issues
-      const clonedRange = range.cloneRange();
-      const frag = clonedRange.extractContents();
+      // Atomic range mutation avoids drift between extraction/deletion steps.
+      const frag = range.extractContents();
       
       // Only proceed if we extracted something meaningful
       if (frag.textContent?.trim()) {
         mark.appendChild(frag);
-        range.deleteContents();
         range.insertNode(mark);
         sel.removeAllRanges();
 
         if (mark.isConnected) {
           normalizeInsertedMark(mark);
-          sectionInfo = findSection(mark) ?? findSection(range.commonAncestorContainer);
+          sectionInfo = findSection(mark) ?? findSection(sectionSourceNode);
         }
       }
     } catch {
@@ -1433,20 +1438,48 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       );
       sel.removeAllRanges();
 
-      sectionInfo = findSection(range.commonAncestorContainer);
+      sectionInfo = findSection(sectionSourceNode);
       if (sectionInfo) normalizeSectionHighlights(sectionInfo.el);
     }
 
-    if (!sectionInfo) sectionInfo = findSection(range.commonAncestorContainer);
+    if (!sectionInfo) sectionInfo = findSection(sectionSourceNode);
     if (sectionInfo) saveSectionHTML(sectionInfo.el, sectionInfo.key);
 
     lastMarkInsertAtRef.current = Date.now();
   }, [highlightEnabled, highlightColor, saveSectionHTML]);
 
-  // Touch devices
-  const onTouchEndHighlight = useCallback(() => {
-    setTimeout(() => applyHighlight(), 0);
-  }, [applyHighlight]);
+  const processSelectionInteraction = useCallback(() => {
+    if (highlightEnabled) {
+      applyHighlight();
+      return;
+    }
+    if (isAnswered) {
+      handleSelectionCapture();
+      return;
+    }
+    setShowSelectionBubble(false);
+    setPendingAnchor(null);
+    setSelectionAnchor(null);
+  }, [applyHighlight, handleSelectionCapture, highlightEnabled, isAnswered]);
+
+  const scheduleSelectionInteraction = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (selectionProcessTimerRef.current !== null) {
+      window.clearTimeout(selectionProcessTimerRef.current);
+    }
+    selectionProcessTimerRef.current = window.setTimeout(() => {
+      selectionProcessTimerRef.current = null;
+      processSelectionInteraction();
+    }, 0);
+  }, [processSelectionInteraction]);
+
+  useEffect(() => {
+    return () => {
+      if (selectionProcessTimerRef.current !== null) {
+        window.clearTimeout(selectionProcessTimerRef.current);
+      }
+    };
+  }, []);
 
   // Click a mark to remove it
   useEffect(() => {
@@ -2038,14 +2071,8 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* MAIN CONTENT */}
       <main
         ref={mainRef}
-        onMouseUpCapture={() => {
-          applyHighlight();
-          handleSelectionCapture();
-        }}
-        onTouchEnd={() => {
-          onTouchEndHighlight();
-          handleSelectionCapture();
-        }}
+        onMouseUpCapture={scheduleSelectionInteraction}
+        onTouchEnd={scheduleSelectionInteraction}
         className={[
           "absolute left-0 right-0 overflow-auto",
           "transition-[padding-left] duration-300 ease-in-out"
@@ -2156,7 +2183,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
         </div>
       </main>
 
-      {showSelectionBubble && (
+      {showSelectionBubble && isAnswered && !highlightEnabled && (
         <div
           className="fixed z-40"
           style={{
