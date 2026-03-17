@@ -1,5 +1,4 @@
-// @ts-nocheck
-﻿"use client";
+"use client";
 
 import {
   Calculator,
@@ -150,8 +149,8 @@ const ZoomButtons = memo(function ZoomButtons({
   );
 });
 
-// Only show the tag types we still surface in the UI
-type TagType = "TOPIC" | "ROTATION";
+// Accept all known backend tag types in the data model.
+type TagType = "TOPIC" | "ROTATION" | "SUBJECT";
 type DisplayTagType = TagType;
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { 
@@ -222,6 +221,7 @@ type InitialQuiz = {
 const TOP_H = 56;
 const BOTTOM_H = 56;
 const DEFAULT_OBJECTIVE = "This section summarizes the key takeaway for rapid review.";
+const CAPTURE_CLICK_LISTENER_OPTIONS: AddEventListenerOptions = { capture: true };
 
 /** Persisted HTML (with highlights) per item and section */
 type SectionHTML = { stem: string; explanation: string; objective: string };
@@ -928,7 +928,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const clearCommentHighlight = useCallback(() => {
     highlightOverlaysRef.current.forEach((el) => el.remove());
     highlightOverlaysRef.current = [];
-    document.removeEventListener("click", clearCommentHighlight, { capture: true } as any);
+    document.removeEventListener("click", clearCommentHighlight, CAPTURE_CLICK_LISTENER_OPTIONS);
   }, []);
 
   const highlightRangeWithOverlay = useCallback((range: Range) => {
@@ -949,7 +949,7 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       highlightOverlaysRef.current.push(overlay);
     });
     setTimeout(() => {
-      document.addEventListener("click", clearCommentHighlight, { capture: true } as any);
+      document.addEventListener("click", clearCommentHighlight, CAPTURE_CLICK_LISTENER_OPTIONS);
     }, 0);
   }, [clearCommentHighlight]);
 
@@ -2098,12 +2098,12 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
       {/* MAIN CONTENT */}
       <main
         ref={mainRef}
-        onMouseUpCapture={(e) => {
-          applyHighlight(e);
+        onMouseUpCapture={() => {
+          applyHighlight();
           handleSelectionCapture();
         }}
-        onTouchEnd={(e) => {
-          onTouchEndHighlight(e);
+        onTouchEnd={() => {
+          onTouchEndHighlight();
           handleSelectionCapture();
         }}
         className={[

@@ -10,7 +10,8 @@ const isDarkMode = () => {
   return document.documentElement.getAttribute('data-theme-type') === 'dark';
 };
 
-type DisplayTagType = "TOPIC" | "ROTATION"; // Show only the filters we still support
+type DisplayTagType = "TOPIC" | "ROTATION" | "SUBJECT";
+type VisibleTagType = "TOPIC" | "ROTATION"; // Keep UI scoped to student-facing filters
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { id: string; text: string; isCorrect: boolean };
 
@@ -55,7 +56,7 @@ type QuestionFirstAttemptStats = {
 
 type SectionHTML = { stem: string; explanation: string; objective: string };
 
-const TAG_LABELS: Record<DisplayTagType, string> = {
+const TAG_LABELS: Record<VisibleTagType, string> = {
   ROTATION: "Rotation",
   TOPIC: "Topic",
 };
@@ -118,7 +119,7 @@ interface ClientSideQuestionDetailsProps {
     snippet: string;
   } | null;
   onAnchorConsumed?: () => void;
-  onAnchorFocus?: (anchor: { selectableId: string; start: number; end: number; snippet: string }) => void;
+  onAnchorFocus?: (_anchor: { selectableId: string; start: number; end: number; snippet: string }) => void;
 }
 
 export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails({
@@ -163,12 +164,12 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
   }, [isDark]);
   
   // Calculate tags by type
-  const tagsByType: Partial<Record<DisplayTagType, string[]>> = {};
+  const tagsByType: Partial<Record<VisibleTagType, string[]>> = {};
   (currentItem.question.tags ?? []).forEach((tag) => {
     if (!tag?.label) return;
     const rawType = tag.type;
     if (!rawType || !(rawType in TAG_LABELS)) return;
-    const key = rawType as DisplayTagType;
+    const key = rawType as VisibleTagType;
     const label = tag.label.trim();
     if (!label) return;
     const bucket = tagsByType[key] ?? [];
@@ -404,7 +405,7 @@ export const ClientSideQuestionDetails = memo(function ClientSideQuestionDetails
       <div className="mt-6 border-t border-[#E6F0F7] pt-3">
         <div className="flex flex-wrap gap-6 text-sm">
           {Object.entries(TAG_LABELS).map(([type, label]) => {
-            const typed = type as DisplayTagType;
+            const typed = type as VisibleTagType;
             const display = tagsByType?.[typed] ?? [];
             return (
               <div key={typed}>

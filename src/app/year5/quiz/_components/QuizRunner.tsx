@@ -1,5 +1,4 @@
-// @ts-nocheck
-﻿"use client";
+"use client";
 
 import {
   Calculator,
@@ -150,8 +149,8 @@ const ZoomButtons = memo(function ZoomButtons({
   );
 });
 
-// Only show the tag types we still surface in the UI
-type TagType = "TOPIC" | "ROTATION";
+// Accept all known backend tag types in the data model.
+type TagType = "TOPIC" | "ROTATION" | "SUBJECT";
 type DisplayTagType = TagType;
 type QuestionTag = { type: DisplayTagType; value: string; label: string };
 type Choice = { 
