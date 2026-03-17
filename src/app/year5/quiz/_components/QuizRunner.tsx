@@ -374,13 +374,41 @@ const normalizeInsertedMark = (markEl: HTMLElement) => {
 // Helper function to convert newlines to HTML breaks
 function toHTML(s: string) { return s.replace(/\n/g, "<br/>"); }
 
+function decodeHtmlEntities(raw: string): string {
+  if (typeof window === "undefined") {
+    return raw
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, "\"")
+      .replace(/&#39;/gi, "'");
+  }
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = raw;
+  return textarea.value;
+}
+
 // Many imported stems are hard-wrapped by source tools (including mid-word line breaks).
 // Normalize those wraps so the stem reflows naturally and highlights remain stable.
 function normalizeStemText(raw: string): string {
   const normalizedLineEndings = raw.replace(/\r\n?/g, "\n");
-  const mergedWordBreaks = normalizedLineEndings.replace(/([A-Za-z0-9])\n([a-z])/g, "$1$2");
+  const htmlToText = decodeHtmlEntities(
+    normalizedLineEndings
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\/\s*(p|div|li|tr|h[1-6])\s*>/gi, "\n")
+      .replace(/<\s*(p|div|li|tr|h[1-6])[^>]*>/gi, "")
+      .replace(/<[^>]+>/g, "")
+  );
+  const mergedWordBreaks = htmlToText.replace(/([A-Za-z0-9])\n([a-z])/g, "$1$2");
   const condensedBreakRuns = mergedWordBreaks.replace(/\n{3,}/g, "\n\n");
-  const unwrappedSingleBreaks = condensedBreakRuns.replace(/([^\n])\n(?!\n)/g, "$1 ");
+  const unwrappedSingleBreaks = condensedBreakRuns.replace(
+    /([^\n])\n(?!\n)([^\n])/g,
+    (_, left: string, right: string) => {
+      if (/^\s*[-*•\d]/.test(right)) return `${left}\n${right}`;
+      return `${left} ${right}`;
+    }
+  );
   return unwrappedSingleBreaks.replace(/[ \t]{2,}/g, " ");
 }
 
