@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, TagType } from "@prisma/client";
@@ -640,6 +641,92 @@ function buildFileName(year: string | null, rotations: string[]): string {
   return `questions-export-${safe || "file"}.pdf`;
 }
 
+async function waitForPageImages(page: { evaluate: (fn: () => Promise<void>) => Promise<unknown> }) {
+  await page.evaluate(async () => {
+    const waitForImage = (img: HTMLImageElement) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            const done = () => resolve();
+            img.addEventListener("load", done, { once: true });
+            img.addEventListener("error", done, { once: true });
+          });
+    await Promise.all(Array.from(document.images).map((img) => waitForImage(img)));
+  });
+}
+
+async function renderPdfWithPlaywright(html: string): Promise<Buffer> {
+  const { chromium } = await import("playwright");
+  const browser = await chromium.launch({ headless: true });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    await waitForPageImages(page);
+
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" },
+    });
+
+    return Buffer.from(pdf);
+  } finally {
+    await browser.close();
+  }
+}
+
+async function renderPdfWithPuppeteer(html: string): Promise<Buffer> {
+  const [chromiumModule, puppeteerModule] = await Promise.all([
+    import("@sparticuz/chromium"),
+    import("puppeteer-core"),
+  ]);
+
+  const chromium = chromiumModule.default;
+  const puppeteer = puppeteerModule.default;
+
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    headless: true,
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    await waitForPageImages(page);
+
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" },
+    });
+
+    return Buffer.from(pdf);
+  } finally {
+    await browser.close();
+  }
+}
+
+async function renderPdf(html: string): Promise<Buffer> {
+  if (process.env.VERCEL === "1" || process.env.VERCEL === "true") {
+    return renderPdfWithPuppeteer(html);
+  }
+
+  try {
+    return await renderPdfWithPlaywright(html);
+  } catch (playwrightError) {
+    const message = playwrightError instanceof Error ? playwrightError.message : String(playwrightError);
+    const needsFallback =
+      message.toLowerCase().includes("playwright") ||
+      message.toLowerCase().includes("executable") ||
+      message.toLowerCase().includes("chromium");
+
+    if (!needsFallback) throw playwrightError;
+    return renderPdfWithPuppeteer(html);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     await requireRole(["ADMIN", "MASTER_ADMIN", "WEBSITE_CREATOR"]);
@@ -745,53 +832,21 @@ export async function POST(request: NextRequest) {
     const origin = new URL(request.url).origin;
     const html = buildDocumentHtml(questions, origin, title);
 
-    const { chromium } = await import("playwright");
-    const browser = await chromium.launch({ headless: true });
+    const pdf = await renderPdf(html);
+    const pdfBlob = new Blob([new Uint8Array(pdf)], { type: "application/pdf" });
+    const filename = buildFileName(year, rotations);
 
-    try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "domcontentloaded" });
-      await page.evaluate(async () => {
-        const waitForImage = (img: HTMLImageElement) =>
-          img.complete
-            ? Promise.resolve()
-            : new Promise<void>((resolve) => {
-                const done = () => resolve();
-                img.addEventListener("load", done, { once: true });
-                img.addEventListener("error", done, { once: true });
-              });
-        await Promise.all(Array.from(document.images).map((img) => waitForImage(img)));
-      });
-
-      const pdf = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" },
-      });
-
-      const filename = buildFileName(year, rotations);
-      return new NextResponse(new Uint8Array(pdf), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-          "Cache-Control": "no-store",
-        },
-      });
-    } finally {
-      await browser.close();
-    }
+    return new NextResponse(pdfBlob, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error) {
     if (error instanceof HttpError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-
-    const message = error instanceof Error ? error.message : "Unknown error";
-    if (message.toLowerCase().includes("executable") && message.toLowerCase().includes("playwright")) {
-      return NextResponse.json(
-        { error: "Playwright browser is not installed. Run: npx playwright install chromium" },
-        { status: 500 }
-      );
     }
 
     console.error("PDF export failed:", error);
