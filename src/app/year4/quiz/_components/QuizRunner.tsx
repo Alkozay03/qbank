@@ -730,8 +730,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const highlightOverlaysRef = useRef<HTMLDivElement[]>([]);
   const selectionProcessTimerRef = useRef<number | null>(null);
 
-  const renderQuestionSection = () => (
-    <>
+  function renderQuestionSection() {
+    return (
+      <>
       {/* Render EMQ or MCQ based on questionType */}
       {currentItem?.question.questionType === 'EMQ' ? (
         <div 
@@ -955,8 +956,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 )}
         </>
       )}
-    </>
-  );
+      </>
+    );
+  }
 
   const clearCommentHighlight = useCallback(() => {
     highlightOverlaysRef.current.forEach((el) => el.remove());

@@ -716,8 +716,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
   const [bubblePos, setBubblePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const highlightOverlaysRef = useRef<HTMLDivElement[]>([]);
   const selectionProcessTimerRef = useRef<number | null>(null);
-  const renderQuestionSection = () => (
-    <>
+  function renderQuestionSection() {
+    return (
+      <>
       {currentItem?.question.questionType === 'EMQ' ? (
         <div 
           className="quiz-question rounded-2xl border p-5" 
@@ -908,8 +909,9 @@ export default function QuizRunner({ initialQuiz }: { initialQuiz: InitialQuiz }
                 )}
         </>
       )}
-    </>
-  );
+      </>
+    );
+  }
 
   const clearCommentHighlight = useCallback(() => {
     highlightOverlaysRef.current.forEach((el) => el.remove());

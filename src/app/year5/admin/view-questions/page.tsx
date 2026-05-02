@@ -21,6 +21,20 @@ function resolveTagLabel(raw: string): string | null {
   return getTagLabel(normalized, value) ?? value;
 }
 
+function extractFilenameFromDisposition(disposition: string | null): string | null {
+  if (!disposition) return null;
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+  const plainMatch = disposition.match(/filename="?([^"]+)"?/i);
+  return plainMatch?.[1] ?? null;
+}
+
 
 
 const rotations: Option[] = [
@@ -131,6 +145,7 @@ export default function ViewQuestionsPage() {
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -317,6 +332,77 @@ export default function ViewQuestionsPage() {
 
   };
 
+  const handleDelete = async (questionId: string, questionText: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete this question?\n\n"${questionText.substring(0, 100)}..."\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(`/api/admin/questions/${questionId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "Failed to delete question");
+      }
+
+      setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+      alert("Question deleted successfully");
+    } catch (err) {
+      console.error("Error deleting question:", err);
+      alert(err instanceof Error ? err.message : "Failed to delete question");
+    }
+  };
+
+  const handleExportPdf = useCallback(async (scope: "selected" | "loaded") => {
+    const ids = scope === "selected" ? Array.from(selectedIds) : questions.map((q) => q.id);
+    if (ids.length === 0) {
+      alert("No questions available for export.");
+      return;
+    }
+
+    setExportingPdf(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/admin/questions/export/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          year: "Y5",
+          rotations: selRotations,
+          topics: selTopics,
+          questionIds: ids,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "Failed to generate PDF export.");
+      }
+
+      const pdfBlob = await response.blob();
+      const filename =
+        extractFilenameFromDisposition(response.headers.get("content-disposition")) ??
+        `year5-question-export-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const objectUrl = URL.createObjectURL(pdfBlob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error("Error exporting PDF:", err);
+      setError(err instanceof Error ? err.message : "Failed to export questions to PDF");
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [questions, selectedIds, selRotations, selTopics]);
 
   const handleBack = () => {
     // Navigate based on user role
@@ -510,10 +596,26 @@ export default function ViewQuestionsPage() {
               </button>
 
               <button
+                onClick={() => void handleExportPdf("selected")}
+                disabled={loading || exportingPdf || selectedIds.size === 0}
+                className="px-5 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {exportingPdf ? "Preparing PDF..." : selectedIds.size > 0 ? `Download ${selectedIds.size} Selected PDF` : "Download Selected PDF"}
+              </button>
+
+              <button
+                onClick={() => void handleExportPdf("loaded")}
+                disabled={loading || exportingPdf || questions.length === 0}
+                className="px-5 py-3 bg-violet-600 text-white rounded-lg font-medium hover:bg-violet-700 transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {exportingPdf ? "Preparing PDF..." : `Download Loaded PDF (${questions.length})`}
+              </button>
+
+              <button
 
                 onClick={loadQuestions}
 
-                disabled={loading}
+                disabled={loading || exportingPdf}
 
                 className="px-6 py-3 bg-[#0ea5e9] text-white rounded-lg font-medium hover:bg-[#0284c7] transition-all duration-300 btn-hover disabled:opacity-50 disabled:cursor-not-allowed"
 
