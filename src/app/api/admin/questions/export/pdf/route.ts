@@ -51,7 +51,6 @@ type ExportQuestion = {
   }>;
 };
 
-const MAX_QUESTIONS_PER_EXPORT = 2500;
 const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
 function normalizeList(raw: unknown): string[] {
@@ -841,15 +840,6 @@ export async function POST(request: NextRequest) {
 
     if (!questions.length) {
       return NextResponse.json({ error: "No questions matched the selected rotation/topic filters." }, { status: 404 });
-    }
-
-    if (questions.length > MAX_QUESTIONS_PER_EXPORT) {
-      return NextResponse.json(
-        {
-          error: `Too many questions in one export (${questions.length}). Please narrow filters or export in batches. Max ${MAX_QUESTIONS_PER_EXPORT}.`,
-        },
-        { status: 400 }
-      );
     }
 
     const title = `Question Export${year ? ` - ${year}` : ""}`;
