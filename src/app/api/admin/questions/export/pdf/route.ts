@@ -304,9 +304,9 @@ function renderEmqAnswers(question: ExportQuestion, origin: string): string {
           <div class="answers-wrap">
             ${options
               .map(
-                (option) => `
+                (option, idx) => `
                 <div class="answer-card">
-                  <div class="answer-head"><span class="answer-letter">${escapeHtml(option.id)}</span></div>
+                  <div class="answer-head"><span class="answer-letter">${escapeHtml(LETTERS[idx] ?? String(idx + 1))}</span></div>
                   <div class="rich-content">${safeHtmlOrPlaceholder(option.text, "<em>Empty option</em>")}</div>
                 </div>
               `
@@ -325,10 +325,11 @@ function renderEmqAnswers(question: ExportQuestion, origin: string): string {
           <div class="stems-wrap">
             ${question.Choice.map((stem, idx) => {
               const answerIds = normalizeCorrectOptionIds(stem.correctOptionIds);
-              const mapped = answerIds.map((id) => {
-                const optionText = optionMap.get(id);
-                return optionText ? `${id}: ${optionText}` : id;
-              });
+              const mapped = unique(
+                answerIds
+                  .map((id) => optionMap.get(id)?.trim() ?? "")
+                  .filter((text) => text.length > 0)
+              );
               const stemImages = parseUrlList(stem.stemImageUrl).map((url) => toAbsoluteUrl(url, origin));
               return `
                 <div class="stem-card">
@@ -337,9 +338,11 @@ function renderEmqAnswers(question: ExportQuestion, origin: string): string {
                   ${stemImages.length ? renderImageSection("Stem Images", stemImages) : ""}
                   <div class="stem-answers">
                     <strong>Correct Option(s):</strong>
-                    <ul>
-                      ${mapped.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}
-                    </ul>
+                    ${
+                      mapped.length > 0
+                        ? `<ul>${mapped.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ul>`
+                        : `<p class="muted">No mapped correct options available.</p>`
+                    }
                   </div>
                 </div>
               `;
@@ -350,6 +353,22 @@ function renderEmqAnswers(question: ExportQuestion, origin: string): string {
       : "<p class=\"muted\">No EMQ stems available.</p>";
 
   return `${optionsHtml}${stemsHtml}`;
+}
+
+function renderQuestionAppearances(occurrences: ExportQuestion["QuestionOccurrence"]): string {
+  if (!occurrences.length) return "<p class=\"muted\">No appearances recorded.</p>";
+
+  const items = occurrences.map((occ) => {
+    const year = occ.year?.trim() || "N/A";
+    const rotationRaw = occ.rotation?.trim() || "";
+    const rotation = rotationRaw ? labelForTag(TagType.ROTATION, rotationRaw) : "N/A";
+    const order = occ.orderIndex >= 0 ? occ.orderIndex + 1 : null;
+    const orderLabel = order ? `, Order ${order}` : "";
+
+    return `<li>Year ${escapeHtml(year)}, Rotation ${escapeHtml(rotation)}${escapeHtml(orderLabel)}</li>`;
+  });
+
+  return `<ul class="refs-list">${items.join("")}</ul>`;
 }
 
 function buildQuestionHtml(question: ExportQuestion, index: number, origin: string): string {
@@ -413,6 +432,11 @@ function buildQuestionHtml(question: ExportQuestion, index: number, origin: stri
             ? `<ul class="refs-list">${refs.map((ref) => `<li>${escapeHtml(ref)}</li>`).join("")}</ul>`
             : `<p class="muted">No references provided.</p>`
         }
+      </section>
+
+      <section class="block">
+        <h3>Question Appearances</h3>
+        ${renderQuestionAppearances(question.QuestionOccurrence)}
       </section>
 
       <section class="block">
